@@ -1,0 +1,23 @@
+{
+  "commit": "c29addda8e8bf583924c1da7b76df8c6d8c23d71",
+  "url": "https://github.com/moonlit111/aegis-audit/actions/runs/34154390778",
+  "conclusion": "success",
+  "jobs": [
+    {
+      "name": "Browser / real source pipeline",
+      "conclusion": "success"
+    },
+    {
+      "name": "Rust / windows-latest",
+      "conclusion": "success"
+    },
+    {
+      "name": "Rust / ubuntu-latest",
+      "conclusion": "success"
+    },
+    {
+      "name": "Generated protocol consistency",
+      "conclusion": "success"
+    }
+  ]
+}

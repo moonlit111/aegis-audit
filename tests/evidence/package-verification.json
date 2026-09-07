@@ -1,0 +1,41 @@
+{
+  "platform": "macOS ARM64",
+  "version": "0.1.0",
+  "install": "fresh extracted directory and a newly downloaded checksum-verified JDK; reused checksum-verified Ghidra SDK with built native components",
+  "binary_files": [
+    {
+      "path": "bin/aegis-executor",
+      "sha256": "1d73db2fde95ce64edf67174059ee4b6885c8a2e8d4e5253af5412b2e663d04a",
+      "size": 17800624
+    },
+    {
+      "path": "bin/aegis-server",
+      "sha256": "8a496021fb1f4eb9498ae7f4af3f173e9f5c9b4376c154cca47cd14108265f40",
+      "size": 16660160
+    }
+  ],
+  "checks": [
+    {
+      "target": "多语言源码.zip",
+      "state": "RUN_STATE_COMPLETED",
+      "units": 11
+    },
+    {
+      "target": "sample-pe32.exe",
+      "state": "RUN_STATE_COMPLETED",
+      "units": 2
+    },
+    {
+      "target": "sample-pe64.exe",
+      "state": "RUN_STATE_COMPLETED",
+      "units": 2
+    },
+    {
+      "target": "sample-elf64",
+      "state": "RUN_STATE_COMPLETED",
+      "units": 2
+    }
+  ],
+  "credential_included": false,
+  "user_windows_11_machine_tested": false
+}

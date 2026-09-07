@@ -156,7 +156,8 @@ def main():
             gradle = ghidra / 'support/gradle' / ('gradlew.bat' if os.name == 'nt' else 'gradlew')
             if os.name != 'nt': gradle.chmod(gradle.stat().st_mode | 0o111)
             command([gradle, 'buildNatives', '--no-daemon', '--max-workers=4', '--console=plain'], env, ghidra / 'support/gradle')
-    print('Tool setup complete. Run: python scripts/manage.py build', flush=True)
+    next_action = 'start --open' if options.runtime_only else 'build'
+    print('Tool setup complete. Run: python scripts/manage.py ' + next_action, flush=True)
 
 
 if __name__ == '__main__':

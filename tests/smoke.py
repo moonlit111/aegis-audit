@@ -96,6 +96,7 @@ def main():
     parser.add_argument('--server', default='http://127.0.0.1:7331')
     parser.add_argument('--binary', action='store_true')
     parser.add_argument('--git', action='store_true')
+    parser.add_argument('--output', type=Path, default=ROOT / '.data/verification/backend-smoke.json')
     args = parser.parse_args()
     api = API(args.server)
     new_id = lambda: str(uuid.uuid4())
@@ -152,9 +153,8 @@ def main():
     if args.git:
         analyze('Git 固定提交验证', 'TARGET_KIND_GIT', gitUrl='https://github.com/octocat/Hello-World.git',
                 gitRevision='7fd1a60b01f91b314f59955a4e4d4e80d8edf11d')
-    directory = ROOT / '.data/verification'
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / 'backend-smoke.json').write_text(json.dumps(results, ensure_ascii=False, indent=2))
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
 
 
 if __name__ == '__main__':

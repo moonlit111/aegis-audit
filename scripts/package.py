@@ -43,7 +43,7 @@ def main():
                  for file in sorted(stage.rglob('*')) if file.is_file()]
         (stage / 'PACKAGE-MANIFEST.json').write_text(json.dumps({'version': version, 'platform': platform.platform(), 'scope': 'STRUCTURE_ANALYSIS', 'files': files}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         archive = options.output / (name + '.zip')
-        with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as output:
+        with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False) as output:
             for file in sorted(stage.rglob('*')):
                 if file.is_file(): output.write(file, file.relative_to(stage.parent))
         checksum = hashlib.sha256(archive.read_bytes()).hexdigest()
