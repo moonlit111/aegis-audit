@@ -1,0 +1,9 @@
+{
+  "timed_out": true,
+  "status": "PARTIAL",
+  "functions": 3001,
+  "warnings": [
+    "Ghidra 自动分析达到时限；只保留已恢复的结构，覆盖可能不完整"
+  ],
+  "purpose": "benign tool-lifecycle fixture, not a course vulnerability case"
+}

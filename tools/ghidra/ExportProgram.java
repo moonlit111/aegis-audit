@@ -1,6 +1,6 @@
 // Export actual Ghidra analysis; this script never executes the imported target.
 // @category AegisAudit
-import ghidra.app.script.GhidraScript;
+import ghidra.app.util.headless.HeadlessScript;
 import ghidra.app.decompiler.*;
 import ghidra.framework.Application;
 import ghidra.program.model.address.*;
@@ -13,7 +13,7 @@ import java.nio.file.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-public class ExportProgram extends GhidraScript {
+public class ExportProgram extends HeadlessScript {
     private static String address(Address address) {
         return address == null ? "" : "0x" + Long.toUnsignedString(address.getOffset(), 16);
     }
@@ -25,6 +25,8 @@ public class ExportProgram extends GhidraScript {
         JsonObject root = object();
         root.addProperty("schema_version", 1);
         JsonArray units = new JsonArray(), edges = new JsonArray(), warnings = new JsonArray();
+        boolean analysisTimedOut = analysisTimeoutOccurred();
+        if (analysisTimedOut) warnings.add("Ghidra 自动分析达到时限；只保留已恢复的结构，覆盖可能不完整");
         JsonArray files = new JsonArray();
         Set<String> exported = new HashSet<>();
         int total = currentProgram.getFunctionManager().getFunctionCount();
@@ -152,6 +154,7 @@ public class ExportProgram extends GhidraScript {
         JsonObject metadata = object();
         metadata.addProperty("analysis_scope", "STRUCTURE_ANALYSIS");
         metadata.addProperty("ghidra_version", Application.getApplicationVersion());
+        metadata.addProperty("analysis_timed_out", analysisTimedOut);
         metadata.addProperty("function_count", count); metadata.addProperty("decompile_failures", failed);
         metadata.addProperty("language_id", currentProgram.getLanguageID().toString());
         metadata.addProperty("compiler_spec", currentProgram.getCompilerSpec().getCompilerSpecID().toString());
