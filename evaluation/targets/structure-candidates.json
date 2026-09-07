@@ -1,0 +1,16 @@
+[
+  {
+    "id": "source-candidate-01",
+    "name": "DeepSeek-Coder",
+    "url": "https://github.com/deepseek-ai/DeepSeek-Coder.git",
+    "revision": "2f9fd85927c669dae3c0fbb2d607274023af243e",
+    "usage": "development-structure-analysis"
+  },
+  {
+    "id": "source-candidate-02",
+    "name": "ChatGLM3",
+    "url": "https://github.com/zai-org/ChatGLM3.git",
+    "revision": "732294f42e2625509000daa87a9c3748d0bbb957",
+    "usage": "development-structure-analysis"
+  }
+]

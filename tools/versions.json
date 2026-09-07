@@ -1,0 +1,64 @@
+{
+  "rust": "1.98.1",
+  "node": "24.20.0",
+  "pnpm": "10.33.0",
+  "buf": "1.72.0",
+  "connect_codegen": "0.9.0",
+  "buffa_codegen": "0.9.1",
+  "jdk": "21.0.12.1+1",
+  "ghidra": {
+    "version": "12.1.3",
+    "url": "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.3_build/ghidra_12.1.3_PUBLIC_20260817.zip",
+    "sha256": "93a5d11a9ad510622acaaf908c556a7b9b764d338e78a7567f3689bf5081fd54"
+  },
+  "platforms": {
+    "darwin-arm64": {
+      "rust_host": "aarch64-apple-darwin",
+      "ghidra_native": "mac_arm_64",
+      "node": {
+        "url": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-darwin-arm64.tar.gz",
+        "sha256": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8"
+      },
+      "jdk": {
+        "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.12.1_1.tar.gz",
+        "sha256": "3623232f33a9c3baadf304480b2535f9a3cba8a58d42ecbb438ba267315d9998"
+      },
+      "buf": {
+        "url": "https://github.com/bufbuild/buf/releases/download/v1.72.0/buf-Darwin-arm64",
+        "sha256": "5176f23a6118b9978de1340c3e3301a4ed0d48e16a669510be44b4c355170d57"
+      }
+    },
+    "windows-x64": {
+      "rust_host": "x86_64-pc-windows-msvc",
+      "ghidra_native": "win_x86_64",
+      "node": {
+        "url": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-win-x64.zip",
+        "sha256": "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba"
+      },
+      "jdk": {
+        "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip",
+        "sha256": "f9d6e191ab098c0d416e7d588a24420a8621cd2f4720dab2459b8b7b2d2d8b4e"
+      },
+      "buf": {
+        "url": "https://github.com/bufbuild/buf/releases/download/v1.72.0/buf-Windows-x86_64.exe",
+        "sha256": "6e8f6d043e520bc81cae7b85d4cd6d93e57716a8a9842d5d18200191ee259cb5"
+      }
+    },
+    "linux-x64": {
+      "rust_host": "x86_64-unknown-linux-gnu",
+      "ghidra_native": "linux_x86_64",
+      "node": {
+        "url": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-linux-x64.tar.xz",
+        "sha256": "2f2c0da162318f0de47665410c7c8c2ed3d36c8f3105de4bbc61176c70a7cbf2"
+      },
+      "jdk": {
+        "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_linux_hotspot_21.0.12.1_1.tar.gz",
+        "sha256": "ce79869e1307ed8ee1e2baa86a412b1eb5b75d10a01006d788a6f968bcfaee94"
+      },
+      "buf": {
+        "url": "https://github.com/bufbuild/buf/releases/download/v1.72.0/buf-Linux-x86_64",
+        "sha256": "8720830e26a733da55bb89bcd3cb44849c0965fc0c44fb5d691cccdc64dca5af"
+      }
+    }
+  }
+}

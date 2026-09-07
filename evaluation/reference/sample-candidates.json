@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "accepted_count": 0,
+  "required_count": 6,
+  "candidates": [
+    {
+      "id": "S1",
+      "category": "open_source_llm_software",
+      "name": "DeepSeek-Coder",
+      "revision": "2f9fd85927c669dae3c0fbb2d607274023af243e",
+      "source_verified": true,
+      "code_license": "MIT",
+      "software_entry": "demo/app.py",
+      "cve": null,
+      "gaps": [
+        "Vulnerability basis",
+        "Normal model/software execution",
+        "Independent discovery and exploitation evidence"
+      ],
+      "qualified": false,
+      "formal_acceptance": "NOT_RUN",
+      "investigation_date": "2026-09-08"
+    },
+    {
+      "id": "S2",
+      "category": "open_source_llm_software",
+      "name": "ChatGLM3",
+      "revision": "732294f42e2625509000daa87a9c3748d0bbb957",
+      "source_verified": true,
+      "code_license": "Apache-2.0",
+      "software_entry": "openai_api_demo/api_server.py",
+      "cve": null,
+      "gaps": [
+        "Vulnerability basis",
+        "Normal model/software execution",
+        "Independent discovery and exploitation evidence"
+      ],
+      "qualified": false,
+      "formal_acceptance": "NOT_RUN",
+      "investigation_date": "2026-09-08"
+    },
+    {
+      "id": "P1",
+      "category": "packed_closed_source_software",
+      "name": "WinRAR for Windows",
+      "affected_range": "< 6.23",
+      "cve": "CVE-2023-38831",
+      "gaps": [
+        "Fixed binary and SHA-256",
+        "Distribution/license scope",
+        "Evidence of packing in the specific executable",
+        "Automatic unpacking and address mapping",
+        "Discovery and exploitation evidence"
+      ],
+      "qualified": false,
+      "formal_acceptance": "NOT_RUN",
+      "investigation_date": "2026-09-08"
+    },
+    {
+      "id": "P2",
+      "category": "packed_closed_source_software",
+      "name": "Foxit PDF Reader",
+      "affected_version": "12.1.0.15250",
+      "cve": "CVE-2023-27363",
+      "gaps": [
+        "Fixed binary and SHA-256",
+        "Distribution/license scope",
+        "Evidence of packing",
+        "Automatic unpacking and address mapping",
+        "Root-cause classification",
+        "Discovery and exploitation evidence"
+      ],
+      "qualified": false,
+      "formal_acceptance": "NOT_RUN",
+      "investigation_date": "2026-09-08"
+    },
+    {
+      "id": "O1",
+      "category": "obfuscated_closed_source_software",
+      "name": "TeamViewer Remote Full Client / Host for Windows",
+      "affected_range": "15.x < 15.58.4",
+      "cve": "CVE-2024-7479",
+      "gaps": [
+        "Fixed binary and SHA-256",
+        "Distribution/license scope",
+        "Evidence of obfuscation",
+        "Automatic deobfuscation and location mapping",
+        "Discovery and exploitation evidence"
+      ],
+      "qualified": false,
+      "formal_acceptance": "NOT_RUN",
+      "investigation_date": "2026-09-08"
+    },
+    {
+      "id": "O2",
+      "category": "obfuscated_closed_source_software",
+      "name": "Zoom Desktop Client for Windows",
+      "affected_range": "< 5.16.5",
+      "cve": "CVE-2024-24691",
+      "gaps": [
+        "Fixed binary and SHA-256",
+        "Distribution/license scope",
+        "Evidence of obfuscation",
+        "Root cause and exploitation prerequisites",
+        "Automatic handling and exploitation evidence"
+      ],
+      "qualified": false,
+      "formal_acceptance": "NOT_RUN",
+      "investigation_date": "2026-09-08"
+    }
+  ]
+}

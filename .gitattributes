@@ -1,0 +1,5 @@
+* text=auto eol=lf
+crates/protocol/src/generated/** linguist-generated=true -whitespace
+frontend/src/gen/** linguist-generated=true -whitespace
+*.exe binary
+tests/fixtures/binary/sample-elf64 binary

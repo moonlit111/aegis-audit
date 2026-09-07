@@ -1,0 +1,34 @@
+[package]
+name = "aegis-server"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+aegis-domain.workspace = true
+aegis-application.workspace = true
+aegis-protocol.workspace = true
+anyhow.workspace = true
+async-stream.workspace = true
+axum.workspace = true
+buffa.workspace = true
+chrono.workspace = true
+clap.workspace = true
+connectrpc.workspace = true
+futures.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+sqlx.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true

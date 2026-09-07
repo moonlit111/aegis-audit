@@ -1,0 +1,439 @@
+use crate::client::Control;
+use aegis_application::{
+    import::{self, ImportLimits},
+    process::{self, ProcessSpec},
+    source,
+};
+use aegis_domain as d;
+use aegis_protocol as p;
+use anyhow::{Context, Result, ensure};
+use serde_json::{Value, json};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::Duration,
+};
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
+
+#[derive(Clone)]
+pub struct Tools {
+    pub ghidra: Option<PathBuf>,
+    pub script_dir: PathBuf,
+    pub git: bool,
+}
+#[derive(Clone)]
+pub struct JobContext {
+    pub control: Control,
+    pub lease: p::WorkLease,
+    pub cancel: CancellationToken,
+    pub tools: Tools,
+    pub progress: mpsc::Sender<(String, u64, u64)>,
+    pub reaped: Arc<AtomicBool>,
+}
+
+async fn process_tool(
+    ctx: &JobContext,
+    spec: ProcessSpec,
+    name: &str,
+    version: &str,
+) -> Result<(process::ProcessOutput, d::ToolExecution)> {
+    let started = d::now();
+    let command = std::iter::once(spec.program.to_string_lossy().into_owned())
+        .chain(spec.args.clone())
+        .collect();
+    ctx.reaped.store(false, Ordering::SeqCst);
+    let sender = ctx.progress.clone();
+    let output = process::run(spec, ctx.cancel.clone(), move |message| {
+        let _ = sender.try_send((message.into(), 0, 0));
+    })
+    .await?;
+    ctx.reaped.store(output.processes_reaped, Ordering::SeqCst);
+    let mut logs = Vec::new();
+    logs.extend_from_slice(b"--- stdout ---\n");
+    logs.extend_from_slice(&output.stdout);
+    logs.extend_from_slice(b"\n--- stderr ---\n");
+    logs.extend_from_slice(&output.stderr);
+    let log = if logs.len() > 32 {
+        Some(
+            ctx.control
+                .upload_bytes(
+                    &ctx.lease,
+                    &format!("{name}-{}.log", d::id()),
+                    "text/plain; charset=utf-8",
+                    logs,
+                )
+                .await?,
+        )
+    } else {
+        None
+    };
+    let record = d::ToolExecution {
+        name: name.into(),
+        version: version.into(),
+        command,
+        started_at: started,
+        finished_at: d::now(),
+        exit_code: output.exit_code,
+        terminated: output.cancelled || output.timed_out,
+        log_artifact_id: log.map(|a| a.id).unwrap_or_default(),
+        details: json!({"log_truncated":output.truncated,"processes_reaped":output.processes_reaped,"timed_out":output.timed_out,"cancelled":output.cancelled}),
+    };
+    ensure!(
+        output.processes_reaped,
+        "tool process cleanup was not confirmed"
+    );
+    Ok((output, record))
+}
+
+async fn git_step(
+    ctx: &JobContext,
+    directory: &Path,
+    args: Vec<String>,
+) -> Result<d::ToolExecution> {
+    let null = if cfg!(windows) { "NUL" } else { "/dev/null" };
+    let mut command = vec![
+        "-c".into(),
+        format!("core.hooksPath={null}"),
+        "-c".into(),
+        "credential.helper=".into(),
+        "-c".into(),
+        "protocol.file.allow=never".into(),
+        "-c".into(),
+        "protocol.ext.allow=never".into(),
+    ];
+    command.extend(args);
+    let env = BTreeMap::from([
+        ("GIT_TERMINAL_PROMPT".into(), "0".into()),
+        ("GIT_CONFIG_NOSYSTEM".into(), "1".into()),
+        ("GIT_CONFIG_GLOBAL".into(), null.into()),
+        ("GIT_LFS_SKIP_SMUDGE".into(), "1".into()),
+    ]);
+    let (out, record) = process_tool(
+        ctx,
+        ProcessSpec {
+            program: "git".into(),
+            args: command,
+            directory: directory.into(),
+            env,
+            timeout: Duration::from_secs(120),
+        },
+        "git",
+        "installed Git; command and output retained",
+    )
+    .await?;
+    ensure!(
+        !out.cancelled && !out.timed_out && out.exit_code == Some(0),
+        "Git operation failed or was interrupted: {}",
+        String::from_utf8_lossy(&out.stderr)
+            .chars()
+            .take(2000)
+            .collect::<String>()
+    );
+    Ok(record)
+}
+
+pub async fn execute(ctx: JobContext, workdir: &Path) -> Result<String> {
+    let payload: Value = serde_json::from_str(&ctx.lease.payload_json)?;
+    if ctx.lease.kind == "IMPORT" {
+        import_target(&ctx, workdir, &payload).await
+    } else {
+        analyze(&ctx, workdir, &payload).await
+    }
+}
+
+async fn import_target(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<String> {
+    let kind = payload["kind"].as_str().context("missing target kind")?;
+    let input = workdir.join("input.bin");
+    let normalized = workdir.join("snapshot.zip");
+    let source_dir = workdir.join("source");
+    let mut revision = String::new();
+    let mut tools = vec![];
+    let (files, exclusions, mut metadata, normalized_artifact) = if kind == "BINARY" {
+        ctx.control
+            .download(
+                &ctx.lease,
+                &ctx.lease.input_artifact_id,
+                &input,
+                &ctx.cancel,
+            )
+            .await?;
+        let data = tokio::fs::read(&input).await?;
+        let metadata = import::inspect_binary(&data)?;
+        let name = payload["name"]
+            .as_str()
+            .filter(|n| !n.is_empty())
+            .unwrap_or("target.bin");
+        import::relative_path(name)?;
+        let file = d::FileRecord {
+            path: name.into(),
+            sha256: d::sha256(&data),
+            size: data.len() as u64,
+            language: "binary".into(),
+        };
+        let artifact = ctx
+            .control
+            .upload_file(&ctx.lease, &input, name, "application/octet-stream")
+            .await?;
+        (vec![file], vec![], metadata, artifact)
+    } else {
+        let mut original_exclusions = vec![];
+        if kind == "GIT" {
+            ensure!(ctx.tools.git, "Git is not installed");
+            tokio::fs::create_dir_all(&source_dir).await?;
+            let url = payload["git_url"].as_str().context("missing Git URL")?;
+            let rev = payload["git_revision"]
+                .as_str()
+                .context("missing Git revision")?;
+            ensure!(
+                url.starts_with("https://") && !rev.starts_with('-'),
+                "invalid Git source"
+            );
+            tools.push(git_step(ctx, &source_dir, vec!["init".into()]).await?);
+            tools.push(
+                git_step(
+                    ctx,
+                    &source_dir,
+                    vec!["remote".into(), "add".into(), "origin".into(), url.into()],
+                )
+                .await?,
+            );
+            tools.push(
+                git_step(
+                    ctx,
+                    &source_dir,
+                    vec![
+                        "fetch".into(),
+                        "--depth=1".into(),
+                        "--no-tags".into(),
+                        "origin".into(),
+                        rev.into(),
+                    ],
+                )
+                .await?,
+            );
+            tools.push(
+                git_step(
+                    ctx,
+                    &source_dir,
+                    vec!["checkout".into(), "--detach".into(), "FETCH_HEAD".into()],
+                )
+                .await?,
+            );
+            // FETCH_HEAD records the exact fetched commit, without an additional process.
+            let fetched = tokio::fs::read_to_string(source_dir.join(".git/FETCH_HEAD")).await?;
+            revision = fetched.split_whitespace().next().unwrap_or("").into();
+            ensure!(
+                matches!(revision.len(), 40 | 64)
+                    && revision.bytes().all(|b| b.is_ascii_hexdigit()),
+                "Git did not report an immutable commit"
+            );
+        } else {
+            ctx.control
+                .download(
+                    &ctx.lease,
+                    &ctx.lease.input_artifact_id,
+                    &input,
+                    &ctx.cancel,
+                )
+                .await?;
+            let source = source_dir.clone();
+            let archive = input.clone();
+            let bundle = tokio::task::spawn_blocking(move || {
+                import::unpack_source(&archive, &source, ImportLimits::default())
+            })
+            .await??;
+            original_exclusions = bundle.exclusions;
+        }
+        ensure!(!ctx.cancel.is_cancelled(), "import cancelled");
+        let source = source_dir.clone();
+        let target = normalized.clone();
+        let mut bundle = tokio::task::spawn_blocking(move || {
+            import::pack_directory(&source, &target, ImportLimits::default())
+        })
+        .await??;
+        original_exclusions.append(&mut bundle.exclusions);
+        let artifact = ctx
+            .control
+            .upload_file(
+                &ctx.lease,
+                &normalized,
+                "source-snapshot.zip",
+                "application/zip",
+            )
+            .await?;
+        (bundle.files, original_exclusions, bundle.metadata, artifact)
+    };
+    metadata["tools"] = serde_json::to_value(tools)?;
+    let manifest = d::SnapshotManifest {
+        schema_version: 1,
+        kind: kind.into(),
+        normalized_artifact_id: normalized_artifact.id,
+        target_sha256: normalized_artifact.sha256,
+        files,
+        exclusions,
+        metadata,
+        resolved_revision: revision,
+    };
+    Ok(ctx
+        .control
+        .upload_bytes(
+            &ctx.lease,
+            "snapshot-manifest.json",
+            "application/json",
+            serde_json::to_vec_pretty(&manifest)?,
+        )
+        .await?
+        .id)
+}
+
+async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<String> {
+    let manifest_path = workdir.join("manifest.json");
+    ctx.control
+        .download(
+            &ctx.lease,
+            payload["manifest_artifact_id"]
+                .as_str()
+                .context("missing manifest")?,
+            &manifest_path,
+            &ctx.cancel,
+        )
+        .await?;
+    let manifest: d::SnapshotManifest =
+        serde_json::from_slice(&tokio::fs::read(manifest_path).await?)?;
+    let mut result = if manifest.kind == "BINARY" {
+        let ghidra = ctx.tools.ghidra.as_ref().context("Ghidra is unavailable")?;
+        let input = workdir.join("target.bin");
+        ctx.control
+            .download(
+                &ctx.lease,
+                &ctx.lease.input_artifact_id,
+                &input,
+                &ctx.cancel,
+            )
+            .await?;
+        // Ghidra project paths cannot contain dot-prefixed components; use a dedicated native temp directory.
+        let project = tempfile::Builder::new().prefix("aegis-ghidra-").tempdir()?;
+        let output = workdir.join("ghidra-result.json");
+        let headless = ghidra.join(if cfg!(windows) {
+            "support/analyzeHeadless.bat"
+        } else {
+            "support/analyzeHeadless"
+        });
+        let args = vec![
+            project.path().to_string_lossy().into_owned(),
+            "analysis".into(),
+            "-import".into(),
+            input.to_string_lossy().into_owned(),
+            "-scriptPath".into(),
+            ctx.tools.script_dir.to_string_lossy().into_owned(),
+            "-postScript".into(),
+            "ExportProgram.java".into(),
+            output.to_string_lossy().into_owned(),
+            "target.bin".into(),
+            "-deleteProject".into(),
+            "-analysisTimeoutPerFile".into(),
+            "120".into(),
+            "-max-cpu".into(),
+            "2".into(),
+        ];
+        let (output_status, record) = process_tool(
+            ctx,
+            ProcessSpec {
+                program: headless,
+                args,
+                directory: workdir.into(),
+                env: BTreeMap::from([("MAXMEM".into(), "2G".into())]),
+                timeout: Duration::from_secs(ctx.lease.timeout_seconds as u64),
+            },
+            "ghidra",
+            "12.1.3",
+        )
+        .await?;
+        ensure!(!output_status.cancelled, "Ghidra analysis cancelled");
+        ensure!(!output_status.timed_out, "Ghidra analysis timed out");
+        ensure!(
+            output_status.exit_code == Some(0) && output.is_file(),
+            "Ghidra did not produce its required result artifact; inspect the retained tool log"
+        );
+        let bytes = tokio::fs::read(output).await?;
+        ensure!(
+            bytes.len() <= 64 * 1024 * 1024,
+            "Ghidra output exceeds limit"
+        );
+        let mut result: d::AnalysisResult = serde_json::from_slice(&bytes)?;
+        let original_path = &manifest
+            .files
+            .first()
+            .context("binary manifest has no file")?
+            .path;
+        for unit in &mut result.units {
+            unit.path = original_path.clone();
+        }
+        for file in &mut result.files {
+            file.path = original_path.clone();
+        }
+        result.metadata["input_mapping"] =
+            json!({"staged_name":"target.bin","snapshot_path":original_path});
+        result.tools.push(record);
+        result
+    } else {
+        let archive = workdir.join("input.zip");
+        let source_dir = workdir.join("source");
+        ctx.control
+            .download(
+                &ctx.lease,
+                &ctx.lease.input_artifact_id,
+                &archive,
+                &ctx.cancel,
+            )
+            .await?;
+        let source = source_dir.clone();
+        tokio::task::spawn_blocking(move || {
+            import::unpack_source(&archive, &source, ImportLimits::default())
+        })
+        .await??;
+        let files = manifest.files.clone();
+        let token = ctx.cancel.clone();
+        let sender = ctx.progress.clone();
+        tokio::task::spawn_blocking(move || {
+            source::analyze_sources(
+                &source_dir,
+                &files,
+                &token,
+                move |current, total, message| {
+                    if current % 20 == 0 || current == total {
+                        let _ = sender.blocking_send((
+                            format!("解析 {message}"),
+                            current as u64,
+                            total as u64,
+                        ));
+                    }
+                },
+            )
+        })
+        .await??
+    };
+    ensure!(!ctx.cancel.is_cancelled(), "analysis cancelled");
+    result.validate(&manifest).map_err(anyhow::Error::msg)?;
+    result.metadata["target_sha256"] = json!(manifest.target_sha256);
+    let bytes = serde_json::to_vec_pretty(&result)?;
+    ensure!(
+        bytes.len() <= 64 * 1024 * 1024,
+        "analysis output exceeds limit"
+    );
+    Ok(ctx
+        .control
+        .upload_bytes(
+            &ctx.lease,
+            "analysis-result.json",
+            "application/json",
+            bytes,
+        )
+        .await?
+        .id)
+}

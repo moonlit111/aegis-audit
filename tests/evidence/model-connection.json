@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-09-07T18:49:24.078Z",
+  "endpoint": "https://api.deepseek.com",
+  "model": "deepseek-v4-flash",
+  "purpose": "CONNECTION_CHECK",
+  "status": "SUCCEEDED",
+  "input_tokens": 39,
+  "output_tokens": 5,
+  "total_tokens": 44,
+  "usage_source": "PROVIDER",
+  "latency_ms": 365,
+  "json_response_validated": true,
+  "vulnerability_audit": "NOT_RUN"
+}

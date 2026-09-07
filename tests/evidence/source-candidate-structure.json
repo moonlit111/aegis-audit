@@ -1,0 +1,56 @@
+[
+  {
+    "candidate": {
+      "id": "source-candidate-01",
+      "name": "DeepSeek-Coder",
+      "url": "https://github.com/deepseek-ai/DeepSeek-Coder.git",
+      "revision": "2f9fd85927c669dae3c0fbb2d607274023af243e",
+      "usage": "development-structure-analysis"
+    },
+    "checked_at": "2026-09-07T18:06:03.657568+00:00",
+    "scope": "STRUCTURE_ANALYSIS",
+    "snapshot_id": "c25fd6ea-a7a7-4fcc-8da9-539d99d5a17c",
+    "run_id": "8a65a293-39f7-4c75-a6a6-46caa6116db4",
+    "state": "RUN_STATE_PARTIAL",
+    "target_sha256": "18b3c08267689213b74046542976086c7aeb59cccb2a511b2c4eff97a6105e3a",
+    "files": 109,
+    "units": 181,
+    "functions": 149,
+    "calls": 1871,
+    "coverage": {
+      "NOT_SOURCE": 75,
+      "UNSUPPORTED": 2,
+      "PARSED": 32
+    },
+    "vulnerability_audit": "NOT_RUN",
+    "exploitation": "NOT_RUN",
+    "formal_acceptance": false
+  },
+  {
+    "candidate": {
+      "id": "source-candidate-02",
+      "name": "ChatGLM3",
+      "url": "https://github.com/zai-org/ChatGLM3.git",
+      "revision": "732294f42e2625509000daa87a9c3748d0bbb957",
+      "usage": "development-structure-analysis"
+    },
+    "checked_at": "2026-09-07T18:06:08.996491+00:00",
+    "scope": "STRUCTURE_ANALYSIS",
+    "snapshot_id": "619c8a77-ab9c-4bf7-83ce-46d918273a81",
+    "run_id": "b7a666a6-a18f-4bd4-bbb5-2f7265877dab",
+    "state": "RUN_STATE_PARTIAL",
+    "target_sha256": "956660b32724a3561f21cf31cdf4b6a17b50069248e7e630b555e91ec4d11f49",
+    "files": 81,
+    "units": 186,
+    "functions": 152,
+    "calls": 1162,
+    "coverage": {
+      "NOT_SOURCE": 45,
+      "PARSED": 34,
+      "UNSUPPORTED": 2
+    },
+    "vulnerability_audit": "NOT_RUN",
+    "exploitation": "NOT_RUN",
+    "formal_acceptance": false
+  }
+]

@@ -1,0 +1,24 @@
+[package]
+name = "aegis-executor"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+aegis-domain.workspace = true
+aegis-application.workspace = true
+aegis-protocol.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+connectrpc.workspace = true
+futures.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+webpki-roots = "1"
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true

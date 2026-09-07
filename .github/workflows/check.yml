@@ -1,0 +1,84 @@
+name: Build and verify
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+env:
+  CARGO_TERM_COLOR: always
+  PYTHONUTF8: "1"
+jobs:
+  rust:
+    name: Rust / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+  browser:
+    name: Browser / real source pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.33.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: pnpm --dir frontend check
+      - run: pnpm --dir frontend format:check
+      - run: pnpm --dir frontend build
+      - run: pnpm --dir frontend exec playwright install --with-deps chromium
+      - run: cargo build --workspace --locked
+      - run: python3 scripts/e2e.py --no-build --skip-ghidra
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          include-hidden-files: true
+          path: |
+            .data/verification/browser-results.json
+            .data/verification/browser-server.log
+            .data/verification/browser-executor.log
+            frontend/test-results/
+  protocol:
+    name: Generated protocol consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.33.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.72.0"
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: cargo install connectrpc-codegen --version 0.9.0 --locked
+      - run: cargo install protoc-gen-buffa --version 0.9.1 --locked
+      - run: cargo install protoc-gen-buffa-packaging --version 0.9.1 --locked
+      - run: python3 scripts/codegen.py --check

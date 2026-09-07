@@ -1,0 +1,11 @@
+[package]
+name = "aegis-protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+buffa.workspace = true
+buffa-types.workspace = true
+connectrpc.workspace = true
+serde.workspace = true
+serde_json.workspace = true

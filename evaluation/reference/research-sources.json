@@ -1,0 +1,165 @@
+{
+  "date": "2026-09-08",
+  "sources": [
+    {
+      "local_cache_name": "deepseek-coder-readme.md",
+      "url": "https://raw.githubusercontent.com/deepseek-ai/DeepSeek-Coder/main/README.md",
+      "captured_at": "2026-09-07T17:49:22.759746+00:00",
+      "sha256": "aa0a95ca037f1d2c641421417abcaabaca230696cfc79b84cfea235153b8f6f2",
+      "bytes": 20346,
+      "note": ""
+    },
+    {
+      "local_cache_name": "deepseek-coder-license",
+      "url": "https://raw.githubusercontent.com/deepseek-ai/DeepSeek-Coder/main/LICENSE-CODE",
+      "captured_at": "2026-09-07T17:49:23.874298+00:00",
+      "sha256": "6e4c38e1172f42fdbff13edf9a7a017679fb82b0fde415a3e8b3c31c6ed4a4e4",
+      "bytes": 1065,
+      "note": ""
+    },
+    {
+      "local_cache_name": "deepseek-v3-readme.md",
+      "url": "https://raw.githubusercontent.com/deepseek-ai/DeepSeek-V3/main/README.md",
+      "captured_at": "2026-09-07T17:18:47.853132+00:00",
+      "sha256": "1f766f151bb4d501b18c9d1e229ac25682c68c75893d6d3bc9734e2a60125c0e",
+      "bytes": 20851,
+      "note": ""
+    },
+    {
+      "local_cache_name": "chatglm-readme.md",
+      "url": "https://raw.githubusercontent.com/THUDM/ChatGLM3/main/README.md",
+      "captured_at": "2026-09-07T17:18:49.119745+00:00",
+      "sha256": "0ee5049acdcbb882e26f07462a86e0e8a191127c951b545e28d413543b06e4e5",
+      "bytes": 22179,
+      "note": ""
+    },
+    {
+      "local_cache_name": "kimi-readme.md",
+      "url": "https://raw.githubusercontent.com/MoonshotAI/Kimi-K2/main/README.md",
+      "captured_at": "2026-09-07T17:18:50.432295+00:00",
+      "sha256": "c03aae84ce013a298699fc5ef9be474a825308fddd2c4571da8cd4b6f89af90b",
+      "bytes": 27490,
+      "note": ""
+    },
+    {
+      "local_cache_name": "winrar-official.html",
+      "url": "https://www.rarlab.com/rarnew.htm",
+      "captured_at": "2026-09-07T17:32:36.163987+00:00",
+      "sha256": "12831034d238f95be894902c9e71f092cf82d684b3ba19d5d6af49110570941e",
+      "bytes": 71831,
+      "note": ""
+    },
+    {
+      "local_cache_name": "foxit-official.html",
+      "url": "https://www.foxit.com/support/security-bulletins.html",
+      "captured_at": "2026-09-07T17:32:38.830932+00:00",
+      "sha256": "365b0b5a9028b9c7ea3117366dc55ee9fe01af9a106cec0c746eb4358025e906",
+      "bytes": 2144979,
+      "note": ""
+    },
+    {
+      "local_cache_name": "foxit-zdi.html",
+      "url": "https://www.zerodayinitiative.com/advisories/ZDI-23-491/",
+      "captured_at": "2026-09-07T17:32:42.046982+00:00",
+      "sha256": "d80773b149843a09eb4895cf7b92e4ca006acf2a1cfb5d0e6a640a405ffd292c",
+      "bytes": 27013,
+      "note": ""
+    },
+    {
+      "local_cache_name": "teamviewer-official.html",
+      "url": "https://www.teamviewer.com/en/resources/trust-center/security-bulletins/tv-2024-1006/",
+      "captured_at": "2026-09-07T17:32:44.389140+00:00",
+      "sha256": "7d5aaac53d66dc4edd6016c558f04f70a5e8074bfd317575bb24dbf1a80c92c7",
+      "bytes": 274359,
+      "note": ""
+    },
+    {
+      "local_cache_name": "zoom-official.html",
+      "url": "https://www.zoom.com/en/trust/security-bulletin/ZSB-24008/",
+      "captured_at": "2026-09-07T17:32:50.645928+00:00",
+      "sha256": "d899cd0e2856859a19a6826b51c7043fbebe4444eef9e658286999f2de164ed3",
+      "bytes": 305718,
+      "note": ""
+    },
+    {
+      "local_cache_name": "deepaudit-current-readme.md",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/v3.0.0/README.md",
+      "captured_at": "2026-09-07T17:18:40.627379+00:00",
+      "sha256": "f66451437a67027dda9b6d8417aec368afa8d6b5bd708649bb1b339c67b19a5c",
+      "bytes": 30527,
+      "note": ""
+    },
+    {
+      "local_cache_name": "deepaudit-license",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/v3.0.0/LICENSE",
+      "captured_at": "2026-09-07T17:18:42.178077+00:00",
+      "sha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+      "bytes": 34523,
+      "note": ""
+    },
+    {
+      "local_cache_name": "deepaudit-audit-model.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/models/audit.py",
+      "captured_at": "2026-09-07T17:51:16.668130+00:00",
+      "sha256": "e21f571908af1608b98f61b872d660e1ed8251356be1c87ac677486aa495be4e",
+      "bytes": 2808,
+      "note": ""
+    },
+    {
+      "local_cache_name": "deepaudit-executor.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/core/executor.py",
+      "captured_at": "2026-09-07T17:51:17.851943+00:00",
+      "sha256": "31d07c1a8b282710f6e8e3b21ea37dada8430f912ee4ffc99a6a81129de636cd",
+      "bytes": 16125,
+      "note": ""
+    },
+    {
+      "local_cache_name": "connect-web-readme.md",
+      "url": "https://raw.githubusercontent.com/connectrpc/connect-es/main/packages/connect-web/README.md",
+      "captured_at": "2026-09-07T17:09:04.835366+00:00",
+      "sha256": "34fc1783f4780ee9fbf5087fa063ff9fb604f68813495a31a25a3b1dea3c12d5",
+      "bytes": 2100,
+      "note": ""
+    },
+    {
+      "local_cache_name": "monaco-vite.md",
+      "url": "https://raw.githubusercontent.com/microsoft/monaco-editor/main/docs/integrate-esm.md",
+      "captured_at": "2026-09-07T17:09:07.078039+00:00",
+      "sha256": "477db6738657712a01bee4fddee5eabe5cdd7c332b27b0f4d261896289de8af0",
+      "bytes": 6672,
+      "note": ""
+    },
+    {
+      "local_cache_name": "CVE-2023-38831.json",
+      "url": "https://cveawg.mitre.org/api/cve/CVE-2023-38831",
+      "captured_at": "2026-09-07T17:20:52.322933+00:00",
+      "sha256": "afdaeb4651661b163bcd8aa1d46ef3d383114e3bf52c641ed9ed6314a417242a",
+      "bytes": 6475,
+      "note": "JSON CVE responses are normalized as pretty-printed JSON before hashing"
+    },
+    {
+      "local_cache_name": "CVE-2023-27363.json",
+      "url": "https://cveawg.mitre.org/api/cve/CVE-2023-27363",
+      "captured_at": "2026-09-07T17:20:53.623224+00:00",
+      "sha256": "b9b3ef9829fd7be6a5de0245fa0b295872af954f5d196df9d6c34085e7c8c386",
+      "bytes": 6426,
+      "note": "JSON CVE responses are normalized as pretty-printed JSON before hashing"
+    },
+    {
+      "local_cache_name": "CVE-2024-7479.json",
+      "url": "https://cveawg.mitre.org/api/cve/CVE-2024-7479",
+      "captured_at": "2026-09-07T17:20:55.086116+00:00",
+      "sha256": "6f1d863eada033f92e240f5bcd6fb5c6e07a85aa0114bd82fde5910cee297bb3",
+      "bytes": 9048,
+      "note": "JSON CVE responses are normalized as pretty-printed JSON before hashing"
+    },
+    {
+      "local_cache_name": "CVE-2024-24691.json",
+      "url": "https://cveawg.mitre.org/api/cve/CVE-2024-24691",
+      "captured_at": "2026-09-07T17:20:56.458177+00:00",
+      "sha256": "2d38286d5277b2f832aacfdcae22ba5ca1741cca3af95504a1351d67b55cf5b6",
+      "bytes": 4579,
+      "note": "JSON CVE responses are normalized as pretty-printed JSON before hashing"
+    }
+  ]
+}

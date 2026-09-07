@@ -1,0 +1,18 @@
+version: v2
+plugins:
+  - local: protoc-gen-buffa
+    out: crates/protocol/src/generated/messages
+    opt: [views=true, json=true]
+  - local: protoc-gen-buffa-packaging
+    out: crates/protocol/src/generated/messages
+    strategy: all
+  - local: protoc-gen-connect-rust
+    out: crates/protocol/src/generated/services
+    opt: [buffa_module=crate::messages]
+  - local: protoc-gen-buffa-packaging
+    out: crates/protocol/src/generated/services
+    strategy: all
+    opt: [filter=services]
+  - local: [node, frontend/node_modules/@bufbuild/protoc-gen-es/bin/protoc-gen-es]
+    out: frontend/src/gen
+    opt: [target=ts]

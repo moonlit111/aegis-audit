@@ -1,0 +1,256 @@
+syntax = "proto3";
+
+package audit.v1;
+
+enum TargetKind {
+  TARGET_KIND_UNSPECIFIED = 0;
+  TARGET_KIND_SOURCE = 1;
+  TARGET_KIND_BINARY = 2;
+  TARGET_KIND_GIT = 3;
+}
+enum SnapshotState {
+  SNAPSHOT_STATE_UNSPECIFIED = 0;
+  SNAPSHOT_STATE_IMPORTING = 1;
+  SNAPSHOT_STATE_READY = 2;
+  SNAPSHOT_STATE_PARTIAL = 3;
+  SNAPSHOT_STATE_FAILED = 4;
+}
+enum RunState {
+  RUN_STATE_UNSPECIFIED = 0;
+  RUN_STATE_QUEUED = 1;
+  RUN_STATE_RUNNING = 2;
+  RUN_STATE_WAITING_EXECUTOR = 3;
+  RUN_STATE_CANCELLING = 4;
+  RUN_STATE_COMPLETED = 5;
+  RUN_STATE_PARTIAL = 6;
+  RUN_STATE_FAILED = 7;
+  RUN_STATE_CANCELLED = 8;
+  RUN_STATE_LIMIT_REACHED = 9;
+}
+
+message Project {
+  string id = 1;
+  string name = 2;
+  string created_at = 3;
+}
+message Snapshot {
+  string id = 1;
+  string project_id = 2;
+  TargetKind kind = 3;
+  SnapshotState state = 4;
+  string name = 5;
+  string original_artifact_id = 6;
+  string normalized_artifact_id = 7;
+  string manifest_artifact_id = 8;
+  string resolved_revision = 9;
+  string target_sha256 = 10;
+  uint64 file_count = 11;
+  uint64 total_bytes = 12;
+  string metadata_json = 13;
+  string error = 14;
+  string created_at = 15;
+}
+message AuditRun {
+  string id = 1;
+  string project_id = 2;
+  string snapshot_id = 3;
+  RunState state = 4;
+  string scope = 5;
+  string created_at = 6;
+  string started_at = 7;
+  string finished_at = 8;
+  uint64 unit_count = 9;
+  string summary_json = 10;
+  string error = 11;
+}
+message Artifact {
+  string id = 1;
+  string sha256 = 2;
+  uint64 size = 3;
+  string name = 4;
+  string media_type = 5;
+}
+message ProgramUnit {
+  string id = 1;
+  string run_id = 2;
+  string snapshot_id = 3;
+  string artifact_id = 4;
+  string name = 5;
+  string path = 6;
+  string language = 7;
+  uint32 start_line = 8;
+  uint32 end_line = 9;
+  uint64 start_byte = 10;
+  uint64 end_byte = 11;
+  string address = 12;
+  string code = 13;
+  string quality = 14;
+  string metadata_json = 15;
+}
+message ProgramEdge {
+  string source_id = 1;
+  string target_id = 2;
+  string target_name = 3;
+  string kind = 4;
+  string certainty = 5;
+  uint32 line = 6;
+  string address = 7;
+}
+message RunEvent {
+  string run_id = 1;
+  uint64 seq = 2;
+  string created_at = 3;
+  string kind = 4;
+  string message = 5;
+  string work_item_id = 6;
+  uint64 current = 7;
+  uint64 total = 8;
+}
+message Report {
+  string id = 1;
+  string run_id = 2;
+  string format = 3;
+  string artifact_id = 4;
+  string created_at = 5;
+}
+message ToolCapability {
+  string name = 1;
+  string version = 2;
+  bool available = 3;
+  string detail = 4;
+}
+message Executor {
+  string id = 1;
+  string name = 2;
+  string platform = 3;
+  string architecture = 4;
+  string last_seen = 5;
+  repeated ToolCapability capabilities = 6;
+}
+message WorkLease {
+  string work_item_id = 1;
+  string attempt_id = 2;
+  string lease_token = 3;
+  string kind = 4;
+  string snapshot_id = 5;
+  string run_id = 6;
+  string input_artifact_id = 7;
+  string payload_json = 8;
+  uint32 timeout_seconds = 9;
+}
+
+service ProjectService {
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+  rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);
+}
+message CreateProjectRequest { string request_id = 1; string name = 2; }
+message CreateProjectResponse { Project project = 1; }
+message ListProjectsRequest {}
+message ListProjectsResponse { repeated Project projects = 1; }
+message GetProjectRequest { string project_id = 1; }
+message GetProjectResponse { Project project = 1; repeated Snapshot snapshots = 2; }
+message CreateSnapshotRequest {
+  string request_id = 1;
+  string project_id = 2;
+  TargetKind kind = 3;
+  string artifact_id = 4;
+  string git_url = 5;
+  string git_revision = 6;
+  string name = 7;
+}
+message CreateSnapshotResponse { Snapshot snapshot = 1; }
+message GetSnapshotRequest { string snapshot_id = 1; }
+message GetSnapshotResponse { Snapshot snapshot = 1; }
+
+service RunService {
+  rpc CreateRun(CreateRunRequest) returns (CreateRunResponse);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+}
+message CreateRunRequest { string request_id = 1; string snapshot_id = 2; }
+message CreateRunResponse { AuditRun run = 1; }
+message ListRunsRequest { string project_id = 1; }
+message ListRunsResponse { repeated AuditRun runs = 1; }
+message GetRunRequest { string run_id = 1; }
+message GetRunResponse { AuditRun run = 1; repeated Artifact artifacts = 2; }
+message WatchRunRequest { string run_id = 1; uint64 after_seq = 2; }
+message WatchRunResponse { RunEvent event = 1; }
+message CancelRunRequest { string run_id = 1; }
+message CancelRunResponse { AuditRun run = 1; }
+
+service ProgramService {
+  rpc ListUnits(ListUnitsRequest) returns (ListUnitsResponse);
+  rpc GetUnit(GetUnitRequest) returns (GetUnitResponse);
+  rpc GetGraph(GetGraphRequest) returns (GetGraphResponse);
+}
+message ListUnitsRequest { string run_id = 1; string query = 2; string language = 3; uint32 offset = 4; uint32 limit = 5; }
+message ListUnitsResponse { repeated ProgramUnit units = 1; uint64 total = 2; }
+message GetUnitRequest { string unit_id = 1; }
+message GetUnitResponse { ProgramUnit unit = 1; repeated ProgramEdge edges = 2; }
+message GetGraphRequest { string unit_id = 1; }
+message GetGraphResponse { repeated ProgramUnit units = 1; repeated ProgramEdge edges = 2; }
+
+service ReportService {
+  rpc CreateReport(CreateReportRequest) returns (CreateReportResponse);
+  rpc GetReport(GetReportRequest) returns (GetReportResponse);
+}
+message CreateReportRequest { string request_id = 1; string run_id = 2; string format = 3; }
+message CreateReportResponse { Report report = 1; }
+message GetReportRequest { string report_id = 1; }
+message GetReportResponse { Report report = 1; }
+
+service ExecutorService {
+  rpc RegisterExecutor(RegisterExecutorRequest) returns (RegisterExecutorResponse);
+  rpc ClaimWork(ClaimWorkRequest) returns (ClaimWorkResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc ReportProgress(ReportProgressRequest) returns (ReportProgressResponse);
+  rpc CompleteWork(CompleteWorkRequest) returns (CompleteWorkResponse);
+}
+message RegisterExecutorRequest { string name = 1; string platform = 2; string architecture = 3; repeated ToolCapability capabilities = 4; }
+message RegisterExecutorResponse { Executor executor = 1; string executor_token = 2; }
+message ClaimWorkRequest { string executor_id = 1; }
+message ClaimWorkResponse { WorkLease lease = 1; }
+message HeartbeatRequest { string executor_id = 1; string work_item_id = 2; string attempt_id = 3; string lease_token = 4; repeated ToolCapability capabilities = 5; }
+message HeartbeatResponse { bool cancel_requested = 1; bool lease_valid = 2; }
+message ReportProgressRequest { string work_item_id = 1; string attempt_id = 2; string lease_token = 3; string message = 4; uint64 current = 5; uint64 total = 6; }
+message ReportProgressResponse {}
+message CompleteWorkRequest { string work_item_id = 1; string attempt_id = 2; string lease_token = 3; string outcome = 4; string result_artifact_id = 5; string error = 6; bool processes_reaped = 7; }
+message CompleteWorkResponse { bool accepted = 1; }
+
+service SystemService {
+  rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
+  rpc CheckModelConnection(CheckModelConnectionRequest) returns (CheckModelConnectionResponse);
+}
+message GetCapabilitiesRequest {}
+message GetCapabilitiesResponse { string version = 1; string scope = 2; repeated Executor executors = 3; repeated string pending_features = 4; ModelConnection model_connection = 5; }
+message ModelCall {
+  string id = 1;
+  string model = 2;
+  string purpose = 3;
+  string status = 4;
+  string created_at = 5;
+  string finished_at = 6;
+  uint64 input_tokens = 7;
+  uint64 output_tokens = 8;
+  uint64 total_tokens = 9;
+  bool usage_available = 10;
+  uint64 latency_ms = 11;
+  string provider_request_id = 12;
+  string artifact_id = 13;
+  string error = 14;
+}
+message ModelConnection {
+  string provider = 1;
+  string endpoint = 2;
+  string model = 3;
+  bool configured = 4;
+  ModelCall last_call = 5;
+  string status_message = 6;
+}
+message CheckModelConnectionRequest { string request_id = 1; }
+message CheckModelConnectionResponse { ModelCall call = 1; }
