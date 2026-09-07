@@ -2,3 +2,12 @@
 .env
 .env.*
 !.env.example
+.tools/
+.data/
+.cache/
+target/
+node_modules/
+frontend/dist/
+playwright-report/
+test-results/
+*.log
