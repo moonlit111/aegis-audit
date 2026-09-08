@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file audit/v1/audit.proto.
  */
 export const file_audit_v1_audit: GenFile = /*@__PURE__*/
-  fileDesc("ChRhdWRpdC92MS9hdWRpdC5wcm90bxIIYXVkaXQudjEiNwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCmNyZWF0ZWRfYXQYAyABKAki9QIKCFNuYXBzaG90EgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSIgoEa2luZBgDIAEoDjIULmF1ZGl0LnYxLlRhcmdldEtpbmQSJgoFc3RhdGUYBCABKA4yFy5hdWRpdC52MS5TbmFwc2hvdFN0YXRlEgwKBG5hbWUYBSABKAkSHAoUb3JpZ2luYWxfYXJ0aWZhY3RfaWQYBiABKAkSHgoWbm9ybWFsaXplZF9hcnRpZmFjdF9pZBgHIAEoCRIcChRtYW5pZmVzdF9hcnRpZmFjdF9pZBgIIAEoCRIZChFyZXNvbHZlZF9yZXZpc2lvbhgJIAEoCRIVCg10YXJnZXRfc2hhMjU2GAogASgJEhIKCmZpbGVfY291bnQYCyABKAQSEwoLdG90YWxfYnl0ZXMYDCABKAQSFQoNbWV0YWRhdGFfanNvbhgNIAEoCRINCgVlcnJvchgOIAEoCRISCgpjcmVhdGVkX2F0GA8gASgJIucBCghBdWRpdFJ1bhIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEhMKC3NuYXBzaG90X2lkGAMgASgJEiEKBXN0YXRlGAQgASgOMhIuYXVkaXQudjEuUnVuU3RhdGUSDQoFc2NvcGUYBSABKAkSEgoKY3JlYXRlZF9hdBgGIAEoCRISCgpzdGFydGVkX2F0GAcgASgJEhMKC2ZpbmlzaGVkX2F0GAggASgJEhIKCnVuaXRfY291bnQYCSABKAQSFAoMc3VtbWFyeV9qc29uGAogASgJEg0KBWVycm9yGAsgASgJIlYKCEFydGlmYWN0EgoKAmlkGAEgASgJEg4KBnNoYTI1NhgCIAEoCRIMCgRzaXplGAMgASgEEgwKBG5hbWUYBCABKAkSEgoKbWVkaWFfdHlwZRgFIAEoCSKUAgoLUHJvZ3JhbVVuaXQSCgoCaWQYASABKAkSDgoGcnVuX2lkGAIgASgJEhMKC3NuYXBzaG90X2lkGAMgASgJEhMKC2FydGlmYWN0X2lkGAQgASgJEgwKBG5hbWUYBSABKAkSDAoEcGF0aBgGIAEoCRIQCghsYW5ndWFnZRgHIAEoCRISCgpzdGFydF9saW5lGAggASgNEhAKCGVuZF9saW5lGAkgASgNEhIKCnN0YXJ0X2J5dGUYCiABKAQSEAoIZW5kX2J5dGUYCyABKAQSDwoHYWRkcmVzcxgMIAEoCRIMCgRjb2RlGA0gASgJEg8KB3F1YWxpdHkYDiABKAkSFQoNbWV0YWRhdGFfanNvbhgPIAEoCSKIAQoLUHJvZ3JhbUVkZ2USEQoJc291cmNlX2lkGAEgASgJEhEKCXRhcmdldF9pZBgCIAEoCRITCgt0YXJnZXRfbmFtZRgDIAEoCRIMCgRraW5kGAQgASgJEhEKCWNlcnRhaW50eRgFIAEoCRIMCgRsaW5lGAYgASgNEg8KB2FkZHJlc3MYByABKAkikAEKCFJ1bkV2ZW50Eg4KBnJ1bl9pZBgBIAEoCRILCgNzZXEYAiABKAQSEgoKY3JlYXRlZF9hdBgDIAEoCRIMCgRraW5kGAQgASgJEg8KB21lc3NhZ2UYBSABKAkSFAoMd29ya19pdGVtX2lkGAYgASgJEg8KB2N1cnJlbnQYByABKAQSDQoFdG90YWwYCCABKAQiXQoGUmVwb3J0EgoKAmlkGAEgASgJEg4KBnJ1bl9pZBgCIAEoCRIOCgZmb3JtYXQYAyABKAkSEwoLYXJ0aWZhY3RfaWQYBCABKAkSEgoKY3JlYXRlZF9hdBgFIAEoCSJSCg5Ub29sQ2FwYWJpbGl0eRIMCgRuYW1lGAEgASgJEg8KB3ZlcnNpb24YAiABKAkSEQoJYXZhaWxhYmxlGAMgASgIEg4KBmRldGFpbBgEIAEoCSKPAQoIRXhlY3V0b3ISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIQCghwbGF0Zm9ybRgDIAEoCRIUCgxhcmNoaXRlY3R1cmUYBCABKAkSEQoJbGFzdF9zZWVuGAUgASgJEi4KDGNhcGFiaWxpdGllcxgGIAMoCzIYLmF1ZGl0LnYxLlRvb2xDYXBhYmlsaXR5IscBCglXb3JrTGVhc2USFAoMd29ya19pdGVtX2lkGAEgASgJEhIKCmF0dGVtcHRfaWQYAiABKAkSEwoLbGVhc2VfdG9rZW4YAyABKAkSDAoEa2luZBgEIAEoCRITCgtzbmFwc2hvdF9pZBgFIAEoCRIOCgZydW5faWQYBiABKAkSGQoRaW5wdXRfYXJ0aWZhY3RfaWQYByABKAkSFAoMcGF5bG9hZF9qc29uGAggASgJEhcKD3RpbWVvdXRfc2Vjb25kcxgJIAEoDSI4ChRDcmVhdGVQcm9qZWN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJEgwKBG5hbWUYAiABKAkiOwoVQ3JlYXRlUHJvamVjdFJlc3BvbnNlEiIKB3Byb2plY3QYASABKAsyES5hdWRpdC52MS5Qcm9qZWN0IhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiOwoUTGlzdFByb2plY3RzUmVzcG9uc2USIwoIcHJvamVjdHMYASADKAsyES5hdWRpdC52MS5Qcm9qZWN0IicKEUdldFByb2plY3RSZXF1ZXN0EhIKCnByb2plY3RfaWQYASABKAkiXwoSR2V0UHJvamVjdFJlc3BvbnNlEiIKB3Byb2plY3QYASABKAsyES5hdWRpdC52MS5Qcm9qZWN0EiUKCXNuYXBzaG90cxgCIAMoCzISLmF1ZGl0LnYxLlNuYXBzaG90Iq0BChVDcmVhdGVTbmFwc2hvdFJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEiIKBGtpbmQYAyABKA4yFC5hdWRpdC52MS5UYXJnZXRLaW5kEhMKC2FydGlmYWN0X2lkGAQgASgJEg8KB2dpdF91cmwYBSABKAkSFAoMZ2l0X3JldmlzaW9uGAYgASgJEgwKBG5hbWUYByABKAkiPgoWQ3JlYXRlU25hcHNob3RSZXNwb25zZRIkCghzbmFwc2hvdBgBIAEoCzISLmF1ZGl0LnYxLlNuYXBzaG90IikKEkdldFNuYXBzaG90UmVxdWVzdBITCgtzbmFwc2hvdF9pZBgBIAEoCSI7ChNHZXRTbmFwc2hvdFJlc3BvbnNlEiQKCHNuYXBzaG90GAEgASgLMhIuYXVkaXQudjEuU25hcHNob3QiOwoQQ3JlYXRlUnVuUmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJEhMKC3NuYXBzaG90X2lkGAIgASgJIjQKEUNyZWF0ZVJ1blJlc3BvbnNlEh8KA3J1bhgBIAEoCzISLmF1ZGl0LnYxLkF1ZGl0UnVuIiUKD0xpc3RSdW5zUmVxdWVzdBISCgpwcm9qZWN0X2lkGAEgASgJIjQKEExpc3RSdW5zUmVzcG9uc2USIAoEcnVucxgBIAMoCzISLmF1ZGl0LnYxLkF1ZGl0UnVuIh8KDUdldFJ1blJlcXVlc3QSDgoGcnVuX2lkGAEgASgJIlgKDkdldFJ1blJlc3BvbnNlEh8KA3J1bhgBIAEoCzISLmF1ZGl0LnYxLkF1ZGl0UnVuEiUKCWFydGlmYWN0cxgCIAMoCzISLmF1ZGl0LnYxLkFydGlmYWN0IjQKD1dhdGNoUnVuUmVxdWVzdBIOCgZydW5faWQYASABKAkSEQoJYWZ0ZXJfc2VxGAIgASgEIjUKEFdhdGNoUnVuUmVzcG9uc2USIQoFZXZlbnQYASABKAsyEi5hdWRpdC52MS5SdW5FdmVudCIiChBDYW5jZWxSdW5SZXF1ZXN0Eg4KBnJ1bl9pZBgBIAEoCSI0ChFDYW5jZWxSdW5SZXNwb25zZRIfCgNydW4YASABKAsyEi5hdWRpdC52MS5BdWRpdFJ1biJiChBMaXN0VW5pdHNSZXF1ZXN0Eg4KBnJ1bl9pZBgBIAEoCRINCgVxdWVyeRgCIAEoCRIQCghsYW5ndWFnZRgDIAEoCRIOCgZvZmZzZXQYBCABKA0SDQoFbGltaXQYBSABKA0iSAoRTGlzdFVuaXRzUmVzcG9uc2USJAoFdW5pdHMYASADKAsyFS5hdWRpdC52MS5Qcm9ncmFtVW5pdBINCgV0b3RhbBgCIAEoBCIhCg5HZXRVbml0UmVxdWVzdBIPCgd1bml0X2lkGAEgASgJIlwKD0dldFVuaXRSZXNwb25zZRIjCgR1bml0GAEgASgLMhUuYXVkaXQudjEuUHJvZ3JhbVVuaXQSJAoFZWRnZXMYAiADKAsyFS5hdWRpdC52MS5Qcm9ncmFtRWRnZSIiCg9HZXRHcmFwaFJlcXVlc3QSDwoHdW5pdF9pZBgBIAEoCSJeChBHZXRHcmFwaFJlc3BvbnNlEiQKBXVuaXRzGAEgAygLMhUuYXVkaXQudjEuUHJvZ3JhbVVuaXQSJAoFZWRnZXMYAiADKAsyFS5hdWRpdC52MS5Qcm9ncmFtRWRnZSJJChNDcmVhdGVSZXBvcnRSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSDgoGcnVuX2lkGAIgASgJEg4KBmZvcm1hdBgDIAEoCSI4ChRDcmVhdGVSZXBvcnRSZXNwb25zZRIgCgZyZXBvcnQYASABKAsyEC5hdWRpdC52MS5SZXBvcnQiJQoQR2V0UmVwb3J0UmVxdWVzdBIRCglyZXBvcnRfaWQYASABKAkiNQoRR2V0UmVwb3J0UmVzcG9uc2USIAoGcmVwb3J0GAEgASgLMhAuYXVkaXQudjEuUmVwb3J0In8KF1JlZ2lzdGVyRXhlY3V0b3JSZXF1ZXN0EgwKBG5hbWUYASABKAkSEAoIcGxhdGZvcm0YAiABKAkSFAoMYXJjaGl0ZWN0dXJlGAMgASgJEi4KDGNhcGFiaWxpdGllcxgEIAMoCzIYLmF1ZGl0LnYxLlRvb2xDYXBhYmlsaXR5IlgKGFJlZ2lzdGVyRXhlY3V0b3JSZXNwb25zZRIkCghleGVjdXRvchgBIAEoCzISLmF1ZGl0LnYxLkV4ZWN1dG9yEhYKDmV4ZWN1dG9yX3Rva2VuGAIgASgJIicKEENsYWltV29ya1JlcXVlc3QSEwoLZXhlY3V0b3JfaWQYASABKAkiNwoRQ2xhaW1Xb3JrUmVzcG9uc2USIgoFbGVhc2UYASABKAsyEy5hdWRpdC52MS5Xb3JrTGVhc2UilgEKEEhlYXJ0YmVhdFJlcXVlc3QSEwoLZXhlY3V0b3JfaWQYASABKAkSFAoMd29ya19pdGVtX2lkGAIgASgJEhIKCmF0dGVtcHRfaWQYAyABKAkSEwoLbGVhc2VfdG9rZW4YBCABKAkSLgoMY2FwYWJpbGl0aWVzGAUgAygLMhguYXVkaXQudjEuVG9vbENhcGFiaWxpdHkiQgoRSGVhcnRiZWF0UmVzcG9uc2USGAoQY2FuY2VsX3JlcXVlc3RlZBgBIAEoCBITCgtsZWFzZV92YWxpZBgCIAEoCCKHAQoVUmVwb3J0UHJvZ3Jlc3NSZXF1ZXN0EhQKDHdvcmtfaXRlbV9pZBgBIAEoCRISCgphdHRlbXB0X2lkGAIgASgJEhMKC2xlYXNlX3Rva2VuGAMgASgJEg8KB21lc3NhZ2UYBCABKAkSDwoHY3VycmVudBgFIAEoBBINCgV0b3RhbBgGIAEoBCIYChZSZXBvcnRQcm9ncmVzc1Jlc3BvbnNlIqoBChNDb21wbGV0ZVdvcmtSZXF1ZXN0EhQKDHdvcmtfaXRlbV9pZBgBIAEoCRISCgphdHRlbXB0X2lkGAIgASgJEhMKC2xlYXNlX3Rva2VuGAMgASgJEg8KB291dGNvbWUYBCABKAkSGgoScmVzdWx0X2FydGlmYWN0X2lkGAUgASgJEg0KBWVycm9yGAYgASgJEhgKEHByb2Nlc3Nlc19yZWFwZWQYByABKAgiKAoUQ29tcGxldGVXb3JrUmVzcG9uc2USEAoIYWNjZXB0ZWQYASABKAgiGAoWR2V0Q2FwYWJpbGl0aWVzUmVxdWVzdCKvAQoXR2V0Q2FwYWJpbGl0aWVzUmVzcG9uc2USDwoHdmVyc2lvbhgBIAEoCRINCgVzY29wZRgCIAEoCRIlCglleGVjdXRvcnMYAyADKAsyEi5hdWRpdC52MS5FeGVjdXRvchIYChBwZW5kaW5nX2ZlYXR1cmVzGAQgAygJEjMKEG1vZGVsX2Nvbm5lY3Rpb24YBSABKAsyGS5hdWRpdC52MS5Nb2RlbENvbm5lY3Rpb24ioQIKCU1vZGVsQ2FsbBIKCgJpZBgBIAEoCRINCgVtb2RlbBgCIAEoCRIPCgdwdXJwb3NlGAMgASgJEg4KBnN0YXR1cxgEIAEoCRISCgpjcmVhdGVkX2F0GAUgASgJEhMKC2ZpbmlzaGVkX2F0GAYgASgJEhQKDGlucHV0X3Rva2VucxgHIAEoBBIVCg1vdXRwdXRfdG9rZW5zGAggASgEEhQKDHRvdGFsX3Rva2VucxgJIAEoBBIXCg91c2FnZV9hdmFpbGFibGUYCiABKAgSEgoKbGF0ZW5jeV9tcxgLIAEoBBIbChNwcm92aWRlcl9yZXF1ZXN0X2lkGAwgASgJEhMKC2FydGlmYWN0X2lkGA0gASgJEg0KBWVycm9yGA4gASgJIpgBCg9Nb2RlbENvbm5lY3Rpb24SEAoIcHJvdmlkZXIYASABKAkSEAoIZW5kcG9pbnQYAiABKAkSDQoFbW9kZWwYAyABKAkSEgoKY29uZmlndXJlZBgEIAEoCBImCglsYXN0X2NhbGwYBSABKAsyEy5hdWRpdC52MS5Nb2RlbENhbGwSFgoOc3RhdHVzX21lc3NhZ2UYBiABKAkiMQobQ2hlY2tNb2RlbENvbm5lY3Rpb25SZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkiQQocQ2hlY2tNb2RlbENvbm5lY3Rpb25SZXNwb25zZRIhCgRjYWxsGAEgASgLMhMuYXVkaXQudjEuTW9kZWxDYWxsKm4KClRhcmdldEtpbmQSGwoXVEFSR0VUX0tJTkRfVU5TUEVDSUZJRUQQABIWChJUQVJHRVRfS0lORF9TT1VSQ0UQARIWChJUQVJHRVRfS0lORF9CSU5BUlkQAhITCg9UQVJHRVRfS0lORF9HSVQQAyqeAQoNU25hcHNob3RTdGF0ZRIeChpTTkFQU0hPVF9TVEFURV9VTlNQRUNJRklFRBAAEhwKGFNOQVBTSE9UX1NUQVRFX0lNUE9SVElORxABEhgKFFNOQVBTSE9UX1NUQVRFX1JFQURZEAISGgoWU05BUFNIT1RfU1RBVEVfUEFSVElBTBADEhkKFVNOQVBTSE9UX1NUQVRFX0ZBSUxFRBAEKogCCghSdW5TdGF0ZRIZChVSVU5fU1RBVEVfVU5TUEVDSUZJRUQQABIUChBSVU5fU1RBVEVfUVVFVUVEEAESFQoRUlVOX1NUQVRFX1JVTk5JTkcQAhIeChpSVU5fU1RBVEVfV0FJVElOR19FWEVDVVRPUhADEhgKFFJVTl9TVEFURV9DQU5DRUxMSU5HEAQSFwoTUlVOX1NUQVRFX0NPTVBMRVRFRBAFEhUKEVJVTl9TVEFURV9QQVJUSUFMEAYSFAoQUlVOX1NUQVRFX0ZBSUxFRBAHEhcKE1JVTl9TVEFURV9DQU5DRUxMRUQQCBIbChdSVU5fU1RBVEVfTElNSVRfUkVBQ0hFRBAJMpsDCg5Qcm9qZWN0U2VydmljZRJQCg1DcmVhdGVQcm9qZWN0Eh4uYXVkaXQudjEuQ3JlYXRlUHJvamVjdFJlcXVlc3QaHy5hdWRpdC52MS5DcmVhdGVQcm9qZWN0UmVzcG9uc2USTQoMTGlzdFByb2plY3RzEh0uYXVkaXQudjEuTGlzdFByb2plY3RzUmVxdWVzdBoeLmF1ZGl0LnYxLkxpc3RQcm9qZWN0c1Jlc3BvbnNlEkcKCkdldFByb2plY3QSGy5hdWRpdC52MS5HZXRQcm9qZWN0UmVxdWVzdBocLmF1ZGl0LnYxLkdldFByb2plY3RSZXNwb25zZRJTCg5DcmVhdGVTbmFwc2hvdBIfLmF1ZGl0LnYxLkNyZWF0ZVNuYXBzaG90UmVxdWVzdBogLmF1ZGl0LnYxLkNyZWF0ZVNuYXBzaG90UmVzcG9uc2USSgoLR2V0U25hcHNob3QSHC5hdWRpdC52MS5HZXRTbmFwc2hvdFJlcXVlc3QaHS5hdWRpdC52MS5HZXRTbmFwc2hvdFJlc3BvbnNlMt0CCgpSdW5TZXJ2aWNlEkQKCUNyZWF0ZVJ1bhIaLmF1ZGl0LnYxLkNyZWF0ZVJ1blJlcXVlc3QaGy5hdWRpdC52MS5DcmVhdGVSdW5SZXNwb25zZRJBCghMaXN0UnVucxIZLmF1ZGl0LnYxLkxpc3RSdW5zUmVxdWVzdBoaLmF1ZGl0LnYxLkxpc3RSdW5zUmVzcG9uc2USOwoGR2V0UnVuEhcuYXVkaXQudjEuR2V0UnVuUmVxdWVzdBoYLmF1ZGl0LnYxLkdldFJ1blJlc3BvbnNlEkMKCFdhdGNoUnVuEhkuYXVkaXQudjEuV2F0Y2hSdW5SZXF1ZXN0GhouYXVkaXQudjEuV2F0Y2hSdW5SZXNwb25zZTABEkQKCUNhbmNlbFJ1bhIaLmF1ZGl0LnYxLkNhbmNlbFJ1blJlcXVlc3QaGy5hdWRpdC52MS5DYW5jZWxSdW5SZXNwb25zZTLZAQoOUHJvZ3JhbVNlcnZpY2USRAoJTGlzdFVuaXRzEhouYXVkaXQudjEuTGlzdFVuaXRzUmVxdWVzdBobLmF1ZGl0LnYxLkxpc3RVbml0c1Jlc3BvbnNlEj4KB0dldFVuaXQSGC5hdWRpdC52MS5HZXRVbml0UmVxdWVzdBoZLmF1ZGl0LnYxLkdldFVuaXRSZXNwb25zZRJBCghHZXRHcmFwaBIZLmF1ZGl0LnYxLkdldEdyYXBoUmVxdWVzdBoaLmF1ZGl0LnYxLkdldEdyYXBoUmVzcG9uc2UypAEKDVJlcG9ydFNlcnZpY2USTQoMQ3JlYXRlUmVwb3J0Eh0uYXVkaXQudjEuQ3JlYXRlUmVwb3J0UmVxdWVzdBoeLmF1ZGl0LnYxLkNyZWF0ZVJlcG9ydFJlc3BvbnNlEkQKCUdldFJlcG9ydBIaLmF1ZGl0LnYxLkdldFJlcG9ydFJlcXVlc3QaGy5hdWRpdC52MS5HZXRSZXBvcnRSZXNwb25zZTKcAwoPRXhlY3V0b3JTZXJ2aWNlElkKEFJlZ2lzdGVyRXhlY3V0b3ISIS5hdWRpdC52MS5SZWdpc3RlckV4ZWN1dG9yUmVxdWVzdBoiLmF1ZGl0LnYxLlJlZ2lzdGVyRXhlY3V0b3JSZXNwb25zZRJECglDbGFpbVdvcmsSGi5hdWRpdC52MS5DbGFpbVdvcmtSZXF1ZXN0GhsuYXVkaXQudjEuQ2xhaW1Xb3JrUmVzcG9uc2USRAoJSGVhcnRiZWF0EhouYXVkaXQudjEuSGVhcnRiZWF0UmVxdWVzdBobLmF1ZGl0LnYxLkhlYXJ0YmVhdFJlc3BvbnNlElMKDlJlcG9ydFByb2dyZXNzEh8uYXVkaXQudjEuUmVwb3J0UHJvZ3Jlc3NSZXF1ZXN0GiAuYXVkaXQudjEuUmVwb3J0UHJvZ3Jlc3NSZXNwb25zZRJNCgxDb21wbGV0ZVdvcmsSHS5hdWRpdC52MS5Db21wbGV0ZVdvcmtSZXF1ZXN0Gh4uYXVkaXQudjEuQ29tcGxldGVXb3JrUmVzcG9uc2UyzgEKDVN5c3RlbVNlcnZpY2USVgoPR2V0Q2FwYWJpbGl0aWVzEiAuYXVkaXQudjEuR2V0Q2FwYWJpbGl0aWVzUmVxdWVzdBohLmF1ZGl0LnYxLkdldENhcGFiaWxpdGllc1Jlc3BvbnNlEmUKFENoZWNrTW9kZWxDb25uZWN0aW9uEiUuYXVkaXQudjEuQ2hlY2tNb2RlbENvbm5lY3Rpb25SZXF1ZXN0GiYuYXVkaXQudjEuQ2hlY2tNb2RlbENvbm5lY3Rpb25SZXNwb25zZWIGcHJvdG8z");
+  fileDesc("ChRhdWRpdC92MS9hdWRpdC5wcm90bxIIYXVkaXQudjEiNwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCmNyZWF0ZWRfYXQYAyABKAki9QIKCFNuYXBzaG90EgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSIgoEa2luZBgDIAEoDjIULmF1ZGl0LnYxLlRhcmdldEtpbmQSJgoFc3RhdGUYBCABKA4yFy5hdWRpdC52MS5TbmFwc2hvdFN0YXRlEgwKBG5hbWUYBSABKAkSHAoUb3JpZ2luYWxfYXJ0aWZhY3RfaWQYBiABKAkSHgoWbm9ybWFsaXplZF9hcnRpZmFjdF9pZBgHIAEoCRIcChRtYW5pZmVzdF9hcnRpZmFjdF9pZBgIIAEoCRIZChFyZXNvbHZlZF9yZXZpc2lvbhgJIAEoCRIVCg10YXJnZXRfc2hhMjU2GAogASgJEhIKCmZpbGVfY291bnQYCyABKAQSEwoLdG90YWxfYnl0ZXMYDCABKAQSFQoNbWV0YWRhdGFfanNvbhgNIAEoCRINCgVlcnJvchgOIAEoCRISCgpjcmVhdGVkX2F0GA8gASgJIucBCghBdWRpdFJ1bhIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEhMKC3NuYXBzaG90X2lkGAMgASgJEiEKBXN0YXRlGAQgASgOMhIuYXVkaXQudjEuUnVuU3RhdGUSDQoFc2NvcGUYBSABKAkSEgoKY3JlYXRlZF9hdBgGIAEoCRISCgpzdGFydGVkX2F0GAcgASgJEhMKC2ZpbmlzaGVkX2F0GAggASgJEhIKCnVuaXRfY291bnQYCSABKAQSFAoMc3VtbWFyeV9qc29uGAogASgJEg0KBWVycm9yGAsgASgJIlYKCEFydGlmYWN0EgoKAmlkGAEgASgJEg4KBnNoYTI1NhgCIAEoCRIMCgRzaXplGAMgASgEEgwKBG5hbWUYBCABKAkSEgoKbWVkaWFfdHlwZRgFIAEoCSKUAgoLUHJvZ3JhbVVuaXQSCgoCaWQYASABKAkSDgoGcnVuX2lkGAIgASgJEhMKC3NuYXBzaG90X2lkGAMgASgJEhMKC2FydGlmYWN0X2lkGAQgASgJEgwKBG5hbWUYBSABKAkSDAoEcGF0aBgGIAEoCRIQCghsYW5ndWFnZRgHIAEoCRISCgpzdGFydF9saW5lGAggASgNEhAKCGVuZF9saW5lGAkgASgNEhIKCnN0YXJ0X2J5dGUYCiABKAQSEAoIZW5kX2J5dGUYCyABKAQSDwoHYWRkcmVzcxgMIAEoCRIMCgRjb2RlGA0gASgJEg8KB3F1YWxpdHkYDiABKAkSFQoNbWV0YWRhdGFfanNvbhgPIAEoCSKIAQoLUHJvZ3JhbUVkZ2USEQoJc291cmNlX2lkGAEgASgJEhEKCXRhcmdldF9pZBgCIAEoCRITCgt0YXJnZXRfbmFtZRgDIAEoCRIMCgRraW5kGAQgASgJEhEKCWNlcnRhaW50eRgFIAEoCRIMCgRsaW5lGAYgASgNEg8KB2FkZHJlc3MYByABKAkikAEKCFJ1bkV2ZW50Eg4KBnJ1bl9pZBgBIAEoCRILCgNzZXEYAiABKAQSEgoKY3JlYXRlZF9hdBgDIAEoCRIMCgRraW5kGAQgASgJEg8KB21lc3NhZ2UYBSABKAkSFAoMd29ya19pdGVtX2lkGAYgASgJEg8KB2N1cnJlbnQYByABKAQSDQoFdG90YWwYCCABKAQiXQoGUmVwb3J0EgoKAmlkGAEgASgJEg4KBnJ1bl9pZBgCIAEoCRIOCgZmb3JtYXQYAyABKAkSEwoLYXJ0aWZhY3RfaWQYBCABKAkSEgoKY3JlYXRlZF9hdBgFIAEoCSJSCg5Ub29sQ2FwYWJpbGl0eRIMCgRuYW1lGAEgASgJEg8KB3ZlcnNpb24YAiABKAkSEQoJYXZhaWxhYmxlGAMgASgIEg4KBmRldGFpbBgEIAEoCSKPAQoIRXhlY3V0b3ISCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIQCghwbGF0Zm9ybRgDIAEoCRIUCgxhcmNoaXRlY3R1cmUYBCABKAkSEQoJbGFzdF9zZWVuGAUgASgJEi4KDGNhcGFiaWxpdGllcxgGIAMoCzIYLmF1ZGl0LnYxLlRvb2xDYXBhYmlsaXR5IscBCglXb3JrTGVhc2USFAoMd29ya19pdGVtX2lkGAEgASgJEhIKCmF0dGVtcHRfaWQYAiABKAkSEwoLbGVhc2VfdG9rZW4YAyABKAkSDAoEa2luZBgEIAEoCRITCgtzbmFwc2hvdF9pZBgFIAEoCRIOCgZydW5faWQYBiABKAkSGQoRaW5wdXRfYXJ0aWZhY3RfaWQYByABKAkSFAoMcGF5bG9hZF9qc29uGAggASgJEhcKD3RpbWVvdXRfc2Vjb25kcxgJIAEoDSI4ChRDcmVhdGVQcm9qZWN0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJEgwKBG5hbWUYAiABKAkiOwoVQ3JlYXRlUHJvamVjdFJlc3BvbnNlEiIKB3Byb2plY3QYASABKAsyES5hdWRpdC52MS5Qcm9qZWN0IhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiOwoUTGlzdFByb2plY3RzUmVzcG9uc2USIwoIcHJvamVjdHMYASADKAsyES5hdWRpdC52MS5Qcm9qZWN0IicKEUdldFByb2plY3RSZXF1ZXN0EhIKCnByb2plY3RfaWQYASABKAkiXwoSR2V0UHJvamVjdFJlc3BvbnNlEiIKB3Byb2plY3QYASABKAsyES5hdWRpdC52MS5Qcm9qZWN0EiUKCXNuYXBzaG90cxgCIAMoCzISLmF1ZGl0LnYxLlNuYXBzaG90Iq0BChVDcmVhdGVTbmFwc2hvdFJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEiIKBGtpbmQYAyABKA4yFC5hdWRpdC52MS5UYXJnZXRLaW5kEhMKC2FydGlmYWN0X2lkGAQgASgJEg8KB2dpdF91cmwYBSABKAkSFAoMZ2l0X3JldmlzaW9uGAYgASgJEgwKBG5hbWUYByABKAkiPgoWQ3JlYXRlU25hcHNob3RSZXNwb25zZRIkCghzbmFwc2hvdBgBIAEoCzISLmF1ZGl0LnYxLlNuYXBzaG90IikKEkdldFNuYXBzaG90UmVxdWVzdBITCgtzbmFwc2hvdF9pZBgBIAEoCSI7ChNHZXRTbmFwc2hvdFJlc3BvbnNlEiQKCHNuYXBzaG90GAEgASgLMhIuYXVkaXQudjEuU25hcHNob3QiqAEKEENyZWF0ZVJ1blJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCRITCgtzbmFwc2hvdF9pZBgCIAEoCRINCgVzY29wZRgDIAEoCRIXCg9tYXhfbW9kZWxfY2FsbHMYBCABKA0SEQoJbWF4X3VuaXRzGAUgASgNEhcKD21heF90b29sX3JvdW5kcxgGIAEoDRIXCg90aW1lb3V0X3NlY29uZHMYByABKA0iNAoRQ3JlYXRlUnVuUmVzcG9uc2USHwoDcnVuGAEgASgLMhIuYXVkaXQudjEuQXVkaXRSdW4iJQoPTGlzdFJ1bnNSZXF1ZXN0EhIKCnByb2plY3RfaWQYASABKAkiNAoQTGlzdFJ1bnNSZXNwb25zZRIgCgRydW5zGAEgAygLMhIuYXVkaXQudjEuQXVkaXRSdW4iHwoNR2V0UnVuUmVxdWVzdBIOCgZydW5faWQYASABKAkiWAoOR2V0UnVuUmVzcG9uc2USHwoDcnVuGAEgASgLMhIuYXVkaXQudjEuQXVkaXRSdW4SJQoJYXJ0aWZhY3RzGAIgAygLMhIuYXVkaXQudjEuQXJ0aWZhY3QiNAoPV2F0Y2hSdW5SZXF1ZXN0Eg4KBnJ1bl9pZBgBIAEoCRIRCglhZnRlcl9zZXEYAiABKAQiNQoQV2F0Y2hSdW5SZXNwb25zZRIhCgVldmVudBgBIAEoCzISLmF1ZGl0LnYxLlJ1bkV2ZW50IiIKEENhbmNlbFJ1blJlcXVlc3QSDgoGcnVuX2lkGAEgASgJIjQKEUNhbmNlbFJ1blJlc3BvbnNlEh8KA3J1bhgBIAEoCzISLmF1ZGl0LnYxLkF1ZGl0UnVuImIKEExpc3RVbml0c1JlcXVlc3QSDgoGcnVuX2lkGAEgASgJEg0KBXF1ZXJ5GAIgASgJEhAKCGxhbmd1YWdlGAMgASgJEg4KBm9mZnNldBgEIAEoDRINCgVsaW1pdBgFIAEoDSJIChFMaXN0VW5pdHNSZXNwb25zZRIkCgV1bml0cxgBIAMoCzIVLmF1ZGl0LnYxLlByb2dyYW1Vbml0Eg0KBXRvdGFsGAIgASgEIiEKDkdldFVuaXRSZXF1ZXN0Eg8KB3VuaXRfaWQYASABKAkiXAoPR2V0VW5pdFJlc3BvbnNlEiMKBHVuaXQYASABKAsyFS5hdWRpdC52MS5Qcm9ncmFtVW5pdBIkCgVlZGdlcxgCIAMoCzIVLmF1ZGl0LnYxLlByb2dyYW1FZGdlIiIKD0dldEdyYXBoUmVxdWVzdBIPCgd1bml0X2lkGAEgASgJIl4KEEdldEdyYXBoUmVzcG9uc2USJAoFdW5pdHMYASADKAsyFS5hdWRpdC52MS5Qcm9ncmFtVW5pdBIkCgVlZGdlcxgCIAMoCzIVLmF1ZGl0LnYxLlByb2dyYW1FZGdlIkkKE0NyZWF0ZVJlcG9ydFJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCRIOCgZydW5faWQYAiABKAkSDgoGZm9ybWF0GAMgASgJIjgKFENyZWF0ZVJlcG9ydFJlc3BvbnNlEiAKBnJlcG9ydBgBIAEoCzIQLmF1ZGl0LnYxLlJlcG9ydCIlChBHZXRSZXBvcnRSZXF1ZXN0EhEKCXJlcG9ydF9pZBgBIAEoCSI1ChFHZXRSZXBvcnRSZXNwb25zZRIgCgZyZXBvcnQYASABKAsyEC5hdWRpdC52MS5SZXBvcnQifwoXUmVnaXN0ZXJFeGVjdXRvclJlcXVlc3QSDAoEbmFtZRgBIAEoCRIQCghwbGF0Zm9ybRgCIAEoCRIUCgxhcmNoaXRlY3R1cmUYAyABKAkSLgoMY2FwYWJpbGl0aWVzGAQgAygLMhguYXVkaXQudjEuVG9vbENhcGFiaWxpdHkiWAoYUmVnaXN0ZXJFeGVjdXRvclJlc3BvbnNlEiQKCGV4ZWN1dG9yGAEgASgLMhIuYXVkaXQudjEuRXhlY3V0b3ISFgoOZXhlY3V0b3JfdG9rZW4YAiABKAkiJwoQQ2xhaW1Xb3JrUmVxdWVzdBITCgtleGVjdXRvcl9pZBgBIAEoCSI3ChFDbGFpbVdvcmtSZXNwb25zZRIiCgVsZWFzZRgBIAEoCzITLmF1ZGl0LnYxLldvcmtMZWFzZSKWAQoQSGVhcnRiZWF0UmVxdWVzdBITCgtleGVjdXRvcl9pZBgBIAEoCRIUCgx3b3JrX2l0ZW1faWQYAiABKAkSEgoKYXR0ZW1wdF9pZBgDIAEoCRITCgtsZWFzZV90b2tlbhgEIAEoCRIuCgxjYXBhYmlsaXRpZXMYBSADKAsyGC5hdWRpdC52MS5Ub29sQ2FwYWJpbGl0eSJCChFIZWFydGJlYXRSZXNwb25zZRIYChBjYW5jZWxfcmVxdWVzdGVkGAEgASgIEhMKC2xlYXNlX3ZhbGlkGAIgASgIIocBChVSZXBvcnRQcm9ncmVzc1JlcXVlc3QSFAoMd29ya19pdGVtX2lkGAEgASgJEhIKCmF0dGVtcHRfaWQYAiABKAkSEwoLbGVhc2VfdG9rZW4YAyABKAkSDwoHbWVzc2FnZRgEIAEoCRIPCgdjdXJyZW50GAUgASgEEg0KBXRvdGFsGAYgASgEIhgKFlJlcG9ydFByb2dyZXNzUmVzcG9uc2UiqgEKE0NvbXBsZXRlV29ya1JlcXVlc3QSFAoMd29ya19pdGVtX2lkGAEgASgJEhIKCmF0dGVtcHRfaWQYAiABKAkSEwoLbGVhc2VfdG9rZW4YAyABKAkSDwoHb3V0Y29tZRgEIAEoCRIaChJyZXN1bHRfYXJ0aWZhY3RfaWQYBSABKAkSDQoFZXJyb3IYBiABKAkSGAoQcHJvY2Vzc2VzX3JlYXBlZBgHIAEoCCIoChRDb21wbGV0ZVdvcmtSZXNwb25zZRIQCghhY2NlcHRlZBgBIAEoCCIYChZHZXRDYXBhYmlsaXRpZXNSZXF1ZXN0Iq8BChdHZXRDYXBhYmlsaXRpZXNSZXNwb25zZRIPCgd2ZXJzaW9uGAEgASgJEg0KBXNjb3BlGAIgASgJEiUKCWV4ZWN1dG9ycxgDIAMoCzISLmF1ZGl0LnYxLkV4ZWN1dG9yEhgKEHBlbmRpbmdfZmVhdHVyZXMYBCADKAkSMwoQbW9kZWxfY29ubmVjdGlvbhgFIAEoCzIZLmF1ZGl0LnYxLk1vZGVsQ29ubmVjdGlvbiKcAwoJTW9kZWxDYWxsEgoKAmlkGAEgASgJEg0KBW1vZGVsGAIgASgJEg8KB3B1cnBvc2UYAyABKAkSDgoGc3RhdHVzGAQgASgJEhIKCmNyZWF0ZWRfYXQYBSABKAkSEwoLZmluaXNoZWRfYXQYBiABKAkSFAoMaW5wdXRfdG9rZW5zGAcgASgEEhUKDW91dHB1dF90b2tlbnMYCCABKAQSFAoMdG90YWxfdG9rZW5zGAkgASgEEhcKD3VzYWdlX2F2YWlsYWJsZRgKIAEoCBISCgpsYXRlbmN5X21zGAsgASgEEhsKE3Byb3ZpZGVyX3JlcXVlc3RfaWQYDCABKAkSEwoLYXJ0aWZhY3RfaWQYDSABKAkSDQoFZXJyb3IYDiABKAkSDgoGcnVuX2lkGA8gASgJEg8KB3Rhc2tfaWQYECABKAkSDAoEcm9sZRgRIAEoCRIWCg5wcm9tcHRfdmVyc2lvbhgSIAEoCRIbChNyZXF1ZXN0X2FydGlmYWN0X2lkGBMgASgJEhUKDWZpbmlzaF9yZWFzb24YFCABKAkimAEKD01vZGVsQ29ubmVjdGlvbhIQCghwcm92aWRlchgBIAEoCRIQCghlbmRwb2ludBgCIAEoCRINCgVtb2RlbBgDIAEoCRISCgpjb25maWd1cmVkGAQgASgIEiYKCWxhc3RfY2FsbBgFIAEoCzITLmF1ZGl0LnYxLk1vZGVsQ2FsbBIWCg5zdGF0dXNfbWVzc2FnZRgGIAEoCSIxChtDaGVja01vZGVsQ29ubmVjdGlvblJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCSJBChxDaGVja01vZGVsQ29ubmVjdGlvblJlc3BvbnNlEiEKBGNhbGwYASABKAsyEy5hdWRpdC52MS5Nb2RlbENhbGwihwEKC0V2aWRlbmNlUmVmEg8KB3VuaXRfaWQYASABKAkSEwoLYXJ0aWZhY3RfaWQYAiABKAkSDAoEcGF0aBgDIAEoCRISCgpzdGFydF9saW5lGAQgASgNEhAKCGVuZF9saW5lGAUgASgNEg8KB2FkZHJlc3MYBiABKAkSDQoFcXVvdGUYByABKAkiuQMKB0ZpbmRpbmcSCgoCaWQYASABKAkSDgoGcnVuX2lkGAIgASgJEg0KBXRpdGxlGAMgASgJEhAKCGNhdGVnb3J5GAQgASgJEgsKA2N3ZRgFIAEoCRIQCghzZXZlcml0eRgGIAEoCRIXCg9zZXZlcml0eV9yZWFzb24YByABKAkSDwoHdW5pdF9pZBgIIAEoCRIUCgxpbnB1dF9zb3VyY2UYCSABKAkSDAoEc2luaxgKIAEoCRIVCg1taXNzaW5nX2d1YXJkGAsgASgJEhUKDXByZWNvbmRpdGlvbnMYDCABKAkSDgoGaW1wYWN0GA0gASgJEhYKDnJlY29tbWVuZGF0aW9uGA4gASgJEicKCGV2aWRlbmNlGA8gAygLMhUuYXVkaXQudjEuRXZpZGVuY2VSZWYSFQoNcmV2aWV3X3N0YXR1cxgQIAEoCRIbChN2ZXJpZmljYXRpb25fc3RhdHVzGBEgASgJEhAKCHJldmlzaW9uGBIgASgNEhUKDW1vZGVsX2NhbGxfaWQYEyABKAkSEgoKY3JlYXRlZF9hdBgUIAEoCRIUCgxzdGF0aWNfc2NvcGUYFSABKAkikgIKBlJldmlldxIKCgJpZBgBIAEoCRISCgpmaW5kaW5nX2lkGAIgASgJEg0KBWFjdG9yGAMgASgJEg8KB3ZlcmRpY3QYBCABKAkSEQoJcmF0aW9uYWxlGAUgASgJEhgKEGNvdW50ZXJfZXZpZGVuY2UYBiABKAkSGwoTbWlzc2luZ19pbmZvcm1hdGlvbhgHIAEoCRInCghldmlkZW5jZRgIIAMoCzIVLmF1ZGl0LnYxLkV2aWRlbmNlUmVmEhUKDW1vZGVsX2NhbGxfaWQYCSABKAkSEAoIcmV2aXNpb24YCiABKA0SEgoKY3JlYXRlZF9hdBgLIAEoCRIYChBhc3Nlc3NtZW50c19qc29uGAwgASgJItMBCg9Mb2dpY0Fubm90YXRpb24SCgoCaWQYASABKAkSDgoGcnVuX2lkGAIgASgJEg8KB3VuaXRfaWQYAyABKAkSCwoDdGFnGAQgASgJEhEKCXJhdGlvbmFsZRgFIAEoCRInCghldmlkZW5jZRgGIAMoCzIVLmF1ZGl0LnYxLkV2aWRlbmNlUmVmEg0KBWFjdG9yGAcgASgJEhAKCHJldmlzaW9uGAggASgNEhUKDW1vZGVsX2NhbGxfaWQYCSABKAkSEgoKdXBkYXRlZF9hdBgKIAEoCSLAAQoJQWdlbnRUYXNrEgoKAmlkGAEgASgJEg4KBnJ1bl9pZBgCIAEoCRIMCgRyb2xlGAMgASgJEhAKCGl0ZW1fa2V5GAQgASgJEg4KBnN0YXR1cxgFIAEoCRISCgpjcmVhdGVkX2F0GAYgASgJEhMKC2ZpbmlzaGVkX2F0GAcgASgJEhoKEnJlc3VsdF9hcnRpZmFjdF9pZBgIIAEoCRINCgVlcnJvchgJIAEoCRITCgtyZXN1bHRfanNvbhgKIAEoCSIhCg9HZXRBdWRpdFJlcXVlc3QSDgoGcnVuX2lkGAEgASgJIoICChBHZXRBdWRpdFJlc3BvbnNlEiMKCGZpbmRpbmdzGAEgAygLMhEuYXVkaXQudjEuRmluZGluZxIhCgdyZXZpZXdzGAIgAygLMhAuYXVkaXQudjEuUmV2aWV3Ei4KC2Fubm90YXRpb25zGAMgAygLMhkuYXVkaXQudjEuTG9naWNBbm5vdGF0aW9uEigKC21vZGVsX2NhbGxzGAQgAygLMhMuYXVkaXQudjEuTW9kZWxDYWxsEiIKBXRhc2tzGAUgAygLMhMuYXVkaXQudjEuQWdlbnRUYXNrEigKB3J1bnRpbWUYBiADKAsyFy5hdWRpdC52MS5SdW50aW1lUmVjb3JkIlsKE0xpc3RGaW5kaW5nc1JlcXVlc3QSDgoGcnVuX2lkGAEgASgJEhUKDXJldmlld19zdGF0dXMYAiABKAkSDgoGb2Zmc2V0GAMgASgNEg0KBWxpbWl0GAQgASgNIkoKFExpc3RGaW5kaW5nc1Jlc3BvbnNlEiMKCGZpbmRpbmdzGAEgAygLMhEuYXVkaXQudjEuRmluZGluZxINCgV0b3RhbBgCIAEoBCInChFHZXRGaW5kaW5nUmVxdWVzdBISCgpmaW5kaW5nX2lkGAEgASgJIlsKEkdldEZpbmRpbmdSZXNwb25zZRIiCgdmaW5kaW5nGAEgASgLMhEuYXVkaXQudjEuRmluZGluZxIhCgdyZXZpZXdzGAIgAygLMhAuYXVkaXQudjEuUmV2aWV3IrMBChNTdWJtaXRSZXZpZXdSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSEgoKZmluZGluZ19pZBgCIAEoCRIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoDRIPCgd2ZXJkaWN0GAQgASgJEhEKCXJhdGlvbmFsZRgFIAEoCRIYChBjb3VudGVyX2V2aWRlbmNlGAYgASgJEhsKE21pc3NpbmdfaW5mb3JtYXRpb24YByABKAkiXAoUU3VibWl0UmV2aWV3UmVzcG9uc2USIgoHZmluZGluZxgBIAEoCzIRLmF1ZGl0LnYxLkZpbmRpbmcSIAoGcmV2aWV3GAIgASgLMhAuYXVkaXQudjEuUmV2aWV3In8KF1VwZGF0ZUFubm90YXRpb25SZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSFQoNYW5ub3RhdGlvbl9pZBgCIAEoCRIZChFleHBlY3RlZF9yZXZpc2lvbhgDIAEoDRILCgN0YWcYBCABKAkSEQoJcmF0aW9uYWxlGAUgASgJIkkKGFVwZGF0ZUFubm90YXRpb25SZXNwb25zZRItCgphbm5vdGF0aW9uGAEgASgLMhkuYXVkaXQudjEuTG9naWNBbm5vdGF0aW9uIqQBCg1SdW50aW1lUmVjb3JkEgoKAmlkGAEgASgJEg4KBnJ1bl9pZBgCIAEoCRIVCg1zb3VyY2VfcnVuX2lkGAMgASgJEhIKCmZpbmRpbmdfaWQYBCABKAkSDgoGc3RhdHVzGAUgASgJEhIKCmNyZWF0ZWRfYXQYBiABKAkSEwoLY29uZmlnX2pzb24YByABKAkSEwoLcmVzdWx0X2pzb24YCCABKAkiagoUQ3JlYXRlUnVudGltZVJlcXVlc3QSEgoKcmVxdWVzdF9pZBgBIAEoCRIVCg1zb3VyY2VfcnVuX2lkGAIgASgJEhIKCmZpbmRpbmdfaWQYAyABKAkSEwoLY29uZmlnX2pzb24YBCABKAkiQAoVQ3JlYXRlUnVudGltZVJlc3BvbnNlEicKBnJlY29yZBgBIAEoCzIXLmF1ZGl0LnYxLlJ1bnRpbWVSZWNvcmQiJgoRR2V0UnVudGltZVJlcXVlc3QSEQoJcmVjb3JkX2lkGAEgASgJIj0KEkdldFJ1bnRpbWVSZXNwb25zZRInCgZyZWNvcmQYASABKAsyFy5hdWRpdC52MS5SdW50aW1lUmVjb3JkIiQKEkxpc3RSdW50aW1lUmVxdWVzdBIOCgZydW5faWQYASABKAkiPwoTTGlzdFJ1bnRpbWVSZXNwb25zZRIoCgdyZWNvcmRzGAEgAygLMhcuYXVkaXQudjEuUnVudGltZVJlY29yZCpuCgpUYXJnZXRLaW5kEhsKF1RBUkdFVF9LSU5EX1VOU1BFQ0lGSUVEEAASFgoSVEFSR0VUX0tJTkRfU09VUkNFEAESFgoSVEFSR0VUX0tJTkRfQklOQVJZEAISEwoPVEFSR0VUX0tJTkRfR0lUEAMqngEKDVNuYXBzaG90U3RhdGUSHgoaU05BUFNIT1RfU1RBVEVfVU5TUEVDSUZJRUQQABIcChhTTkFQU0hPVF9TVEFURV9JTVBPUlRJTkcQARIYChRTTkFQU0hPVF9TVEFURV9SRUFEWRACEhoKFlNOQVBTSE9UX1NUQVRFX1BBUlRJQUwQAxIZChVTTkFQU0hPVF9TVEFURV9GQUlMRUQQBCqIAgoIUnVuU3RhdGUSGQoVUlVOX1NUQVRFX1VOU1BFQ0lGSUVEEAASFAoQUlVOX1NUQVRFX1FVRVVFRBABEhUKEVJVTl9TVEFURV9SVU5OSU5HEAISHgoaUlVOX1NUQVRFX1dBSVRJTkdfRVhFQ1VUT1IQAxIYChRSVU5fU1RBVEVfQ0FOQ0VMTElORxAEEhcKE1JVTl9TVEFURV9DT01QTEVURUQQBRIVChFSVU5fU1RBVEVfUEFSVElBTBAGEhQKEFJVTl9TVEFURV9GQUlMRUQQBxIXChNSVU5fU1RBVEVfQ0FOQ0VMTEVEEAgSGwoXUlVOX1NUQVRFX0xJTUlUX1JFQUNIRUQQCTKbAwoOUHJvamVjdFNlcnZpY2USUAoNQ3JlYXRlUHJvamVjdBIeLmF1ZGl0LnYxLkNyZWF0ZVByb2plY3RSZXF1ZXN0Gh8uYXVkaXQudjEuQ3JlYXRlUHJvamVjdFJlc3BvbnNlEk0KDExpc3RQcm9qZWN0cxIdLmF1ZGl0LnYxLkxpc3RQcm9qZWN0c1JlcXVlc3QaHi5hdWRpdC52MS5MaXN0UHJvamVjdHNSZXNwb25zZRJHCgpHZXRQcm9qZWN0EhsuYXVkaXQudjEuR2V0UHJvamVjdFJlcXVlc3QaHC5hdWRpdC52MS5HZXRQcm9qZWN0UmVzcG9uc2USUwoOQ3JlYXRlU25hcHNob3QSHy5hdWRpdC52MS5DcmVhdGVTbmFwc2hvdFJlcXVlc3QaIC5hdWRpdC52MS5DcmVhdGVTbmFwc2hvdFJlc3BvbnNlEkoKC0dldFNuYXBzaG90EhwuYXVkaXQudjEuR2V0U25hcHNob3RSZXF1ZXN0Gh0uYXVkaXQudjEuR2V0U25hcHNob3RSZXNwb25zZTLdAgoKUnVuU2VydmljZRJECglDcmVhdGVSdW4SGi5hdWRpdC52MS5DcmVhdGVSdW5SZXF1ZXN0GhsuYXVkaXQudjEuQ3JlYXRlUnVuUmVzcG9uc2USQQoITGlzdFJ1bnMSGS5hdWRpdC52MS5MaXN0UnVuc1JlcXVlc3QaGi5hdWRpdC52MS5MaXN0UnVuc1Jlc3BvbnNlEjsKBkdldFJ1bhIXLmF1ZGl0LnYxLkdldFJ1blJlcXVlc3QaGC5hdWRpdC52MS5HZXRSdW5SZXNwb25zZRJDCghXYXRjaFJ1bhIZLmF1ZGl0LnYxLldhdGNoUnVuUmVxdWVzdBoaLmF1ZGl0LnYxLldhdGNoUnVuUmVzcG9uc2UwARJECglDYW5jZWxSdW4SGi5hdWRpdC52MS5DYW5jZWxSdW5SZXF1ZXN0GhsuYXVkaXQudjEuQ2FuY2VsUnVuUmVzcG9uc2UytAIKDlByb2dyYW1TZXJ2aWNlEkQKCUxpc3RVbml0cxIaLmF1ZGl0LnYxLkxpc3RVbml0c1JlcXVlc3QaGy5hdWRpdC52MS5MaXN0VW5pdHNSZXNwb25zZRI+CgdHZXRVbml0EhguYXVkaXQudjEuR2V0VW5pdFJlcXVlc3QaGS5hdWRpdC52MS5HZXRVbml0UmVzcG9uc2USQQoIR2V0R3JhcGgSGS5hdWRpdC52MS5HZXRHcmFwaFJlcXVlc3QaGi5hdWRpdC52MS5HZXRHcmFwaFJlc3BvbnNlElkKEFVwZGF0ZUFubm90YXRpb24SIS5hdWRpdC52MS5VcGRhdGVBbm5vdGF0aW9uUmVxdWVzdBoiLmF1ZGl0LnYxLlVwZGF0ZUFubm90YXRpb25SZXNwb25zZTKkAQoNUmVwb3J0U2VydmljZRJNCgxDcmVhdGVSZXBvcnQSHS5hdWRpdC52MS5DcmVhdGVSZXBvcnRSZXF1ZXN0Gh4uYXVkaXQudjEuQ3JlYXRlUmVwb3J0UmVzcG9uc2USRAoJR2V0UmVwb3J0EhouYXVkaXQudjEuR2V0UmVwb3J0UmVxdWVzdBobLmF1ZGl0LnYxLkdldFJlcG9ydFJlc3BvbnNlMpwDCg9FeGVjdXRvclNlcnZpY2USWQoQUmVnaXN0ZXJFeGVjdXRvchIhLmF1ZGl0LnYxLlJlZ2lzdGVyRXhlY3V0b3JSZXF1ZXN0GiIuYXVkaXQudjEuUmVnaXN0ZXJFeGVjdXRvclJlc3BvbnNlEkQKCUNsYWltV29yaxIaLmF1ZGl0LnYxLkNsYWltV29ya1JlcXVlc3QaGy5hdWRpdC52MS5DbGFpbVdvcmtSZXNwb25zZRJECglIZWFydGJlYXQSGi5hdWRpdC52MS5IZWFydGJlYXRSZXF1ZXN0GhsuYXVkaXQudjEuSGVhcnRiZWF0UmVzcG9uc2USUwoOUmVwb3J0UHJvZ3Jlc3MSHy5hdWRpdC52MS5SZXBvcnRQcm9ncmVzc1JlcXVlc3QaIC5hdWRpdC52MS5SZXBvcnRQcm9ncmVzc1Jlc3BvbnNlEk0KDENvbXBsZXRlV29yaxIdLmF1ZGl0LnYxLkNvbXBsZXRlV29ya1JlcXVlc3QaHi5hdWRpdC52MS5Db21wbGV0ZVdvcmtSZXNwb25zZTLOAQoNU3lzdGVtU2VydmljZRJWCg9HZXRDYXBhYmlsaXRpZXMSIC5hdWRpdC52MS5HZXRDYXBhYmlsaXRpZXNSZXF1ZXN0GiEuYXVkaXQudjEuR2V0Q2FwYWJpbGl0aWVzUmVzcG9uc2USZQoUQ2hlY2tNb2RlbENvbm5lY3Rpb24SJS5hdWRpdC52MS5DaGVja01vZGVsQ29ubmVjdGlvblJlcXVlc3QaJi5hdWRpdC52MS5DaGVja01vZGVsQ29ubmVjdGlvblJlc3BvbnNlMroCCg5GaW5kaW5nU2VydmljZRJBCghHZXRBdWRpdBIZLmF1ZGl0LnYxLkdldEF1ZGl0UmVxdWVzdBoaLmF1ZGl0LnYxLkdldEF1ZGl0UmVzcG9uc2USTQoMTGlzdEZpbmRpbmdzEh0uYXVkaXQudjEuTGlzdEZpbmRpbmdzUmVxdWVzdBoeLmF1ZGl0LnYxLkxpc3RGaW5kaW5nc1Jlc3BvbnNlEkcKCkdldEZpbmRpbmcSGy5hdWRpdC52MS5HZXRGaW5kaW5nUmVxdWVzdBocLmF1ZGl0LnYxLkdldEZpbmRpbmdSZXNwb25zZRJNCgxTdWJtaXRSZXZpZXcSHS5hdWRpdC52MS5TdWJtaXRSZXZpZXdSZXF1ZXN0Gh4uYXVkaXQudjEuU3VibWl0UmV2aWV3UmVzcG9uc2Uy9wEKDlJ1bnRpbWVTZXJ2aWNlElAKDUNyZWF0ZVJ1bnRpbWUSHi5hdWRpdC52MS5DcmVhdGVSdW50aW1lUmVxdWVzdBofLmF1ZGl0LnYxLkNyZWF0ZVJ1bnRpbWVSZXNwb25zZRJHCgpHZXRSdW50aW1lEhsuYXVkaXQudjEuR2V0UnVudGltZVJlcXVlc3QaHC5hdWRpdC52MS5HZXRSdW50aW1lUmVzcG9uc2USSgoLTGlzdFJ1bnRpbWUSHC5hdWRpdC52MS5MaXN0UnVudGltZVJlcXVlc3QaHS5hdWRpdC52MS5MaXN0UnVudGltZVJlc3BvbnNlYgZwcm90bzM");
 
 /**
  * @generated from message audit.v1.Project
@@ -803,6 +803,31 @@ export type CreateRunRequest = Message<"audit.v1.CreateRunRequest"> & {
    * @generated from field: string snapshot_id = 2;
    */
   snapshotId: string;
+
+  /**
+   * @generated from field: string scope = 3;
+   */
+  scope: string;
+
+  /**
+   * @generated from field: uint32 max_model_calls = 4;
+   */
+  maxModelCalls: number;
+
+  /**
+   * @generated from field: uint32 max_units = 5;
+   */
+  maxUnits: number;
+
+  /**
+   * @generated from field: uint32 max_tool_rounds = 6;
+   */
+  maxToolRounds: number;
+
+  /**
+   * @generated from field: uint32 timeout_seconds = 7;
+   */
+  timeoutSeconds: number;
 };
 
 /**
@@ -1579,6 +1604,36 @@ export type ModelCall = Message<"audit.v1.ModelCall"> & {
    * @generated from field: string error = 14;
    */
   error: string;
+
+  /**
+   * @generated from field: string run_id = 15;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string task_id = 16;
+   */
+  taskId: string;
+
+  /**
+   * @generated from field: string role = 17;
+   */
+  role: string;
+
+  /**
+   * @generated from field: string prompt_version = 18;
+   */
+  promptVersion: string;
+
+  /**
+   * @generated from field: string request_artifact_id = 19;
+   */
+  requestArtifactId: string;
+
+  /**
+   * @generated from field: string finish_reason = 20;
+   */
+  finishReason: string;
 };
 
 /**
@@ -1663,6 +1718,812 @@ export type CheckModelConnectionResponse = Message<"audit.v1.CheckModelConnectio
  */
 export const CheckModelConnectionResponseSchema: GenMessage<CheckModelConnectionResponse> = /*@__PURE__*/
   messageDesc(file_audit_v1_audit, 56);
+
+/**
+ * @generated from message audit.v1.EvidenceRef
+ */
+export type EvidenceRef = Message<"audit.v1.EvidenceRef"> & {
+  /**
+   * @generated from field: string unit_id = 1;
+   */
+  unitId: string;
+
+  /**
+   * @generated from field: string artifact_id = 2;
+   */
+  artifactId: string;
+
+  /**
+   * @generated from field: string path = 3;
+   */
+  path: string;
+
+  /**
+   * @generated from field: uint32 start_line = 4;
+   */
+  startLine: number;
+
+  /**
+   * @generated from field: uint32 end_line = 5;
+   */
+  endLine: number;
+
+  /**
+   * @generated from field: string address = 6;
+   */
+  address: string;
+
+  /**
+   * @generated from field: string quote = 7;
+   */
+  quote: string;
+};
+
+/**
+ * Describes the message audit.v1.EvidenceRef.
+ * Use `create(EvidenceRefSchema)` to create a new message.
+ */
+export const EvidenceRefSchema: GenMessage<EvidenceRef> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 57);
+
+/**
+ * @generated from message audit.v1.Finding
+ */
+export type Finding = Message<"audit.v1.Finding"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string run_id = 2;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string title = 3;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string category = 4;
+   */
+  category: string;
+
+  /**
+   * @generated from field: string cwe = 5;
+   */
+  cwe: string;
+
+  /**
+   * @generated from field: string severity = 6;
+   */
+  severity: string;
+
+  /**
+   * @generated from field: string severity_reason = 7;
+   */
+  severityReason: string;
+
+  /**
+   * @generated from field: string unit_id = 8;
+   */
+  unitId: string;
+
+  /**
+   * @generated from field: string input_source = 9;
+   */
+  inputSource: string;
+
+  /**
+   * @generated from field: string sink = 10;
+   */
+  sink: string;
+
+  /**
+   * @generated from field: string missing_guard = 11;
+   */
+  missingGuard: string;
+
+  /**
+   * @generated from field: string preconditions = 12;
+   */
+  preconditions: string;
+
+  /**
+   * @generated from field: string impact = 13;
+   */
+  impact: string;
+
+  /**
+   * @generated from field: string recommendation = 14;
+   */
+  recommendation: string;
+
+  /**
+   * @generated from field: repeated audit.v1.EvidenceRef evidence = 15;
+   */
+  evidence: EvidenceRef[];
+
+  /**
+   * @generated from field: string review_status = 16;
+   */
+  reviewStatus: string;
+
+  /**
+   * @generated from field: string verification_status = 17;
+   */
+  verificationStatus: string;
+
+  /**
+   * @generated from field: uint32 revision = 18;
+   */
+  revision: number;
+
+  /**
+   * @generated from field: string model_call_id = 19;
+   */
+  modelCallId: string;
+
+  /**
+   * @generated from field: string created_at = 20;
+   */
+  createdAt: string;
+
+  /**
+   * @generated from field: string static_scope = 21;
+   */
+  staticScope: string;
+};
+
+/**
+ * Describes the message audit.v1.Finding.
+ * Use `create(FindingSchema)` to create a new message.
+ */
+export const FindingSchema: GenMessage<Finding> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 58);
+
+/**
+ * @generated from message audit.v1.Review
+ */
+export type Review = Message<"audit.v1.Review"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string finding_id = 2;
+   */
+  findingId: string;
+
+  /**
+   * @generated from field: string actor = 3;
+   */
+  actor: string;
+
+  /**
+   * @generated from field: string verdict = 4;
+   */
+  verdict: string;
+
+  /**
+   * @generated from field: string rationale = 5;
+   */
+  rationale: string;
+
+  /**
+   * @generated from field: string counter_evidence = 6;
+   */
+  counterEvidence: string;
+
+  /**
+   * @generated from field: string missing_information = 7;
+   */
+  missingInformation: string;
+
+  /**
+   * @generated from field: repeated audit.v1.EvidenceRef evidence = 8;
+   */
+  evidence: EvidenceRef[];
+
+  /**
+   * @generated from field: string model_call_id = 9;
+   */
+  modelCallId: string;
+
+  /**
+   * @generated from field: uint32 revision = 10;
+   */
+  revision: number;
+
+  /**
+   * @generated from field: string created_at = 11;
+   */
+  createdAt: string;
+
+  /**
+   * @generated from field: string assessments_json = 12;
+   */
+  assessmentsJson: string;
+};
+
+/**
+ * Describes the message audit.v1.Review.
+ * Use `create(ReviewSchema)` to create a new message.
+ */
+export const ReviewSchema: GenMessage<Review> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 59);
+
+/**
+ * @generated from message audit.v1.LogicAnnotation
+ */
+export type LogicAnnotation = Message<"audit.v1.LogicAnnotation"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string run_id = 2;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string unit_id = 3;
+   */
+  unitId: string;
+
+  /**
+   * @generated from field: string tag = 4;
+   */
+  tag: string;
+
+  /**
+   * @generated from field: string rationale = 5;
+   */
+  rationale: string;
+
+  /**
+   * @generated from field: repeated audit.v1.EvidenceRef evidence = 6;
+   */
+  evidence: EvidenceRef[];
+
+  /**
+   * @generated from field: string actor = 7;
+   */
+  actor: string;
+
+  /**
+   * @generated from field: uint32 revision = 8;
+   */
+  revision: number;
+
+  /**
+   * @generated from field: string model_call_id = 9;
+   */
+  modelCallId: string;
+
+  /**
+   * @generated from field: string updated_at = 10;
+   */
+  updatedAt: string;
+};
+
+/**
+ * Describes the message audit.v1.LogicAnnotation.
+ * Use `create(LogicAnnotationSchema)` to create a new message.
+ */
+export const LogicAnnotationSchema: GenMessage<LogicAnnotation> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 60);
+
+/**
+ * @generated from message audit.v1.AgentTask
+ */
+export type AgentTask = Message<"audit.v1.AgentTask"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string run_id = 2;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string role = 3;
+   */
+  role: string;
+
+  /**
+   * @generated from field: string item_key = 4;
+   */
+  itemKey: string;
+
+  /**
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * @generated from field: string created_at = 6;
+   */
+  createdAt: string;
+
+  /**
+   * @generated from field: string finished_at = 7;
+   */
+  finishedAt: string;
+
+  /**
+   * @generated from field: string result_artifact_id = 8;
+   */
+  resultArtifactId: string;
+
+  /**
+   * @generated from field: string error = 9;
+   */
+  error: string;
+
+  /**
+   * @generated from field: string result_json = 10;
+   */
+  resultJson: string;
+};
+
+/**
+ * Describes the message audit.v1.AgentTask.
+ * Use `create(AgentTaskSchema)` to create a new message.
+ */
+export const AgentTaskSchema: GenMessage<AgentTask> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 61);
+
+/**
+ * @generated from message audit.v1.GetAuditRequest
+ */
+export type GetAuditRequest = Message<"audit.v1.GetAuditRequest"> & {
+  /**
+   * @generated from field: string run_id = 1;
+   */
+  runId: string;
+};
+
+/**
+ * Describes the message audit.v1.GetAuditRequest.
+ * Use `create(GetAuditRequestSchema)` to create a new message.
+ */
+export const GetAuditRequestSchema: GenMessage<GetAuditRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 62);
+
+/**
+ * @generated from message audit.v1.GetAuditResponse
+ */
+export type GetAuditResponse = Message<"audit.v1.GetAuditResponse"> & {
+  /**
+   * @generated from field: repeated audit.v1.Finding findings = 1;
+   */
+  findings: Finding[];
+
+  /**
+   * @generated from field: repeated audit.v1.Review reviews = 2;
+   */
+  reviews: Review[];
+
+  /**
+   * @generated from field: repeated audit.v1.LogicAnnotation annotations = 3;
+   */
+  annotations: LogicAnnotation[];
+
+  /**
+   * @generated from field: repeated audit.v1.ModelCall model_calls = 4;
+   */
+  modelCalls: ModelCall[];
+
+  /**
+   * @generated from field: repeated audit.v1.AgentTask tasks = 5;
+   */
+  tasks: AgentTask[];
+
+  /**
+   * @generated from field: repeated audit.v1.RuntimeRecord runtime = 6;
+   */
+  runtime: RuntimeRecord[];
+};
+
+/**
+ * Describes the message audit.v1.GetAuditResponse.
+ * Use `create(GetAuditResponseSchema)` to create a new message.
+ */
+export const GetAuditResponseSchema: GenMessage<GetAuditResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 63);
+
+/**
+ * @generated from message audit.v1.ListFindingsRequest
+ */
+export type ListFindingsRequest = Message<"audit.v1.ListFindingsRequest"> & {
+  /**
+   * @generated from field: string run_id = 1;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string review_status = 2;
+   */
+  reviewStatus: string;
+
+  /**
+   * @generated from field: uint32 offset = 3;
+   */
+  offset: number;
+
+  /**
+   * @generated from field: uint32 limit = 4;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message audit.v1.ListFindingsRequest.
+ * Use `create(ListFindingsRequestSchema)` to create a new message.
+ */
+export const ListFindingsRequestSchema: GenMessage<ListFindingsRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 64);
+
+/**
+ * @generated from message audit.v1.ListFindingsResponse
+ */
+export type ListFindingsResponse = Message<"audit.v1.ListFindingsResponse"> & {
+  /**
+   * @generated from field: repeated audit.v1.Finding findings = 1;
+   */
+  findings: Finding[];
+
+  /**
+   * @generated from field: uint64 total = 2;
+   */
+  total: bigint;
+};
+
+/**
+ * Describes the message audit.v1.ListFindingsResponse.
+ * Use `create(ListFindingsResponseSchema)` to create a new message.
+ */
+export const ListFindingsResponseSchema: GenMessage<ListFindingsResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 65);
+
+/**
+ * @generated from message audit.v1.GetFindingRequest
+ */
+export type GetFindingRequest = Message<"audit.v1.GetFindingRequest"> & {
+  /**
+   * @generated from field: string finding_id = 1;
+   */
+  findingId: string;
+};
+
+/**
+ * Describes the message audit.v1.GetFindingRequest.
+ * Use `create(GetFindingRequestSchema)` to create a new message.
+ */
+export const GetFindingRequestSchema: GenMessage<GetFindingRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 66);
+
+/**
+ * @generated from message audit.v1.GetFindingResponse
+ */
+export type GetFindingResponse = Message<"audit.v1.GetFindingResponse"> & {
+  /**
+   * @generated from field: audit.v1.Finding finding = 1;
+   */
+  finding?: Finding | undefined;
+
+  /**
+   * @generated from field: repeated audit.v1.Review reviews = 2;
+   */
+  reviews: Review[];
+};
+
+/**
+ * Describes the message audit.v1.GetFindingResponse.
+ * Use `create(GetFindingResponseSchema)` to create a new message.
+ */
+export const GetFindingResponseSchema: GenMessage<GetFindingResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 67);
+
+/**
+ * @generated from message audit.v1.SubmitReviewRequest
+ */
+export type SubmitReviewRequest = Message<"audit.v1.SubmitReviewRequest"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: string finding_id = 2;
+   */
+  findingId: string;
+
+  /**
+   * @generated from field: uint32 expected_revision = 3;
+   */
+  expectedRevision: number;
+
+  /**
+   * @generated from field: string verdict = 4;
+   */
+  verdict: string;
+
+  /**
+   * @generated from field: string rationale = 5;
+   */
+  rationale: string;
+
+  /**
+   * @generated from field: string counter_evidence = 6;
+   */
+  counterEvidence: string;
+
+  /**
+   * @generated from field: string missing_information = 7;
+   */
+  missingInformation: string;
+};
+
+/**
+ * Describes the message audit.v1.SubmitReviewRequest.
+ * Use `create(SubmitReviewRequestSchema)` to create a new message.
+ */
+export const SubmitReviewRequestSchema: GenMessage<SubmitReviewRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 68);
+
+/**
+ * @generated from message audit.v1.SubmitReviewResponse
+ */
+export type SubmitReviewResponse = Message<"audit.v1.SubmitReviewResponse"> & {
+  /**
+   * @generated from field: audit.v1.Finding finding = 1;
+   */
+  finding?: Finding | undefined;
+
+  /**
+   * @generated from field: audit.v1.Review review = 2;
+   */
+  review?: Review | undefined;
+};
+
+/**
+ * Describes the message audit.v1.SubmitReviewResponse.
+ * Use `create(SubmitReviewResponseSchema)` to create a new message.
+ */
+export const SubmitReviewResponseSchema: GenMessage<SubmitReviewResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 69);
+
+/**
+ * @generated from message audit.v1.UpdateAnnotationRequest
+ */
+export type UpdateAnnotationRequest = Message<"audit.v1.UpdateAnnotationRequest"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: string annotation_id = 2;
+   */
+  annotationId: string;
+
+  /**
+   * @generated from field: uint32 expected_revision = 3;
+   */
+  expectedRevision: number;
+
+  /**
+   * @generated from field: string tag = 4;
+   */
+  tag: string;
+
+  /**
+   * @generated from field: string rationale = 5;
+   */
+  rationale: string;
+};
+
+/**
+ * Describes the message audit.v1.UpdateAnnotationRequest.
+ * Use `create(UpdateAnnotationRequestSchema)` to create a new message.
+ */
+export const UpdateAnnotationRequestSchema: GenMessage<UpdateAnnotationRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 70);
+
+/**
+ * @generated from message audit.v1.UpdateAnnotationResponse
+ */
+export type UpdateAnnotationResponse = Message<"audit.v1.UpdateAnnotationResponse"> & {
+  /**
+   * @generated from field: audit.v1.LogicAnnotation annotation = 1;
+   */
+  annotation?: LogicAnnotation | undefined;
+};
+
+/**
+ * Describes the message audit.v1.UpdateAnnotationResponse.
+ * Use `create(UpdateAnnotationResponseSchema)` to create a new message.
+ */
+export const UpdateAnnotationResponseSchema: GenMessage<UpdateAnnotationResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 71);
+
+/**
+ * @generated from message audit.v1.RuntimeRecord
+ */
+export type RuntimeRecord = Message<"audit.v1.RuntimeRecord"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string run_id = 2;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string source_run_id = 3;
+   */
+  sourceRunId: string;
+
+  /**
+   * @generated from field: string finding_id = 4;
+   */
+  findingId: string;
+
+  /**
+   * @generated from field: string status = 5;
+   */
+  status: string;
+
+  /**
+   * @generated from field: string created_at = 6;
+   */
+  createdAt: string;
+
+  /**
+   * @generated from field: string config_json = 7;
+   */
+  configJson: string;
+
+  /**
+   * @generated from field: string result_json = 8;
+   */
+  resultJson: string;
+};
+
+/**
+ * Describes the message audit.v1.RuntimeRecord.
+ * Use `create(RuntimeRecordSchema)` to create a new message.
+ */
+export const RuntimeRecordSchema: GenMessage<RuntimeRecord> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 72);
+
+/**
+ * @generated from message audit.v1.CreateRuntimeRequest
+ */
+export type CreateRuntimeRequest = Message<"audit.v1.CreateRuntimeRequest"> & {
+  /**
+   * @generated from field: string request_id = 1;
+   */
+  requestId: string;
+
+  /**
+   * @generated from field: string source_run_id = 2;
+   */
+  sourceRunId: string;
+
+  /**
+   * @generated from field: string finding_id = 3;
+   */
+  findingId: string;
+
+  /**
+   * Empty selects the persisted verification plan for this finding.
+   *
+   * @generated from field: string config_json = 4;
+   */
+  configJson: string;
+};
+
+/**
+ * Describes the message audit.v1.CreateRuntimeRequest.
+ * Use `create(CreateRuntimeRequestSchema)` to create a new message.
+ */
+export const CreateRuntimeRequestSchema: GenMessage<CreateRuntimeRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 73);
+
+/**
+ * @generated from message audit.v1.CreateRuntimeResponse
+ */
+export type CreateRuntimeResponse = Message<"audit.v1.CreateRuntimeResponse"> & {
+  /**
+   * @generated from field: audit.v1.RuntimeRecord record = 1;
+   */
+  record?: RuntimeRecord | undefined;
+};
+
+/**
+ * Describes the message audit.v1.CreateRuntimeResponse.
+ * Use `create(CreateRuntimeResponseSchema)` to create a new message.
+ */
+export const CreateRuntimeResponseSchema: GenMessage<CreateRuntimeResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 74);
+
+/**
+ * @generated from message audit.v1.GetRuntimeRequest
+ */
+export type GetRuntimeRequest = Message<"audit.v1.GetRuntimeRequest"> & {
+  /**
+   * @generated from field: string record_id = 1;
+   */
+  recordId: string;
+};
+
+/**
+ * Describes the message audit.v1.GetRuntimeRequest.
+ * Use `create(GetRuntimeRequestSchema)` to create a new message.
+ */
+export const GetRuntimeRequestSchema: GenMessage<GetRuntimeRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 75);
+
+/**
+ * @generated from message audit.v1.GetRuntimeResponse
+ */
+export type GetRuntimeResponse = Message<"audit.v1.GetRuntimeResponse"> & {
+  /**
+   * @generated from field: audit.v1.RuntimeRecord record = 1;
+   */
+  record?: RuntimeRecord | undefined;
+};
+
+/**
+ * Describes the message audit.v1.GetRuntimeResponse.
+ * Use `create(GetRuntimeResponseSchema)` to create a new message.
+ */
+export const GetRuntimeResponseSchema: GenMessage<GetRuntimeResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 76);
+
+/**
+ * @generated from message audit.v1.ListRuntimeRequest
+ */
+export type ListRuntimeRequest = Message<"audit.v1.ListRuntimeRequest"> & {
+  /**
+   * @generated from field: string run_id = 1;
+   */
+  runId: string;
+};
+
+/**
+ * Describes the message audit.v1.ListRuntimeRequest.
+ * Use `create(ListRuntimeRequestSchema)` to create a new message.
+ */
+export const ListRuntimeRequestSchema: GenMessage<ListRuntimeRequest> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 77);
+
+/**
+ * @generated from message audit.v1.ListRuntimeResponse
+ */
+export type ListRuntimeResponse = Message<"audit.v1.ListRuntimeResponse"> & {
+  /**
+   * @generated from field: repeated audit.v1.RuntimeRecord records = 1;
+   */
+  records: RuntimeRecord[];
+};
+
+/**
+ * Describes the message audit.v1.ListRuntimeResponse.
+ * Use `create(ListRuntimeResponseSchema)` to create a new message.
+ */
+export const ListRuntimeResponseSchema: GenMessage<ListRuntimeResponse> = /*@__PURE__*/
+  messageDesc(file_audit_v1_audit, 78);
 
 /**
  * @generated from enum audit.v1.TargetKind
@@ -1914,6 +2775,14 @@ export const ProgramService: GenService<{
     input: typeof GetGraphRequestSchema;
     output: typeof GetGraphResponseSchema;
   },
+  /**
+   * @generated from rpc audit.v1.ProgramService.UpdateAnnotation
+   */
+  updateAnnotation: {
+    methodKind: "unary";
+    input: typeof UpdateAnnotationRequestSchema;
+    output: typeof UpdateAnnotationResponseSchema;
+  },
 }> = /*@__PURE__*/
   serviceDesc(file_audit_v1_audit, 2);
 
@@ -2009,4 +2878,74 @@ export const SystemService: GenService<{
   },
 }> = /*@__PURE__*/
   serviceDesc(file_audit_v1_audit, 5);
+
+/**
+ * @generated from service audit.v1.FindingService
+ */
+export const FindingService: GenService<{
+  /**
+   * @generated from rpc audit.v1.FindingService.GetAudit
+   */
+  getAudit: {
+    methodKind: "unary";
+    input: typeof GetAuditRequestSchema;
+    output: typeof GetAuditResponseSchema;
+  },
+  /**
+   * @generated from rpc audit.v1.FindingService.ListFindings
+   */
+  listFindings: {
+    methodKind: "unary";
+    input: typeof ListFindingsRequestSchema;
+    output: typeof ListFindingsResponseSchema;
+  },
+  /**
+   * @generated from rpc audit.v1.FindingService.GetFinding
+   */
+  getFinding: {
+    methodKind: "unary";
+    input: typeof GetFindingRequestSchema;
+    output: typeof GetFindingResponseSchema;
+  },
+  /**
+   * @generated from rpc audit.v1.FindingService.SubmitReview
+   */
+  submitReview: {
+    methodKind: "unary";
+    input: typeof SubmitReviewRequestSchema;
+    output: typeof SubmitReviewResponseSchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_audit_v1_audit, 6);
+
+/**
+ * @generated from service audit.v1.RuntimeService
+ */
+export const RuntimeService: GenService<{
+  /**
+   * @generated from rpc audit.v1.RuntimeService.CreateRuntime
+   */
+  createRuntime: {
+    methodKind: "unary";
+    input: typeof CreateRuntimeRequestSchema;
+    output: typeof CreateRuntimeResponseSchema;
+  },
+  /**
+   * @generated from rpc audit.v1.RuntimeService.GetRuntime
+   */
+  getRuntime: {
+    methodKind: "unary";
+    input: typeof GetRuntimeRequestSchema;
+    output: typeof GetRuntimeResponseSchema;
+  },
+  /**
+   * @generated from rpc audit.v1.RuntimeService.ListRuntime
+   */
+  listRuntime: {
+    methodKind: "unary";
+    input: typeof ListRuntimeRequestSchema;
+    output: typeof ListRuntimeResponseSchema;
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_audit_v1_audit, 7);
 

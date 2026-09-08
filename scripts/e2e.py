@@ -27,6 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--no-build', action='store_true')
     parser.add_argument('--skip-ghidra', action='store_true')
+    parser.add_argument('--runtime', action='store_true', help='Also test the Docker runtime browser workflow')
     options = parser.parse_args()
     env = environment()
     pnpm = 'pnpm.cmd' if os.name == 'nt' else 'pnpm'
@@ -35,6 +36,8 @@ def main():
         subprocess.run([pnpm, '--dir', 'frontend', 'build'], cwd=ROOT, env=env, check=True)
     if options.skip_ghidra:
         env['AEGIS_SKIP_GHIDRA'] = '1'
+    if options.runtime:
+        env['AEGIS_TEST_RUNTIME'] = '1'
     with socket.socket() as sock:
         sock.bind(('127.0.0.1', 0))
         port = sock.getsockname()[1]

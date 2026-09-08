@@ -1,6 +1,9 @@
+pub mod agents;
+pub mod audits;
 pub mod convert;
 pub mod error;
 pub mod model;
 pub mod rpc;
+pub mod runtime;
 pub mod store;
 pub mod web;

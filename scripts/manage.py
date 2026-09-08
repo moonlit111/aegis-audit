@@ -115,7 +115,7 @@ def start(options):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['build', 'start', 'stop', 'status', 'doctor', 'check', 'codegen'])
+    parser.add_argument('action', choices=['build', 'start', 'stop', 'status', 'doctor', 'check', 'codegen', 'runtime'])
     parser.add_argument('--port', type=int, default=7331)
     parser.add_argument('--open', action='store_true')
     parser.add_argument('--debug', action='store_true', help='Build debug binaries')
@@ -141,6 +141,8 @@ def main():
             for item in reversed(state['processes']): stop_item(item)
             STATE.unlink()
             print('Application stopped. Projects, artifacts and task history remain in .data/.')
+    elif options.action == 'runtime':
+        run(['docker', 'build', '--platform', 'linux/amd64', '-t', 'aegis-runtime:0.2.0', ROOT / 'tools/runtime'])
     elif options.action == 'doctor':
         run([executable('aegis-executor'), '--doctor'])
     elif options.action == 'codegen':

@@ -172,7 +172,15 @@ service RunService {
   rpc WatchRun(WatchRunRequest) returns (stream WatchRunResponse);
   rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
 }
-message CreateRunRequest { string request_id = 1; string snapshot_id = 2; }
+message CreateRunRequest {
+  string request_id = 1;
+  string snapshot_id = 2;
+  string scope = 3;
+  uint32 max_model_calls = 4;
+  uint32 max_units = 5;
+  uint32 max_tool_rounds = 6;
+  uint32 timeout_seconds = 7;
+}
 message CreateRunResponse { AuditRun run = 1; }
 message ListRunsRequest { string project_id = 1; }
 message ListRunsResponse { repeated AuditRun runs = 1; }
@@ -187,6 +195,7 @@ service ProgramService {
   rpc ListUnits(ListUnitsRequest) returns (ListUnitsResponse);
   rpc GetUnit(GetUnitRequest) returns (GetUnitResponse);
   rpc GetGraph(GetGraphRequest) returns (GetGraphResponse);
+  rpc UpdateAnnotation(UpdateAnnotationRequest) returns (UpdateAnnotationResponse);
 }
 message ListUnitsRequest { string run_id = 1; string query = 2; string language = 3; uint32 offset = 4; uint32 limit = 5; }
 message ListUnitsResponse { repeated ProgramUnit units = 1; uint64 total = 2; }
@@ -243,6 +252,12 @@ message ModelCall {
   string provider_request_id = 12;
   string artifact_id = 13;
   string error = 14;
+  string run_id = 15;
+  string task_id = 16;
+  string role = 17;
+  string prompt_version = 18;
+  string request_artifact_id = 19;
+  string finish_reason = 20;
 }
 message ModelConnection {
   string provider = 1;
@@ -254,3 +269,139 @@ message ModelConnection {
 }
 message CheckModelConnectionRequest { string request_id = 1; }
 message CheckModelConnectionResponse { ModelCall call = 1; }
+
+service FindingService {
+  rpc GetAudit(GetAuditRequest) returns (GetAuditResponse);
+  rpc ListFindings(ListFindingsRequest) returns (ListFindingsResponse);
+  rpc GetFinding(GetFindingRequest) returns (GetFindingResponse);
+  rpc SubmitReview(SubmitReviewRequest) returns (SubmitReviewResponse);
+}
+message EvidenceRef {
+  string unit_id = 1;
+  string artifact_id = 2;
+  string path = 3;
+  uint32 start_line = 4;
+  uint32 end_line = 5;
+  string address = 6;
+  string quote = 7;
+}
+message Finding {
+  string id = 1;
+  string run_id = 2;
+  string title = 3;
+  string category = 4;
+  string cwe = 5;
+  string severity = 6;
+  string severity_reason = 7;
+  string unit_id = 8;
+  string input_source = 9;
+  string sink = 10;
+  string missing_guard = 11;
+  string preconditions = 12;
+  string impact = 13;
+  string recommendation = 14;
+  repeated EvidenceRef evidence = 15;
+  string review_status = 16;
+  string verification_status = 17;
+  uint32 revision = 18;
+  string model_call_id = 19;
+  string created_at = 20;
+  string static_scope = 21;
+}
+message Review {
+  string id = 1;
+  string finding_id = 2;
+  string actor = 3;
+  string verdict = 4;
+  string rationale = 5;
+  string counter_evidence = 6;
+  string missing_information = 7;
+  repeated EvidenceRef evidence = 8;
+  string model_call_id = 9;
+  uint32 revision = 10;
+  string created_at = 11;
+  string assessments_json = 12;
+}
+message LogicAnnotation {
+  string id = 1;
+  string run_id = 2;
+  string unit_id = 3;
+  string tag = 4;
+  string rationale = 5;
+  repeated EvidenceRef evidence = 6;
+  string actor = 7;
+  uint32 revision = 8;
+  string model_call_id = 9;
+  string updated_at = 10;
+}
+message AgentTask {
+  string id = 1;
+  string run_id = 2;
+  string role = 3;
+  string item_key = 4;
+  string status = 5;
+  string created_at = 6;
+  string finished_at = 7;
+  string result_artifact_id = 8;
+  string error = 9;
+  string result_json = 10;
+}
+message GetAuditRequest { string run_id = 1; }
+message GetAuditResponse {
+  repeated Finding findings = 1;
+  repeated Review reviews = 2;
+  repeated LogicAnnotation annotations = 3;
+  repeated ModelCall model_calls = 4;
+  repeated AgentTask tasks = 5;
+  repeated RuntimeRecord runtime = 6;
+}
+message ListFindingsRequest { string run_id = 1; string review_status = 2; uint32 offset = 3; uint32 limit = 4; }
+message ListFindingsResponse { repeated Finding findings = 1; uint64 total = 2; }
+message GetFindingRequest { string finding_id = 1; }
+message GetFindingResponse { Finding finding = 1; repeated Review reviews = 2; }
+message SubmitReviewRequest {
+  string request_id = 1;
+  string finding_id = 2;
+  uint32 expected_revision = 3;
+  string verdict = 4;
+  string rationale = 5;
+  string counter_evidence = 6;
+  string missing_information = 7;
+}
+message SubmitReviewResponse { Finding finding = 1; Review review = 2; }
+message UpdateAnnotationRequest {
+  string request_id = 1;
+  string annotation_id = 2;
+  uint32 expected_revision = 3;
+  string tag = 4;
+  string rationale = 5;
+}
+message UpdateAnnotationResponse { LogicAnnotation annotation = 1; }
+
+service RuntimeService {
+  rpc CreateRuntime(CreateRuntimeRequest) returns (CreateRuntimeResponse);
+  rpc GetRuntime(GetRuntimeRequest) returns (GetRuntimeResponse);
+  rpc ListRuntime(ListRuntimeRequest) returns (ListRuntimeResponse);
+}
+message RuntimeRecord {
+  string id = 1;
+  string run_id = 2;
+  string source_run_id = 3;
+  string finding_id = 4;
+  string status = 5;
+  string created_at = 6;
+  string config_json = 7;
+  string result_json = 8;
+}
+message CreateRuntimeRequest {
+  string request_id = 1;
+  string source_run_id = 2;
+  string finding_id = 3;
+  // Empty selects the persisted verification plan for this finding.
+  string config_json = 4;
+}
+message CreateRuntimeResponse { RuntimeRecord record = 1; }
+message GetRuntimeRequest { string record_id = 1; }
+message GetRuntimeResponse { RuntimeRecord record = 1; }
+message ListRuntimeRequest { string run_id = 1; }
+message ListRuntimeResponse { repeated RuntimeRecord records = 1; }

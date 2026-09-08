@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "version": "0.2.0",
+  "checked_at": "2026-09-08T19:23:45.778293+00:00",
+  "purpose": "local release and Windows handoff preparation; not Windows host or formal course acceptance",
+  "engineering": {
+    "passed": true,
+    "rust_tests_passed": 27,
+    "rust_tests_failed": 0,
+    "ignored_generated_doctests": 48,
+    "protocol_reproducible": true,
+    "svelte_errors": 0,
+    "svelte_warnings": 0,
+    "log": ".data/verification/check-0.2.0.log"
+  },
+  "release_build": {
+    "passed": true,
+    "server_version": "0.2.0",
+    "executor_version": "0.2.0",
+    "log": ".data/verification/release-build-0.2.0.log"
+  },
+  "runtime_package": {
+    "version": "0.2.0",
+    "platform": "macOS ARM64",
+    "checked_at": "2026-09-08T19:17:50.742984+00:00",
+    "archive": ".data/dist/aegis-audit-0.2.0-darwin-arm64.zip",
+    "archive_sha256": "4e0a1b0cb1bbbb688a860d7affac96415f78c822c13ee31a54b024b30945cb9c",
+    "manifest_files": 680,
+    "checks": [
+      "archive_and_file_sha256",
+      "native_binary_versions_and_permissions",
+      "source_import_structure_events_and_three_reports",
+      "packaged_runtime_adapter_control_and_repeated_observations",
+      "runtime_evidence_in_three_report_formats",
+      "packaged_launcher_start_and_stop"
+    ],
+    "runtime_status": "VERIFIED_COMPONENT",
+    "local_evidence_directory": ".data/verification/package-0.2.0-20260909-031744",
+    "passed": true
+  },
+  "source_handoff_verifier": {
+    "passed": true,
+    "checks": [
+      "archive_sha256",
+      "extracted_source_without_git_or_toolchain",
+      "modified_file_rejected",
+      "missing_file_rejected",
+      "manifest_path_escape_rejected"
+    ],
+    "tested_source_file_count": 151,
+    "evidence": ".data/verification/handoff-verification-0.2.0.json"
+  },
+  "local_upgrade": {
+    "passed": true,
+    "health": {
+      "ok": true,
+      "version": "0.2.0"
+    },
+    "preserved_rows": {
+      "projects": 5,
+      "snapshots": 15,
+      "audit_runs": 17,
+      "artifacts": 120,
+      "report_exports": 42
+    },
+    "api_readback": {
+      "projects": 5,
+      "runs": 17
+    },
+    "migrations": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "backup_created": true,
+    "evidence": ".data/verification/upgrade-0.2.0.json"
+  },
+  "windows_host_execution": "NOT_RUN",
+  "formal_acceptance": {
+    "passed": 0,
+    "required": 6
+  }
+}

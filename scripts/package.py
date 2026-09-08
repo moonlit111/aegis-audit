@@ -34,6 +34,7 @@ def main():
             shutil.copy2(ROOT / 'target/release' / (binary + suffix), target)
         shutil.copytree(ROOT / 'frontend/dist', stage / 'frontend/dist')
         shutil.copytree(ROOT / 'Docs', stage / 'Docs')
+        shutil.copytree(ROOT / 'tools/runtime', stage / 'tools/runtime', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
         for source in ['README.md', 'tools/versions.json', 'tools/ghidra/ExportProgram.java', 'scripts/aegis.py', 'scripts/bootstrap.py', 'scripts/manage.py', 'scripts/configure_model.py']:
             target = stage / source
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -41,7 +42,7 @@ def main():
         collect(stage / 'THIRD-PARTY-NOTICES')
         files = [{'path': file.relative_to(stage).as_posix(), 'sha256': hashlib.sha256(file.read_bytes()).hexdigest(), 'size': file.stat().st_size}
                  for file in sorted(stage.rglob('*')) if file.is_file()]
-        (stage / 'PACKAGE-MANIFEST.json').write_text(json.dumps({'version': version, 'platform': platform.platform(), 'scope': 'STRUCTURE_ANALYSIS', 'files': files}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        (stage / 'PACKAGE-MANIFEST.json').write_text(json.dumps({'version': version, 'platform': platform.platform(), 'scopes': ['STRUCTURE_ANALYSIS', 'SECURITY_AUDIT', 'RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'], 'files': files}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         archive = options.output / (name + '.zip')
         with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, strict_timestamps=False) as output:
             for file in sorted(stage.rglob('*')):

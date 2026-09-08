@@ -3,6 +3,11 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 
+pub mod audit;
+pub use audit::*;
+pub mod runtime;
+pub use runtime::*;
+
 pub const SCOPE: &str = "STRUCTURE_ANALYSIS";
 pub const SCHEMA_VERSION: u32 = 1;
 
@@ -22,6 +27,18 @@ pub struct ModelCall {
     pub provider_request_id: String,
     pub artifact_id: String,
     pub error: String,
+    #[serde(default)]
+    pub run_id: String,
+    #[serde(default)]
+    pub task_id: String,
+    #[serde(default)]
+    pub role: String,
+    #[serde(default)]
+    pub prompt_version: String,
+    #[serde(default)]
+    pub request_artifact_id: String,
+    #[serde(default)]
+    pub finish_reason: String,
 }
 
 pub fn now() -> String {

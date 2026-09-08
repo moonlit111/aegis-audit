@@ -31,7 +31,16 @@
     errorMessage,
     artifactUrl,
   } from './lib/api';
-  import { dateTime, bytes, kindLabel, snapshotLabel, runLabel, tone, isTerminal } from './lib/format';
+  import {
+    dateTime,
+    bytes,
+    kindLabel,
+    snapshotLabel,
+    runLabel,
+    scopeLabel,
+    tone,
+    isTerminal,
+  } from './lib/format';
   import ImportDialog from './components/ImportDialog.svelte';
   import RunView from './components/RunView.svelte';
   import ModelConnectionPanel from './components/ModelConnectionPanel.svelte';
@@ -130,11 +139,11 @@
     await refresh();
     notify('快照已创建，执行器将检查并归档目标文件。');
   }
-  async function analyze(snapshot: Snapshot) {
+  async function analyze(snapshot: Snapshot, scope = 'STRUCTURE_ANALYSIS') {
     if (creating) return;
     creating = snapshot.id;
     try {
-      const response = await runsApi.createRun({ requestId: requestId(), snapshotId: snapshot.id });
+      const response = await runsApi.createRun({ requestId: requestId(), snapshotId: snapshot.id, scope });
       location.hash = `/runs/${response.run!.id}`;
       await refresh();
     } catch (failure) {
@@ -188,9 +197,9 @@
     </nav>
     <div class="sidebar-scope">
       <span class="nav-label">当前阶段</span>
-      <div><Layers size={17} />程序结构分析</div>
+      <div><Layers size={17} />程序理解与漏洞审计</div>
       <p>把代码、函数与证据<br />放回同一个上下文。</p>
-      <span class="version">MILESTONE 01 <span>/</span> v{capabilities?.version || '0.1.0'}</span>
+      <span class="version">MILESTONE 02 <span>/</span> v{capabilities?.version || '0.1.0'}</span>
     </div>
     <div class="sidebar-bottom">
       <a href="https://github.com/moonlit111/aegis-audit" target="_blank" rel="noreferrer"
@@ -247,7 +256,7 @@
             ><small>本地持久化保存</small>
           </div>
           <div class="metric">
-            <span>结构分析任务<Activity size={17} /></span><strong
+            <span>分析任务<Activity size={17} /></span><strong
               >{runs.length.toString().padStart(2, '0')}</strong
             ><small>{activeRuns} 项正在等待或执行</small>
           </div>
@@ -257,8 +266,8 @@
             ><small>模块与函数，按任务累计</small>
           </div>
           <div class="metric scope-metric">
-            <span>当前能力边界<CircleHelp size={17} /></span><strong>结构分析</strong><small
-              >漏洞审计与利用验证尚未执行</small
+            <span>当前能力边界<CircleHelp size={17} /></span><strong>静态审计</strong><small
+              >源码 / 反编译 · 独立复核 · 证据</small
             >
           </div>
         </div>
@@ -355,9 +364,22 @@
                         disabled={creating !== '' ||
                           ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state)}
                         onclick={() => analyze(snapshot)}
-                        >{creating === snapshot.id ? '正在创建…' : '开始结构分析'}<ArrowRight
-                          size={14}
-                        /></button
+                        >{creating === snapshot.id
+                          ? '正在创建…'
+                          : snapshot.kind === TargetKind.BINARY
+                            ? '开始反编译'
+                            : '开始结构分析'}<ArrowRight size={14} /></button
+                      >
+                      <button
+                        class="button primary small"
+                        disabled={creating !== '' ||
+                          ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state) ||
+                          !capabilities?.modelConnection?.configured}
+                        title={capabilities?.modelConnection?.configured
+                          ? '解析代码后进行语义审计与独立复核'
+                          : '请先在执行环境配置模型连接'}
+                        onclick={() => analyze(snapshot, 'SECURITY_AUDIT')}
+                        >开始漏洞审计<ArrowRight size={14} /></button
                       >
                     </div>
                   </article>{/each}
@@ -385,7 +407,7 @@
           {#if !runs.length}<div class="empty-panel">
               <Activity size={32} strokeWidth={1.2} />
               <h3>还没有分析任务</h3>
-              <p>在项目快照中点击“开始结构分析”。</p>
+              <p>从项目快照开始结构分析、反编译或漏洞审计。</p>
             </div>{:else}<div class="table-scroll">
               <table class="task-table">
                 <thead
@@ -396,7 +418,7 @@
                       ><td
                         ><a class="task-name" href={`#/runs/${run.id}`}
                           >{projects.find((item) => item.id === run.projectId)?.name || '分析任务'}<small
-                            >{run.id.slice(0, 8)} · 程序结构分析</small
+                            >{run.id.slice(0, 8)} · {scopeLabel(run.scope)}</small
                           ></a
                         ></td
                       ><td><span class={`badge ${tone(run.state)}`}>{runLabel(run.state)}</span></td><td

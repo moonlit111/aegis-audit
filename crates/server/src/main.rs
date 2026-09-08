@@ -38,6 +38,8 @@ async fn main() -> anyhow::Result<()> {
     )
     .await?;
     state.store.recover_model_probes().await?;
+    state.store.recover_audits().await?;
+    let audit_worker = state.store.spawn_audit_worker(shutdown.clone());
     let reaper = state.store.clone();
     let reaper_stop = shutdown.clone();
     tokio::spawn(async move {
@@ -67,5 +69,6 @@ async fn main() -> anyhow::Result<()> {
         shutdown.cancel();
     })
     .await?;
+    audit_worker.await?;
     Ok(())
 }

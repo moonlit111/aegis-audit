@@ -1,6 +1,9 @@
 import { RunState, SnapshotState, TargetKind } from '../gen/audit/v1/audit_pb';
 
 export const isTerminal = (state: RunState) => state >= RunState.COMPLETED;
+export const scopeLabel = (scope: string) =>
+  ({ SECURITY_AUDIT: '漏洞审计', RUNTIME_VERIFICATION: '运行验证', DYNAMIC_TESTING: '动态测试' })[scope] ||
+  '程序结构分析';
 export function runLabel(state: RunState): string {
   return (
     [
@@ -72,6 +75,11 @@ export type ToolRecord = {
   command: string[];
 };
 export type Summary = {
+  vulnerability_audit?: string;
+  audited_unit_count?: number;
+  eligible_unit_count?: number;
+  finding_count?: number;
+  audit_coverage_gap?: string;
   function_count?: number;
   edge_count?: number;
   unresolved_calls?: number;
@@ -89,5 +97,5 @@ export type UnitMetadata = {
   branches?: { kind: string; line: number; condition: string }[];
   basic_blocks?: { start: string; end: string; successors: { address: string; flow_type: string }[] }[];
   pcode?: { address: string; opcode: string }[];
-  strings?: { address: string; value: string }[];
+  referenced_strings?: { address: string; value: string }[];
 };

@@ -35,6 +35,8 @@ pub fn router(api: Arc<Api>) -> connectrpc::Router {
     let router = p::ProjectServiceExt::register(api.clone(), router);
     let router = p::RunServiceExt::register(api.clone(), router);
     let router = p::ProgramServiceExt::register(api.clone(), router);
+    let router = p::FindingServiceExt::register(api.clone(), router);
+    let router = p::RuntimeServiceExt::register(api.clone(), router);
     let router = p::ReportServiceExt::register(api.clone(), router);
     let router = p::ExecutorServiceExt::register(api.clone(), router);
     p::SystemServiceExt::register(api, router)
@@ -134,10 +136,32 @@ impl p::RunService for Api {
         _: RequestContext,
         req: ServiceRequest<'_, p::CreateRunRequest>,
     ) -> ServiceResult<p::CreateRunResponse> {
+        let mut config = d::AuditConfig::default();
+        if req.max_model_calls > 0 {
+            config.max_model_calls = req.max_model_calls;
+        }
+        if req.max_units > 0 {
+            config.max_units = req.max_units;
+        }
+        if req.max_tool_rounds > 0 {
+            config.max_tool_rounds = req.max_tool_rounds;
+        }
+        if req.timeout_seconds > 0 {
+            config.timeout_seconds = req.timeout_seconds;
+        }
         Response::ok(p::CreateRunResponse {
             run: c::run(
                 self.store
-                    .create_run(req.request_id, req.snapshot_id)
+                    .create_run_with_options(
+                        req.request_id,
+                        req.snapshot_id,
+                        if req.scope.is_empty() {
+                            d::SCOPE
+                        } else {
+                            req.scope
+                        },
+                        config,
+                    )
                     .await?,
             )
             .into(),
@@ -214,6 +238,27 @@ impl p::RunService for Api {
     }
 }
 impl p::ProgramService for Api {
+    async fn update_annotation(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::UpdateAnnotationRequest>,
+    ) -> ServiceResult<p::UpdateAnnotationResponse> {
+        Response::ok(p::UpdateAnnotationResponse {
+            annotation: c::annotation(
+                self.store
+                    .update_annotation(
+                        req.request_id,
+                        req.annotation_id,
+                        req.expected_revision,
+                        req.tag,
+                        req.rationale,
+                    )
+                    .await?,
+            )
+            .into(),
+            ..Default::default()
+        })
+    }
     async fn list_units(
         &self,
         _: RequestContext,
@@ -255,6 +300,133 @@ impl p::ProgramService for Api {
         Response::ok(p::GetGraphResponse {
             units: units.into_iter().map(c::unit).collect(),
             edges: edges.into_iter().map(c::edge).collect(),
+            ..Default::default()
+        })
+    }
+}
+impl p::FindingService for Api {
+    async fn get_audit(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::GetAuditRequest>,
+    ) -> ServiceResult<p::GetAuditResponse> {
+        let data = self.store.audit_evidence(req.run_id).await?;
+        Response::ok(p::GetAuditResponse {
+            findings: data.findings.into_iter().map(c::finding).collect(),
+            reviews: data.reviews.into_iter().map(c::review).collect(),
+            annotations: data.annotations.into_iter().map(c::annotation).collect(),
+            model_calls: data.model_calls.into_iter().map(c::model_call).collect(),
+            tasks: data.tasks.into_iter().map(c::agent_task).collect(),
+            runtime: data.runtime.into_iter().map(c::runtime_record).collect(),
+            ..Default::default()
+        })
+    }
+    async fn list_findings(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::ListFindingsRequest>,
+    ) -> ServiceResult<p::ListFindingsResponse> {
+        let (findings, total) = self
+            .store
+            .findings(req.run_id, req.review_status, req.offset, req.limit)
+            .await?;
+        Response::ok(p::ListFindingsResponse {
+            findings: findings.into_iter().map(c::finding).collect(),
+            total,
+            ..Default::default()
+        })
+    }
+    async fn get_finding(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::GetFindingRequest>,
+    ) -> ServiceResult<p::GetFindingResponse> {
+        Response::ok(p::GetFindingResponse {
+            finding: c::finding(self.store.get("findings", req.finding_id).await?).into(),
+            reviews: self
+                .store
+                .finding_reviews(req.finding_id)
+                .await?
+                .into_iter()
+                .map(c::review)
+                .collect(),
+            ..Default::default()
+        })
+    }
+    async fn submit_review(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::SubmitReviewRequest>,
+    ) -> ServiceResult<p::SubmitReviewResponse> {
+        let draft = d::ReviewDraft {
+            verdict: req.verdict.into(),
+            rationale: req.rationale.into(),
+            counter_evidence: req.counter_evidence.into(),
+            missing_information: req.missing_information.into(),
+            evidence: vec![],
+            assessments: vec![],
+        };
+        let (finding, review) = self
+            .store
+            .submit_review(req.request_id, req.finding_id, req.expected_revision, draft)
+            .await?;
+        Response::ok(p::SubmitReviewResponse {
+            finding: c::finding(finding).into(),
+            review: c::review(review).into(),
+            ..Default::default()
+        })
+    }
+}
+impl p::RuntimeService for Api {
+    async fn create_runtime(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::CreateRuntimeRequest>,
+    ) -> ServiceResult<p::CreateRuntimeResponse> {
+        let config = if req.config_json.is_empty() {
+            None
+        } else {
+            if req.config_json.len() > 128 * 1024 {
+                return Err(ConnectError::invalid_argument("运行配置超过 128 KiB"));
+            }
+            Some(serde_json::from_str(req.config_json).map_err(|error| {
+                ConnectError::invalid_argument(format!("运行配置无效：{error}"))
+            })?)
+        };
+        Response::ok(p::CreateRuntimeResponse {
+            record: c::runtime_record(
+                self.store
+                    .create_runtime(req.request_id, req.source_run_id, req.finding_id, config)
+                    .await?,
+            )
+            .into(),
+            ..Default::default()
+        })
+    }
+    async fn get_runtime(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::GetRuntimeRequest>,
+    ) -> ServiceResult<p::GetRuntimeResponse> {
+        Response::ok(p::GetRuntimeResponse {
+            record: c::runtime_record(self.store.runtime_record(req.record_id).await?).into(),
+            ..Default::default()
+        })
+    }
+    async fn list_runtime(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::ListRuntimeRequest>,
+    ) -> ServiceResult<p::ListRuntimeResponse> {
+        let _: d::AuditRun = self.store.get("audit_runs", req.run_id).await?;
+        Response::ok(p::ListRuntimeResponse {
+            records: self
+                .store
+                .runtime_records(req.run_id)
+                .await?
+                .into_iter()
+                .map(c::runtime_record)
+                .collect(),
             ..Default::default()
         })
     }
@@ -423,10 +595,8 @@ impl p::SystemService for Api {
                 .map(c::executor)
                 .collect(),
             pending_features: vec![
-                "智能体漏洞审计与独立复核".into(),
                 "去壳与解混淆".into(),
                 "动态模糊测试与自动利用".into(),
-                "关键逻辑标注与人工修订".into(),
                 "六项正式软件验收".into(),
             ],
             model_connection: self.store.model_connection().await?.into(),

@@ -7527,6 +7527,16 @@ pub struct CreateRunRequestView<'a> {
     pub request_id: &'a str,
     /// Field 2: `snapshot_id`
     pub snapshot_id: &'a str,
+    /// Field 3: `scope`
+    pub scope: &'a str,
+    /// Field 4: `max_model_calls`
+    pub max_model_calls: u32,
+    /// Field 5: `max_units`
+    pub max_units: u32,
+    /// Field 6: `max_tool_rounds`
+    pub max_tool_rounds: u32,
+    /// Field 7: `timeout_seconds`
+    pub timeout_seconds: u32,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> ::buffa::MessageView<'a> for CreateRunRequestView<'a> {
@@ -7571,6 +7581,41 @@ impl<'a> ::buffa::MessageView<'a> for CreateRunRequestView<'a> {
                 )?;
                 view.snapshot_id = ::buffa::types::borrow_str(&mut cur)?;
             }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.scope = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.max_model_calls = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.max_units = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.max_tool_rounds = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.timeout_seconds = ::buffa::types::decode_uint32(&mut cur)?;
+            }
             _ => {
                 ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                 let span_len = before_tag.len() - cur.len();
@@ -7595,6 +7640,11 @@ impl<'a> ::buffa::MessageView<'a> for CreateRunRequestView<'a> {
         ::core::result::Result::Ok(super::super::CreateRunRequest {
             request_id: self.request_id.to_string(),
             snapshot_id: self.snapshot_id.to_string(),
+            scope: self.scope.to_string(),
+            max_model_calls: self.max_model_calls,
+            max_units: self.max_units,
+            max_tool_rounds: self.max_tool_rounds,
+            timeout_seconds: self.timeout_seconds,
             __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
             ..::core::default::Default::default()
         })
@@ -7612,6 +7662,27 @@ impl<'a> ::buffa::ViewEncode<'a> for CreateRunRequestView<'a> {
         if !self.snapshot_id.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.snapshot_id) as u64;
         }
+        if !self.scope.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.scope) as u64;
+        }
+        if self.max_model_calls != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.max_model_calls) as u64;
+        }
+        if self.max_units != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.max_units) as u64;
+        }
+        if self.max_tool_rounds != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.max_tool_rounds) as u64;
+        }
+        if self.timeout_seconds != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.timeout_seconds) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -7628,6 +7699,21 @@ impl<'a> ::buffa::ViewEncode<'a> for CreateRunRequestView<'a> {
         }
         if !self.snapshot_id.is_empty() {
             ::buffa::types::put_string_field(2u32, &self.snapshot_id, buf);
+        }
+        if !self.scope.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.scope, buf);
+        }
+        if self.max_model_calls != 0u32 {
+            ::buffa::types::put_uint32_field(4u32, self.max_model_calls, buf);
+        }
+        if self.max_units != 0u32 {
+            ::buffa::types::put_uint32_field(5u32, self.max_units, buf);
+        }
+        if self.max_tool_rounds != 0u32 {
+            ::buffa::types::put_uint32_field(6u32, self.max_tool_rounds, buf);
+        }
+        if self.timeout_seconds != 0u32 {
+            ::buffa::types::put_uint32_field(7u32, self.timeout_seconds, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -7655,6 +7741,37 @@ impl<'__a> ::serde::Serialize for CreateRunRequestView<'__a> {
         }
         if !::buffa::json_helpers::skip_if::is_empty_str(self.snapshot_id) {
             __map.serialize_entry("snapshotId", self.snapshot_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.scope) {
+            __map.serialize_entry("scope", self.scope)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.max_model_calls) {
+            __map
+                .serialize_entry(
+                    "maxModelCalls",
+                    &::buffa::json_helpers::ProtoJson(&self.max_model_calls),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.max_units) {
+            __map
+                .serialize_entry(
+                    "maxUnits",
+                    &::buffa::json_helpers::ProtoJson(&self.max_units),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.max_tool_rounds) {
+            __map
+                .serialize_entry(
+                    "maxToolRounds",
+                    &::buffa::json_helpers::ProtoJson(&self.max_tool_rounds),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.timeout_seconds) {
+            __map
+                .serialize_entry(
+                    "timeoutSeconds",
+                    &::buffa::json_helpers::ProtoJson(&self.timeout_seconds),
+                )?;
         }
         __map.end()
     }
@@ -7758,6 +7875,31 @@ impl CreateRunRequestOwnedView {
     #[must_use]
     pub fn snapshot_id(&self) -> &'_ str {
         self.0.reborrow().snapshot_id
+    }
+    /// Field 3: `scope`
+    #[must_use]
+    pub fn scope(&self) -> &'_ str {
+        self.0.reborrow().scope
+    }
+    /// Field 4: `max_model_calls`
+    #[must_use]
+    pub fn max_model_calls(&self) -> u32 {
+        self.0.reborrow().max_model_calls
+    }
+    /// Field 5: `max_units`
+    #[must_use]
+    pub fn max_units(&self) -> u32 {
+        self.0.reborrow().max_units
+    }
+    /// Field 6: `max_tool_rounds`
+    #[must_use]
+    pub fn max_tool_rounds(&self) -> u32 {
+        self.0.reborrow().max_tool_rounds
+    }
+    /// Field 7: `timeout_seconds`
+    #[must_use]
+    pub fn timeout_seconds(&self) -> u32 {
+        self.0.reborrow().timeout_seconds
     }
 }
 impl ::core::convert::From<::buffa::OwnedView<CreateRunRequestView<'static>>>
@@ -16988,6 +17130,18 @@ pub struct ModelCallView<'a> {
     pub artifact_id: &'a str,
     /// Field 14: `error`
     pub error: &'a str,
+    /// Field 15: `run_id`
+    pub run_id: &'a str,
+    /// Field 16: `task_id`
+    pub task_id: &'a str,
+    /// Field 17: `role`
+    pub role: &'a str,
+    /// Field 18: `prompt_version`
+    pub prompt_version: &'a str,
+    /// Field 19: `request_artifact_id`
+    pub request_artifact_id: &'a str,
+    /// Field 20: `finish_reason`
+    pub finish_reason: &'a str,
     pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
 }
 impl<'a> ::buffa::MessageView<'a> for ModelCallView<'a> {
@@ -17116,6 +17270,48 @@ impl<'a> ::buffa::MessageView<'a> for ModelCallView<'a> {
                 )?;
                 view.error = ::buffa::types::borrow_str(&mut cur)?;
             }
+            15u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            16u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.task_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            17u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.role = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            18u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.prompt_version = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            19u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.request_artifact_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            20u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finish_reason = ::buffa::types::borrow_str(&mut cur)?;
+            }
             _ => {
                 ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                 let span_len = before_tag.len() - cur.len();
@@ -17152,6 +17348,12 @@ impl<'a> ::buffa::MessageView<'a> for ModelCallView<'a> {
             provider_request_id: self.provider_request_id.to_string(),
             artifact_id: self.artifact_id.to_string(),
             error: self.error.to_string(),
+            run_id: self.run_id.to_string(),
+            task_id: self.task_id.to_string(),
+            role: self.role.to_string(),
+            prompt_version: self.prompt_version.to_string(),
+            request_artifact_id: self.request_artifact_id.to_string(),
+            finish_reason: self.finish_reason.to_string(),
             __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
             ..::core::default::Default::default()
         })
@@ -17208,6 +17410,30 @@ impl<'a> ::buffa::ViewEncode<'a> for ModelCallView<'a> {
         if !self.error.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.error) as u64;
         }
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        if !self.task_id.is_empty() {
+            size += 2u64 + ::buffa::types::string_encoded_len(&self.task_id) as u64;
+        }
+        if !self.role.is_empty() {
+            size += 2u64 + ::buffa::types::string_encoded_len(&self.role) as u64;
+        }
+        if !self.prompt_version.is_empty() {
+            size
+                += 2u64
+                    + ::buffa::types::string_encoded_len(&self.prompt_version) as u64;
+        }
+        if !self.request_artifact_id.is_empty() {
+            size
+                += 2u64
+                    + ::buffa::types::string_encoded_len(&self.request_artifact_id)
+                        as u64;
+        }
+        if !self.finish_reason.is_empty() {
+            size
+                += 2u64 + ::buffa::types::string_encoded_len(&self.finish_reason) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -17260,6 +17486,24 @@ impl<'a> ::buffa::ViewEncode<'a> for ModelCallView<'a> {
         }
         if !self.error.is_empty() {
             ::buffa::types::put_string_field(14u32, &self.error, buf);
+        }
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(15u32, &self.run_id, buf);
+        }
+        if !self.task_id.is_empty() {
+            ::buffa::types::put_string_field(16u32, &self.task_id, buf);
+        }
+        if !self.role.is_empty() {
+            ::buffa::types::put_string_field(17u32, &self.role, buf);
+        }
+        if !self.prompt_version.is_empty() {
+            ::buffa::types::put_string_field(18u32, &self.prompt_version, buf);
+        }
+        if !self.request_artifact_id.is_empty() {
+            ::buffa::types::put_string_field(19u32, &self.request_artifact_id, buf);
+        }
+        if !self.finish_reason.is_empty() {
+            ::buffa::types::put_string_field(20u32, &self.finish_reason, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -17339,6 +17583,24 @@ impl<'__a> ::serde::Serialize for ModelCallView<'__a> {
         }
         if !::buffa::json_helpers::skip_if::is_empty_str(self.error) {
             __map.serialize_entry("error", self.error)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.task_id) {
+            __map.serialize_entry("taskId", self.task_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.role) {
+            __map.serialize_entry("role", self.role)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.prompt_version) {
+            __map.serialize_entry("promptVersion", self.prompt_version)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.request_artifact_id) {
+            __map.serialize_entry("requestArtifactId", self.request_artifact_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finish_reason) {
+            __map.serialize_entry("finishReason", self.finish_reason)?;
         }
         __map.end()
     }
@@ -17500,6 +17762,36 @@ impl ModelCallOwnedView {
     #[must_use]
     pub fn error(&self) -> &'_ str {
         self.0.reborrow().error
+    }
+    /// Field 15: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+    /// Field 16: `task_id`
+    #[must_use]
+    pub fn task_id(&self) -> &'_ str {
+        self.0.reborrow().task_id
+    }
+    /// Field 17: `role`
+    #[must_use]
+    pub fn role(&self) -> &'_ str {
+        self.0.reborrow().role
+    }
+    /// Field 18: `prompt_version`
+    #[must_use]
+    pub fn prompt_version(&self) -> &'_ str {
+        self.0.reborrow().prompt_version
+    }
+    /// Field 19: `request_artifact_id`
+    #[must_use]
+    pub fn request_artifact_id(&self) -> &'_ str {
+        self.0.reborrow().request_artifact_id
+    }
+    /// Field 20: `finish_reason`
+    #[must_use]
+    pub fn finish_reason(&self) -> &'_ str {
+        self.0.reborrow().finish_reason
     }
 }
 impl ::core::convert::From<::buffa::OwnedView<ModelCallView<'static>>>
@@ -18477,6 +18769,8194 @@ impl ::buffa::HasMessageView for super::super::CheckModelConnectionResponse {
     type ViewHandle = CheckModelConnectionResponseOwnedView;
 }
 impl ::serde::Serialize for CheckModelConnectionResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct EvidenceRefView<'a> {
+    /// Field 1: `unit_id`
+    pub unit_id: &'a str,
+    /// Field 2: `artifact_id`
+    pub artifact_id: &'a str,
+    /// Field 3: `path`
+    pub path: &'a str,
+    /// Field 4: `start_line`
+    pub start_line: u32,
+    /// Field 5: `end_line`
+    pub end_line: u32,
+    /// Field 6: `address`
+    pub address: &'a str,
+    /// Field 7: `quote`
+    pub quote: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for EvidenceRefView<'a> {
+    type Owned = super::super::EvidenceRef;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.unit_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.artifact_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.path = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.start_line = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.end_line = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.address = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.quote = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::EvidenceRef, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::EvidenceRef, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::EvidenceRef {
+            unit_id: self.unit_id.to_string(),
+            artifact_id: self.artifact_id.to_string(),
+            path: self.path.to_string(),
+            start_line: self.start_line,
+            end_line: self.end_line,
+            address: self.address.to_string(),
+            quote: self.quote.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for EvidenceRefView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.unit_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.unit_id) as u64;
+        }
+        if !self.artifact_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.artifact_id) as u64;
+        }
+        if !self.path.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.path) as u64;
+        }
+        if self.start_line != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.start_line) as u64;
+        }
+        if self.end_line != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.end_line) as u64;
+        }
+        if !self.address.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.address) as u64;
+        }
+        if !self.quote.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.quote) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.unit_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.unit_id, buf);
+        }
+        if !self.artifact_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.artifact_id, buf);
+        }
+        if !self.path.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.path, buf);
+        }
+        if self.start_line != 0u32 {
+            ::buffa::types::put_uint32_field(4u32, self.start_line, buf);
+        }
+        if self.end_line != 0u32 {
+            ::buffa::types::put_uint32_field(5u32, self.end_line, buf);
+        }
+        if !self.address.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.address, buf);
+        }
+        if !self.quote.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.quote, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for EvidenceRefView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.unit_id) {
+            __map.serialize_entry("unitId", self.unit_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.artifact_id) {
+            __map.serialize_entry("artifactId", self.artifact_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.path) {
+            __map.serialize_entry("path", self.path)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.start_line) {
+            __map
+                .serialize_entry(
+                    "startLine",
+                    &::buffa::json_helpers::ProtoJson(&self.start_line),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.end_line) {
+            __map
+                .serialize_entry(
+                    "endLine",
+                    &::buffa::json_helpers::ProtoJson(&self.end_line),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.address) {
+            __map.serialize_entry("address", self.address)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.quote) {
+            __map.serialize_entry("quote", self.quote)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for EvidenceRefView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "EvidenceRef";
+    const FULL_NAME: &'static str = "audit.v1.EvidenceRef";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.EvidenceRef";
+}
+::buffa::impl_default_view_instance!(EvidenceRefView);
+::buffa::impl_view_reborrow!(EvidenceRefView);
+/** Self-contained, `'static` owned view of a `EvidenceRef` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`EvidenceRefView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`EvidenceRefView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct EvidenceRefOwnedView(::buffa::OwnedView<EvidenceRefView<'static>>);
+impl EvidenceRefOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            EvidenceRefOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            EvidenceRefOwnedView(::buffa::OwnedView::decode_with_options(bytes, opts)?),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::EvidenceRef,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            EvidenceRefOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`EvidenceRefView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &EvidenceRefView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::EvidenceRef {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `unit_id`
+    #[must_use]
+    pub fn unit_id(&self) -> &'_ str {
+        self.0.reborrow().unit_id
+    }
+    /// Field 2: `artifact_id`
+    #[must_use]
+    pub fn artifact_id(&self) -> &'_ str {
+        self.0.reborrow().artifact_id
+    }
+    /// Field 3: `path`
+    #[must_use]
+    pub fn path(&self) -> &'_ str {
+        self.0.reborrow().path
+    }
+    /// Field 4: `start_line`
+    #[must_use]
+    pub fn start_line(&self) -> u32 {
+        self.0.reborrow().start_line
+    }
+    /// Field 5: `end_line`
+    #[must_use]
+    pub fn end_line(&self) -> u32 {
+        self.0.reborrow().end_line
+    }
+    /// Field 6: `address`
+    #[must_use]
+    pub fn address(&self) -> &'_ str {
+        self.0.reborrow().address
+    }
+    /// Field 7: `quote`
+    #[must_use]
+    pub fn quote(&self) -> &'_ str {
+        self.0.reborrow().quote
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<EvidenceRefView<'static>>>
+for EvidenceRefOwnedView {
+    fn from(inner: ::buffa::OwnedView<EvidenceRefView<'static>>) -> Self {
+        EvidenceRefOwnedView(inner)
+    }
+}
+impl ::core::convert::From<EvidenceRefOwnedView>
+for ::buffa::OwnedView<EvidenceRefView<'static>> {
+    fn from(wrapper: EvidenceRefOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<EvidenceRefView<'static>>>
+for EvidenceRefOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<EvidenceRefView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::EvidenceRef {
+    type View<'a> = EvidenceRefView<'a>;
+    type ViewHandle = EvidenceRefOwnedView;
+}
+impl ::serde::Serialize for EvidenceRefOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct FindingView<'a> {
+    /// Field 1: `id`
+    pub id: &'a str,
+    /// Field 2: `run_id`
+    pub run_id: &'a str,
+    /// Field 3: `title`
+    pub title: &'a str,
+    /// Field 4: `category`
+    pub category: &'a str,
+    /// Field 5: `cwe`
+    pub cwe: &'a str,
+    /// Field 6: `severity`
+    pub severity: &'a str,
+    /// Field 7: `severity_reason`
+    pub severity_reason: &'a str,
+    /// Field 8: `unit_id`
+    pub unit_id: &'a str,
+    /// Field 9: `input_source`
+    pub input_source: &'a str,
+    /// Field 10: `sink`
+    pub sink: &'a str,
+    /// Field 11: `missing_guard`
+    pub missing_guard: &'a str,
+    /// Field 12: `preconditions`
+    pub preconditions: &'a str,
+    /// Field 13: `impact`
+    pub impact: &'a str,
+    /// Field 14: `recommendation`
+    pub recommendation: &'a str,
+    /// Field 15: `evidence`
+    pub evidence: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::EvidenceRefView<'a>,
+    >,
+    /// Field 16: `review_status`
+    pub review_status: &'a str,
+    /// Field 17: `verification_status`
+    pub verification_status: &'a str,
+    /// Field 18: `revision`
+    pub revision: u32,
+    /// Field 19: `model_call_id`
+    pub model_call_id: &'a str,
+    /// Field 20: `created_at`
+    pub created_at: &'a str,
+    /// Field 21: `static_scope`
+    pub static_scope: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for FindingView<'a> {
+    type Owned = super::super::Finding;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.title = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.category = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.cwe = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.severity = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.severity_reason = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.unit_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.input_source = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.sink = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.missing_guard = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            12u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.preconditions = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            13u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.impact = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            14u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.recommendation = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            16u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.review_status = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            17u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.verification_status = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            18u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.revision = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            19u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.model_call_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            20u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.created_at = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            21u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.static_scope = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            15u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::EvidenceRefView,
+                    >(),
+                )?;
+                view.evidence
+                    .push(
+                        <super::super::__buffa::view::EvidenceRefView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::Finding, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::Finding, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::Finding {
+            id: self.id.to_string(),
+            run_id: self.run_id.to_string(),
+            title: self.title.to_string(),
+            category: self.category.to_string(),
+            cwe: self.cwe.to_string(),
+            severity: self.severity.to_string(),
+            severity_reason: self.severity_reason.to_string(),
+            unit_id: self.unit_id.to_string(),
+            input_source: self.input_source.to_string(),
+            sink: self.sink.to_string(),
+            missing_guard: self.missing_guard.to_string(),
+            preconditions: self.preconditions.to_string(),
+            impact: self.impact.to_string(),
+            recommendation: self.recommendation.to_string(),
+            evidence: self
+                .evidence
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            review_status: self.review_status.to_string(),
+            verification_status: self.verification_status.to_string(),
+            revision: self.revision,
+            model_call_id: self.model_call_id.to_string(),
+            created_at: self.created_at.to_string(),
+            static_scope: self.static_scope.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for FindingView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.id) as u64;
+        }
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        if !self.title.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.title) as u64;
+        }
+        if !self.category.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.category) as u64;
+        }
+        if !self.cwe.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.cwe) as u64;
+        }
+        if !self.severity.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.severity) as u64;
+        }
+        if !self.severity_reason.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.severity_reason) as u64;
+        }
+        if !self.unit_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.unit_id) as u64;
+        }
+        if !self.input_source.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.input_source) as u64;
+        }
+        if !self.sink.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.sink) as u64;
+        }
+        if !self.missing_guard.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.missing_guard) as u64;
+        }
+        if !self.preconditions.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.preconditions) as u64;
+        }
+        if !self.impact.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.impact) as u64;
+        }
+        if !self.recommendation.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.recommendation) as u64;
+        }
+        for v in &self.evidence {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.review_status.is_empty() {
+            size
+                += 2u64 + ::buffa::types::string_encoded_len(&self.review_status) as u64;
+        }
+        if !self.verification_status.is_empty() {
+            size
+                += 2u64
+                    + ::buffa::types::string_encoded_len(&self.verification_status)
+                        as u64;
+        }
+        if self.revision != 0u32 {
+            size += 2u64 + ::buffa::types::uint32_encoded_len(self.revision) as u64;
+        }
+        if !self.model_call_id.is_empty() {
+            size
+                += 2u64 + ::buffa::types::string_encoded_len(&self.model_call_id) as u64;
+        }
+        if !self.created_at.is_empty() {
+            size += 2u64 + ::buffa::types::string_encoded_len(&self.created_at) as u64;
+        }
+        if !self.static_scope.is_empty() {
+            size += 2u64 + ::buffa::types::string_encoded_len(&self.static_scope) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.id, buf);
+        }
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.run_id, buf);
+        }
+        if !self.title.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.title, buf);
+        }
+        if !self.category.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.category, buf);
+        }
+        if !self.cwe.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.cwe, buf);
+        }
+        if !self.severity.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.severity, buf);
+        }
+        if !self.severity_reason.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.severity_reason, buf);
+        }
+        if !self.unit_id.is_empty() {
+            ::buffa::types::put_string_field(8u32, &self.unit_id, buf);
+        }
+        if !self.input_source.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.input_source, buf);
+        }
+        if !self.sink.is_empty() {
+            ::buffa::types::put_string_field(10u32, &self.sink, buf);
+        }
+        if !self.missing_guard.is_empty() {
+            ::buffa::types::put_string_field(11u32, &self.missing_guard, buf);
+        }
+        if !self.preconditions.is_empty() {
+            ::buffa::types::put_string_field(12u32, &self.preconditions, buf);
+        }
+        if !self.impact.is_empty() {
+            ::buffa::types::put_string_field(13u32, &self.impact, buf);
+        }
+        if !self.recommendation.is_empty() {
+            ::buffa::types::put_string_field(14u32, &self.recommendation, buf);
+        }
+        for v in &self.evidence {
+            ::buffa::types::put_len_delimited_header(
+                15u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.review_status.is_empty() {
+            ::buffa::types::put_string_field(16u32, &self.review_status, buf);
+        }
+        if !self.verification_status.is_empty() {
+            ::buffa::types::put_string_field(17u32, &self.verification_status, buf);
+        }
+        if self.revision != 0u32 {
+            ::buffa::types::put_uint32_field(18u32, self.revision, buf);
+        }
+        if !self.model_call_id.is_empty() {
+            ::buffa::types::put_string_field(19u32, &self.model_call_id, buf);
+        }
+        if !self.created_at.is_empty() {
+            ::buffa::types::put_string_field(20u32, &self.created_at, buf);
+        }
+        if !self.static_scope.is_empty() {
+            ::buffa::types::put_string_field(21u32, &self.static_scope, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for FindingView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.id) {
+            __map.serialize_entry("id", self.id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.title) {
+            __map.serialize_entry("title", self.title)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.category) {
+            __map.serialize_entry("category", self.category)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.cwe) {
+            __map.serialize_entry("cwe", self.cwe)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.severity) {
+            __map.serialize_entry("severity", self.severity)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.severity_reason) {
+            __map.serialize_entry("severityReason", self.severity_reason)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.unit_id) {
+            __map.serialize_entry("unitId", self.unit_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.input_source) {
+            __map.serialize_entry("inputSource", self.input_source)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.sink) {
+            __map.serialize_entry("sink", self.sink)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.missing_guard) {
+            __map.serialize_entry("missingGuard", self.missing_guard)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.preconditions) {
+            __map.serialize_entry("preconditions", self.preconditions)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.impact) {
+            __map.serialize_entry("impact", self.impact)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.recommendation) {
+            __map.serialize_entry("recommendation", self.recommendation)?;
+        }
+        if !self.evidence.is_empty() {
+            __map.serialize_entry("evidence", &*self.evidence)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.review_status) {
+            __map.serialize_entry("reviewStatus", self.review_status)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.verification_status) {
+            __map.serialize_entry("verificationStatus", self.verification_status)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.revision) {
+            __map
+                .serialize_entry(
+                    "revision",
+                    &::buffa::json_helpers::ProtoJson(&self.revision),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.model_call_id) {
+            __map.serialize_entry("modelCallId", self.model_call_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.created_at) {
+            __map.serialize_entry("createdAt", self.created_at)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.static_scope) {
+            __map.serialize_entry("staticScope", self.static_scope)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for FindingView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "Finding";
+    const FULL_NAME: &'static str = "audit.v1.Finding";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.Finding";
+}
+::buffa::impl_default_view_instance!(FindingView);
+::buffa::impl_view_reborrow!(FindingView);
+/** Self-contained, `'static` owned view of a `Finding` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`FindingView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`FindingView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct FindingOwnedView(::buffa::OwnedView<FindingView<'static>>);
+impl FindingOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(FindingOwnedView(::buffa::OwnedView::decode(bytes)?))
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            FindingOwnedView(::buffa::OwnedView::decode_with_options(bytes, opts)?),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::Finding,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            FindingOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`FindingView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &FindingView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::Finding {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `id`
+    #[must_use]
+    pub fn id(&self) -> &'_ str {
+        self.0.reborrow().id
+    }
+    /// Field 2: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+    /// Field 3: `title`
+    #[must_use]
+    pub fn title(&self) -> &'_ str {
+        self.0.reborrow().title
+    }
+    /// Field 4: `category`
+    #[must_use]
+    pub fn category(&self) -> &'_ str {
+        self.0.reborrow().category
+    }
+    /// Field 5: `cwe`
+    #[must_use]
+    pub fn cwe(&self) -> &'_ str {
+        self.0.reborrow().cwe
+    }
+    /// Field 6: `severity`
+    #[must_use]
+    pub fn severity(&self) -> &'_ str {
+        self.0.reborrow().severity
+    }
+    /// Field 7: `severity_reason`
+    #[must_use]
+    pub fn severity_reason(&self) -> &'_ str {
+        self.0.reborrow().severity_reason
+    }
+    /// Field 8: `unit_id`
+    #[must_use]
+    pub fn unit_id(&self) -> &'_ str {
+        self.0.reborrow().unit_id
+    }
+    /// Field 9: `input_source`
+    #[must_use]
+    pub fn input_source(&self) -> &'_ str {
+        self.0.reborrow().input_source
+    }
+    /// Field 10: `sink`
+    #[must_use]
+    pub fn sink(&self) -> &'_ str {
+        self.0.reborrow().sink
+    }
+    /// Field 11: `missing_guard`
+    #[must_use]
+    pub fn missing_guard(&self) -> &'_ str {
+        self.0.reborrow().missing_guard
+    }
+    /// Field 12: `preconditions`
+    #[must_use]
+    pub fn preconditions(&self) -> &'_ str {
+        self.0.reborrow().preconditions
+    }
+    /// Field 13: `impact`
+    #[must_use]
+    pub fn impact(&self) -> &'_ str {
+        self.0.reborrow().impact
+    }
+    /// Field 14: `recommendation`
+    #[must_use]
+    pub fn recommendation(&self) -> &'_ str {
+        self.0.reborrow().recommendation
+    }
+    /// Field 15: `evidence`
+    #[must_use]
+    pub fn evidence(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::EvidenceRefView<'_>> {
+        &self.0.reborrow().evidence
+    }
+    /// Field 16: `review_status`
+    #[must_use]
+    pub fn review_status(&self) -> &'_ str {
+        self.0.reborrow().review_status
+    }
+    /// Field 17: `verification_status`
+    #[must_use]
+    pub fn verification_status(&self) -> &'_ str {
+        self.0.reborrow().verification_status
+    }
+    /// Field 18: `revision`
+    #[must_use]
+    pub fn revision(&self) -> u32 {
+        self.0.reborrow().revision
+    }
+    /// Field 19: `model_call_id`
+    #[must_use]
+    pub fn model_call_id(&self) -> &'_ str {
+        self.0.reborrow().model_call_id
+    }
+    /// Field 20: `created_at`
+    #[must_use]
+    pub fn created_at(&self) -> &'_ str {
+        self.0.reborrow().created_at
+    }
+    /// Field 21: `static_scope`
+    #[must_use]
+    pub fn static_scope(&self) -> &'_ str {
+        self.0.reborrow().static_scope
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<FindingView<'static>>>
+for FindingOwnedView {
+    fn from(inner: ::buffa::OwnedView<FindingView<'static>>) -> Self {
+        FindingOwnedView(inner)
+    }
+}
+impl ::core::convert::From<FindingOwnedView>
+for ::buffa::OwnedView<FindingView<'static>> {
+    fn from(wrapper: FindingOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<FindingView<'static>>>
+for FindingOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<FindingView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::Finding {
+    type View<'a> = FindingView<'a>;
+    type ViewHandle = FindingOwnedView;
+}
+impl ::serde::Serialize for FindingOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct ReviewView<'a> {
+    /// Field 1: `id`
+    pub id: &'a str,
+    /// Field 2: `finding_id`
+    pub finding_id: &'a str,
+    /// Field 3: `actor`
+    pub actor: &'a str,
+    /// Field 4: `verdict`
+    pub verdict: &'a str,
+    /// Field 5: `rationale`
+    pub rationale: &'a str,
+    /// Field 6: `counter_evidence`
+    pub counter_evidence: &'a str,
+    /// Field 7: `missing_information`
+    pub missing_information: &'a str,
+    /// Field 8: `evidence`
+    pub evidence: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::EvidenceRefView<'a>,
+    >,
+    /// Field 9: `model_call_id`
+    pub model_call_id: &'a str,
+    /// Field 10: `revision`
+    pub revision: u32,
+    /// Field 11: `created_at`
+    pub created_at: &'a str,
+    /// Field 12: `assessments_json`
+    pub assessments_json: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for ReviewView<'a> {
+    type Owned = super::super::Review;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finding_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.actor = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.verdict = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.rationale = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.counter_evidence = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.missing_information = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.model_call_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.revision = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.created_at = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            12u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.assessments_json = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::EvidenceRefView,
+                    >(),
+                )?;
+                view.evidence
+                    .push(
+                        <super::super::__buffa::view::EvidenceRefView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::Review, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::Review, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::Review {
+            id: self.id.to_string(),
+            finding_id: self.finding_id.to_string(),
+            actor: self.actor.to_string(),
+            verdict: self.verdict.to_string(),
+            rationale: self.rationale.to_string(),
+            counter_evidence: self.counter_evidence.to_string(),
+            missing_information: self.missing_information.to_string(),
+            evidence: self
+                .evidence
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            model_call_id: self.model_call_id.to_string(),
+            revision: self.revision,
+            created_at: self.created_at.to_string(),
+            assessments_json: self.assessments_json.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for ReviewView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.id) as u64;
+        }
+        if !self.finding_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finding_id) as u64;
+        }
+        if !self.actor.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.actor) as u64;
+        }
+        if !self.verdict.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.verdict) as u64;
+        }
+        if !self.rationale.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.rationale) as u64;
+        }
+        if !self.counter_evidence.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.counter_evidence) as u64;
+        }
+        if !self.missing_information.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.missing_information)
+                        as u64;
+        }
+        for v in &self.evidence {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.model_call_id.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.model_call_id) as u64;
+        }
+        if self.revision != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.revision) as u64;
+        }
+        if !self.created_at.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.created_at) as u64;
+        }
+        if !self.assessments_json.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.assessments_json) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.id, buf);
+        }
+        if !self.finding_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.finding_id, buf);
+        }
+        if !self.actor.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.actor, buf);
+        }
+        if !self.verdict.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.verdict, buf);
+        }
+        if !self.rationale.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.rationale, buf);
+        }
+        if !self.counter_evidence.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.counter_evidence, buf);
+        }
+        if !self.missing_information.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.missing_information, buf);
+        }
+        for v in &self.evidence {
+            ::buffa::types::put_len_delimited_header(
+                8u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.model_call_id.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.model_call_id, buf);
+        }
+        if self.revision != 0u32 {
+            ::buffa::types::put_uint32_field(10u32, self.revision, buf);
+        }
+        if !self.created_at.is_empty() {
+            ::buffa::types::put_string_field(11u32, &self.created_at, buf);
+        }
+        if !self.assessments_json.is_empty() {
+            ::buffa::types::put_string_field(12u32, &self.assessments_json, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for ReviewView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.id) {
+            __map.serialize_entry("id", self.id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finding_id) {
+            __map.serialize_entry("findingId", self.finding_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.actor) {
+            __map.serialize_entry("actor", self.actor)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.verdict) {
+            __map.serialize_entry("verdict", self.verdict)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.rationale) {
+            __map.serialize_entry("rationale", self.rationale)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.counter_evidence) {
+            __map.serialize_entry("counterEvidence", self.counter_evidence)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.missing_information) {
+            __map.serialize_entry("missingInformation", self.missing_information)?;
+        }
+        if !self.evidence.is_empty() {
+            __map.serialize_entry("evidence", &*self.evidence)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.model_call_id) {
+            __map.serialize_entry("modelCallId", self.model_call_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.revision) {
+            __map
+                .serialize_entry(
+                    "revision",
+                    &::buffa::json_helpers::ProtoJson(&self.revision),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.created_at) {
+            __map.serialize_entry("createdAt", self.created_at)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.assessments_json) {
+            __map.serialize_entry("assessmentsJson", self.assessments_json)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for ReviewView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "Review";
+    const FULL_NAME: &'static str = "audit.v1.Review";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.Review";
+}
+::buffa::impl_default_view_instance!(ReviewView);
+::buffa::impl_view_reborrow!(ReviewView);
+/** Self-contained, `'static` owned view of a `Review` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`ReviewView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`ReviewView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct ReviewOwnedView(::buffa::OwnedView<ReviewView<'static>>);
+impl ReviewOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(ReviewOwnedView(::buffa::OwnedView::decode(bytes)?))
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ReviewOwnedView(::buffa::OwnedView::decode_with_options(bytes, opts)?),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::Review,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(ReviewOwnedView(::buffa::OwnedView::from_owned(msg)?))
+    }
+    /// Borrow the full [`ReviewView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &ReviewView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::Review {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `id`
+    #[must_use]
+    pub fn id(&self) -> &'_ str {
+        self.0.reborrow().id
+    }
+    /// Field 2: `finding_id`
+    #[must_use]
+    pub fn finding_id(&self) -> &'_ str {
+        self.0.reborrow().finding_id
+    }
+    /// Field 3: `actor`
+    #[must_use]
+    pub fn actor(&self) -> &'_ str {
+        self.0.reborrow().actor
+    }
+    /// Field 4: `verdict`
+    #[must_use]
+    pub fn verdict(&self) -> &'_ str {
+        self.0.reborrow().verdict
+    }
+    /// Field 5: `rationale`
+    #[must_use]
+    pub fn rationale(&self) -> &'_ str {
+        self.0.reborrow().rationale
+    }
+    /// Field 6: `counter_evidence`
+    #[must_use]
+    pub fn counter_evidence(&self) -> &'_ str {
+        self.0.reborrow().counter_evidence
+    }
+    /// Field 7: `missing_information`
+    #[must_use]
+    pub fn missing_information(&self) -> &'_ str {
+        self.0.reborrow().missing_information
+    }
+    /// Field 8: `evidence`
+    #[must_use]
+    pub fn evidence(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::EvidenceRefView<'_>> {
+        &self.0.reborrow().evidence
+    }
+    /// Field 9: `model_call_id`
+    #[must_use]
+    pub fn model_call_id(&self) -> &'_ str {
+        self.0.reborrow().model_call_id
+    }
+    /// Field 10: `revision`
+    #[must_use]
+    pub fn revision(&self) -> u32 {
+        self.0.reborrow().revision
+    }
+    /// Field 11: `created_at`
+    #[must_use]
+    pub fn created_at(&self) -> &'_ str {
+        self.0.reborrow().created_at
+    }
+    /// Field 12: `assessments_json`
+    #[must_use]
+    pub fn assessments_json(&self) -> &'_ str {
+        self.0.reborrow().assessments_json
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<ReviewView<'static>>> for ReviewOwnedView {
+    fn from(inner: ::buffa::OwnedView<ReviewView<'static>>) -> Self {
+        ReviewOwnedView(inner)
+    }
+}
+impl ::core::convert::From<ReviewOwnedView> for ::buffa::OwnedView<ReviewView<'static>> {
+    fn from(wrapper: ReviewOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<ReviewView<'static>>>
+for ReviewOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<ReviewView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::Review {
+    type View<'a> = ReviewView<'a>;
+    type ViewHandle = ReviewOwnedView;
+}
+impl ::serde::Serialize for ReviewOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct LogicAnnotationView<'a> {
+    /// Field 1: `id`
+    pub id: &'a str,
+    /// Field 2: `run_id`
+    pub run_id: &'a str,
+    /// Field 3: `unit_id`
+    pub unit_id: &'a str,
+    /// Field 4: `tag`
+    pub tag: &'a str,
+    /// Field 5: `rationale`
+    pub rationale: &'a str,
+    /// Field 6: `evidence`
+    pub evidence: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::EvidenceRefView<'a>,
+    >,
+    /// Field 7: `actor`
+    pub actor: &'a str,
+    /// Field 8: `revision`
+    pub revision: u32,
+    /// Field 9: `model_call_id`
+    pub model_call_id: &'a str,
+    /// Field 10: `updated_at`
+    pub updated_at: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for LogicAnnotationView<'a> {
+    type Owned = super::super::LogicAnnotation;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.unit_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.tag = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.rationale = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.actor = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.revision = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.model_call_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.updated_at = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::EvidenceRefView,
+                    >(),
+                )?;
+                view.evidence
+                    .push(
+                        <super::super::__buffa::view::EvidenceRefView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::LogicAnnotation, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::LogicAnnotation, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::LogicAnnotation {
+            id: self.id.to_string(),
+            run_id: self.run_id.to_string(),
+            unit_id: self.unit_id.to_string(),
+            tag: self.tag.to_string(),
+            rationale: self.rationale.to_string(),
+            evidence: self
+                .evidence
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            actor: self.actor.to_string(),
+            revision: self.revision,
+            model_call_id: self.model_call_id.to_string(),
+            updated_at: self.updated_at.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for LogicAnnotationView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.id) as u64;
+        }
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        if !self.unit_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.unit_id) as u64;
+        }
+        if !self.tag.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.tag) as u64;
+        }
+        if !self.rationale.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.rationale) as u64;
+        }
+        for v in &self.evidence {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if !self.actor.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.actor) as u64;
+        }
+        if self.revision != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.revision) as u64;
+        }
+        if !self.model_call_id.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.model_call_id) as u64;
+        }
+        if !self.updated_at.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.updated_at) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.id, buf);
+        }
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.run_id, buf);
+        }
+        if !self.unit_id.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.unit_id, buf);
+        }
+        if !self.tag.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.tag, buf);
+        }
+        if !self.rationale.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.rationale, buf);
+        }
+        for v in &self.evidence {
+            ::buffa::types::put_len_delimited_header(
+                6u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if !self.actor.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.actor, buf);
+        }
+        if self.revision != 0u32 {
+            ::buffa::types::put_uint32_field(8u32, self.revision, buf);
+        }
+        if !self.model_call_id.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.model_call_id, buf);
+        }
+        if !self.updated_at.is_empty() {
+            ::buffa::types::put_string_field(10u32, &self.updated_at, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for LogicAnnotationView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.id) {
+            __map.serialize_entry("id", self.id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.unit_id) {
+            __map.serialize_entry("unitId", self.unit_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.tag) {
+            __map.serialize_entry("tag", self.tag)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.rationale) {
+            __map.serialize_entry("rationale", self.rationale)?;
+        }
+        if !self.evidence.is_empty() {
+            __map.serialize_entry("evidence", &*self.evidence)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.actor) {
+            __map.serialize_entry("actor", self.actor)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.revision) {
+            __map
+                .serialize_entry(
+                    "revision",
+                    &::buffa::json_helpers::ProtoJson(&self.revision),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.model_call_id) {
+            __map.serialize_entry("modelCallId", self.model_call_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.updated_at) {
+            __map.serialize_entry("updatedAt", self.updated_at)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for LogicAnnotationView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "LogicAnnotation";
+    const FULL_NAME: &'static str = "audit.v1.LogicAnnotation";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.LogicAnnotation";
+}
+::buffa::impl_default_view_instance!(LogicAnnotationView);
+::buffa::impl_view_reborrow!(LogicAnnotationView);
+/** Self-contained, `'static` owned view of a `LogicAnnotation` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`LogicAnnotationView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`LogicAnnotationView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct LogicAnnotationOwnedView(::buffa::OwnedView<LogicAnnotationView<'static>>);
+impl LogicAnnotationOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            LogicAnnotationOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            LogicAnnotationOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::LogicAnnotation,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            LogicAnnotationOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`LogicAnnotationView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &LogicAnnotationView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::LogicAnnotation {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `id`
+    #[must_use]
+    pub fn id(&self) -> &'_ str {
+        self.0.reborrow().id
+    }
+    /// Field 2: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+    /// Field 3: `unit_id`
+    #[must_use]
+    pub fn unit_id(&self) -> &'_ str {
+        self.0.reborrow().unit_id
+    }
+    /// Field 4: `tag`
+    #[must_use]
+    pub fn tag(&self) -> &'_ str {
+        self.0.reborrow().tag
+    }
+    /// Field 5: `rationale`
+    #[must_use]
+    pub fn rationale(&self) -> &'_ str {
+        self.0.reborrow().rationale
+    }
+    /// Field 6: `evidence`
+    #[must_use]
+    pub fn evidence(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::EvidenceRefView<'_>> {
+        &self.0.reborrow().evidence
+    }
+    /// Field 7: `actor`
+    #[must_use]
+    pub fn actor(&self) -> &'_ str {
+        self.0.reborrow().actor
+    }
+    /// Field 8: `revision`
+    #[must_use]
+    pub fn revision(&self) -> u32 {
+        self.0.reborrow().revision
+    }
+    /// Field 9: `model_call_id`
+    #[must_use]
+    pub fn model_call_id(&self) -> &'_ str {
+        self.0.reborrow().model_call_id
+    }
+    /// Field 10: `updated_at`
+    #[must_use]
+    pub fn updated_at(&self) -> &'_ str {
+        self.0.reborrow().updated_at
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<LogicAnnotationView<'static>>>
+for LogicAnnotationOwnedView {
+    fn from(inner: ::buffa::OwnedView<LogicAnnotationView<'static>>) -> Self {
+        LogicAnnotationOwnedView(inner)
+    }
+}
+impl ::core::convert::From<LogicAnnotationOwnedView>
+for ::buffa::OwnedView<LogicAnnotationView<'static>> {
+    fn from(wrapper: LogicAnnotationOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<LogicAnnotationView<'static>>>
+for LogicAnnotationOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<LogicAnnotationView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::LogicAnnotation {
+    type View<'a> = LogicAnnotationView<'a>;
+    type ViewHandle = LogicAnnotationOwnedView;
+}
+impl ::serde::Serialize for LogicAnnotationOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct AgentTaskView<'a> {
+    /// Field 1: `id`
+    pub id: &'a str,
+    /// Field 2: `run_id`
+    pub run_id: &'a str,
+    /// Field 3: `role`
+    pub role: &'a str,
+    /// Field 4: `item_key`
+    pub item_key: &'a str,
+    /// Field 5: `status`
+    pub status: &'a str,
+    /// Field 6: `created_at`
+    pub created_at: &'a str,
+    /// Field 7: `finished_at`
+    pub finished_at: &'a str,
+    /// Field 8: `result_artifact_id`
+    pub result_artifact_id: &'a str,
+    /// Field 9: `error`
+    pub error: &'a str,
+    /// Field 10: `result_json`
+    pub result_json: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for AgentTaskView<'a> {
+    type Owned = super::super::AgentTask;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.role = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.item_key = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.status = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.created_at = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finished_at = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.result_artifact_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.error = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.result_json = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::AgentTask, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::AgentTask, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::AgentTask {
+            id: self.id.to_string(),
+            run_id: self.run_id.to_string(),
+            role: self.role.to_string(),
+            item_key: self.item_key.to_string(),
+            status: self.status.to_string(),
+            created_at: self.created_at.to_string(),
+            finished_at: self.finished_at.to_string(),
+            result_artifact_id: self.result_artifact_id.to_string(),
+            error: self.error.to_string(),
+            result_json: self.result_json.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for AgentTaskView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.id) as u64;
+        }
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        if !self.role.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.role) as u64;
+        }
+        if !self.item_key.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.item_key) as u64;
+        }
+        if !self.status.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.status) as u64;
+        }
+        if !self.created_at.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.created_at) as u64;
+        }
+        if !self.finished_at.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finished_at) as u64;
+        }
+        if !self.result_artifact_id.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.result_artifact_id)
+                        as u64;
+        }
+        if !self.error.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.error) as u64;
+        }
+        if !self.result_json.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.result_json) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.id, buf);
+        }
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.run_id, buf);
+        }
+        if !self.role.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.role, buf);
+        }
+        if !self.item_key.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.item_key, buf);
+        }
+        if !self.status.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.status, buf);
+        }
+        if !self.created_at.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.created_at, buf);
+        }
+        if !self.finished_at.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.finished_at, buf);
+        }
+        if !self.result_artifact_id.is_empty() {
+            ::buffa::types::put_string_field(8u32, &self.result_artifact_id, buf);
+        }
+        if !self.error.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.error, buf);
+        }
+        if !self.result_json.is_empty() {
+            ::buffa::types::put_string_field(10u32, &self.result_json, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for AgentTaskView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.id) {
+            __map.serialize_entry("id", self.id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.role) {
+            __map.serialize_entry("role", self.role)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.item_key) {
+            __map.serialize_entry("itemKey", self.item_key)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.status) {
+            __map.serialize_entry("status", self.status)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.created_at) {
+            __map.serialize_entry("createdAt", self.created_at)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finished_at) {
+            __map.serialize_entry("finishedAt", self.finished_at)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.result_artifact_id) {
+            __map.serialize_entry("resultArtifactId", self.result_artifact_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.error) {
+            __map.serialize_entry("error", self.error)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.result_json) {
+            __map.serialize_entry("resultJson", self.result_json)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for AgentTaskView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "AgentTask";
+    const FULL_NAME: &'static str = "audit.v1.AgentTask";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.AgentTask";
+}
+::buffa::impl_default_view_instance!(AgentTaskView);
+::buffa::impl_view_reborrow!(AgentTaskView);
+/** Self-contained, `'static` owned view of a `AgentTask` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`AgentTaskView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`AgentTaskView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct AgentTaskOwnedView(::buffa::OwnedView<AgentTaskView<'static>>);
+impl AgentTaskOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            AgentTaskOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            AgentTaskOwnedView(::buffa::OwnedView::decode_with_options(bytes, opts)?),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::AgentTask,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            AgentTaskOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`AgentTaskView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &AgentTaskView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::AgentTask {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `id`
+    #[must_use]
+    pub fn id(&self) -> &'_ str {
+        self.0.reborrow().id
+    }
+    /// Field 2: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+    /// Field 3: `role`
+    #[must_use]
+    pub fn role(&self) -> &'_ str {
+        self.0.reborrow().role
+    }
+    /// Field 4: `item_key`
+    #[must_use]
+    pub fn item_key(&self) -> &'_ str {
+        self.0.reborrow().item_key
+    }
+    /// Field 5: `status`
+    #[must_use]
+    pub fn status(&self) -> &'_ str {
+        self.0.reborrow().status
+    }
+    /// Field 6: `created_at`
+    #[must_use]
+    pub fn created_at(&self) -> &'_ str {
+        self.0.reborrow().created_at
+    }
+    /// Field 7: `finished_at`
+    #[must_use]
+    pub fn finished_at(&self) -> &'_ str {
+        self.0.reborrow().finished_at
+    }
+    /// Field 8: `result_artifact_id`
+    #[must_use]
+    pub fn result_artifact_id(&self) -> &'_ str {
+        self.0.reborrow().result_artifact_id
+    }
+    /// Field 9: `error`
+    #[must_use]
+    pub fn error(&self) -> &'_ str {
+        self.0.reborrow().error
+    }
+    /// Field 10: `result_json`
+    #[must_use]
+    pub fn result_json(&self) -> &'_ str {
+        self.0.reborrow().result_json
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<AgentTaskView<'static>>>
+for AgentTaskOwnedView {
+    fn from(inner: ::buffa::OwnedView<AgentTaskView<'static>>) -> Self {
+        AgentTaskOwnedView(inner)
+    }
+}
+impl ::core::convert::From<AgentTaskOwnedView>
+for ::buffa::OwnedView<AgentTaskView<'static>> {
+    fn from(wrapper: AgentTaskOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<AgentTaskView<'static>>>
+for AgentTaskOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<AgentTaskView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::AgentTask {
+    type View<'a> = AgentTaskView<'a>;
+    type ViewHandle = AgentTaskOwnedView;
+}
+impl ::serde::Serialize for AgentTaskOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct GetAuditRequestView<'a> {
+    /// Field 1: `run_id`
+    pub run_id: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for GetAuditRequestView<'a> {
+    type Owned = super::super::GetAuditRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::GetAuditRequest, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::GetAuditRequest, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::GetAuditRequest {
+            run_id: self.run_id.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for GetAuditRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.run_id, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for GetAuditRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for GetAuditRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "GetAuditRequest";
+    const FULL_NAME: &'static str = "audit.v1.GetAuditRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.GetAuditRequest";
+}
+::buffa::impl_default_view_instance!(GetAuditRequestView);
+::buffa::impl_view_reborrow!(GetAuditRequestView);
+/** Self-contained, `'static` owned view of a `GetAuditRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`GetAuditRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`GetAuditRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct GetAuditRequestOwnedView(::buffa::OwnedView<GetAuditRequestView<'static>>);
+impl GetAuditRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetAuditRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetAuditRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::GetAuditRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetAuditRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`GetAuditRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &GetAuditRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::GetAuditRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<GetAuditRequestView<'static>>>
+for GetAuditRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<GetAuditRequestView<'static>>) -> Self {
+        GetAuditRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<GetAuditRequestOwnedView>
+for ::buffa::OwnedView<GetAuditRequestView<'static>> {
+    fn from(wrapper: GetAuditRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<GetAuditRequestView<'static>>>
+for GetAuditRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<GetAuditRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::GetAuditRequest {
+    type View<'a> = GetAuditRequestView<'a>;
+    type ViewHandle = GetAuditRequestOwnedView;
+}
+impl ::serde::Serialize for GetAuditRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct GetAuditResponseView<'a> {
+    /// Field 1: `findings`
+    pub findings: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::FindingView<'a>,
+    >,
+    /// Field 2: `reviews`
+    pub reviews: ::buffa::RepeatedView<'a, super::super::__buffa::view::ReviewView<'a>>,
+    /// Field 3: `annotations`
+    pub annotations: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::LogicAnnotationView<'a>,
+    >,
+    /// Field 4: `model_calls`
+    pub model_calls: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::ModelCallView<'a>,
+    >,
+    /// Field 5: `tasks`
+    pub tasks: ::buffa::RepeatedView<'a, super::super::__buffa::view::AgentTaskView<'a>>,
+    /// Field 6: `runtime`
+    pub runtime: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::RuntimeRecordView<'a>,
+    >,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for GetAuditResponseView<'a> {
+    type Owned = super::super::GetAuditResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<super::super::__buffa::view::FindingView>(),
+                )?;
+                view.findings
+                    .push(
+                        <super::super::__buffa::view::FindingView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<super::super::__buffa::view::ReviewView>(),
+                )?;
+                view.reviews
+                    .push(
+                        <super::super::__buffa::view::ReviewView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::LogicAnnotationView,
+                    >(),
+                )?;
+                view.annotations
+                    .push(
+                        <super::super::__buffa::view::LogicAnnotationView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<super::super::__buffa::view::ModelCallView>(),
+                )?;
+                view.model_calls
+                    .push(
+                        <super::super::__buffa::view::ModelCallView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<super::super::__buffa::view::AgentTaskView>(),
+                )?;
+                view.tasks
+                    .push(
+                        <super::super::__buffa::view::AgentTaskView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::RuntimeRecordView,
+                    >(),
+                )?;
+                view.runtime
+                    .push(
+                        <super::super::__buffa::view::RuntimeRecordView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::GetAuditResponse, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::GetAuditResponse, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::GetAuditResponse {
+            findings: self
+                .findings
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            reviews: self
+                .reviews
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            annotations: self
+                .annotations
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            model_calls: self
+                .model_calls
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            tasks: self
+                .tasks
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            runtime: self
+                .runtime
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for GetAuditResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.findings {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.reviews {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.annotations {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.model_calls {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.tasks {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.runtime {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        for v in &self.findings {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.reviews {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.annotations {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.model_calls {
+            ::buffa::types::put_len_delimited_header(
+                4u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.tasks {
+            ::buffa::types::put_len_delimited_header(
+                5u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.runtime {
+            ::buffa::types::put_len_delimited_header(
+                6u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for GetAuditResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !self.findings.is_empty() {
+            __map.serialize_entry("findings", &*self.findings)?;
+        }
+        if !self.reviews.is_empty() {
+            __map.serialize_entry("reviews", &*self.reviews)?;
+        }
+        if !self.annotations.is_empty() {
+            __map.serialize_entry("annotations", &*self.annotations)?;
+        }
+        if !self.model_calls.is_empty() {
+            __map.serialize_entry("modelCalls", &*self.model_calls)?;
+        }
+        if !self.tasks.is_empty() {
+            __map.serialize_entry("tasks", &*self.tasks)?;
+        }
+        if !self.runtime.is_empty() {
+            __map.serialize_entry("runtime", &*self.runtime)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for GetAuditResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "GetAuditResponse";
+    const FULL_NAME: &'static str = "audit.v1.GetAuditResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.GetAuditResponse";
+}
+::buffa::impl_default_view_instance!(GetAuditResponseView);
+::buffa::impl_view_reborrow!(GetAuditResponseView);
+/** Self-contained, `'static` owned view of a `GetAuditResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`GetAuditResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`GetAuditResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct GetAuditResponseOwnedView(::buffa::OwnedView<GetAuditResponseView<'static>>);
+impl GetAuditResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetAuditResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetAuditResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::GetAuditResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetAuditResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`GetAuditResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &GetAuditResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::GetAuditResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `findings`
+    #[must_use]
+    pub fn findings(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::FindingView<'_>> {
+        &self.0.reborrow().findings
+    }
+    /// Field 2: `reviews`
+    #[must_use]
+    pub fn reviews(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::ReviewView<'_>> {
+        &self.0.reborrow().reviews
+    }
+    /// Field 3: `annotations`
+    #[must_use]
+    pub fn annotations(
+        &self,
+    ) -> &::buffa::RepeatedView<
+        '_,
+        super::super::__buffa::view::LogicAnnotationView<'_>,
+    > {
+        &self.0.reborrow().annotations
+    }
+    /// Field 4: `model_calls`
+    #[must_use]
+    pub fn model_calls(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::ModelCallView<'_>> {
+        &self.0.reborrow().model_calls
+    }
+    /// Field 5: `tasks`
+    #[must_use]
+    pub fn tasks(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::AgentTaskView<'_>> {
+        &self.0.reborrow().tasks
+    }
+    /// Field 6: `runtime`
+    #[must_use]
+    pub fn runtime(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::RuntimeRecordView<'_>> {
+        &self.0.reborrow().runtime
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<GetAuditResponseView<'static>>>
+for GetAuditResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<GetAuditResponseView<'static>>) -> Self {
+        GetAuditResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<GetAuditResponseOwnedView>
+for ::buffa::OwnedView<GetAuditResponseView<'static>> {
+    fn from(wrapper: GetAuditResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<GetAuditResponseView<'static>>>
+for GetAuditResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<GetAuditResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::GetAuditResponse {
+    type View<'a> = GetAuditResponseView<'a>;
+    type ViewHandle = GetAuditResponseOwnedView;
+}
+impl ::serde::Serialize for GetAuditResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct ListFindingsRequestView<'a> {
+    /// Field 1: `run_id`
+    pub run_id: &'a str,
+    /// Field 2: `review_status`
+    pub review_status: &'a str,
+    /// Field 3: `offset`
+    pub offset: u32,
+    /// Field 4: `limit`
+    pub limit: u32,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for ListFindingsRequestView<'a> {
+    type Owned = super::super::ListFindingsRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.review_status = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.offset = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.limit = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::ListFindingsRequest,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::ListFindingsRequest,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::ListFindingsRequest {
+            run_id: self.run_id.to_string(),
+            review_status: self.review_status.to_string(),
+            offset: self.offset,
+            limit: self.limit,
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for ListFindingsRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        if !self.review_status.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.review_status) as u64;
+        }
+        if self.offset != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.offset) as u64;
+        }
+        if self.limit != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.limit) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.run_id, buf);
+        }
+        if !self.review_status.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.review_status, buf);
+        }
+        if self.offset != 0u32 {
+            ::buffa::types::put_uint32_field(3u32, self.offset, buf);
+        }
+        if self.limit != 0u32 {
+            ::buffa::types::put_uint32_field(4u32, self.limit, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for ListFindingsRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.review_status) {
+            __map.serialize_entry("reviewStatus", self.review_status)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.offset) {
+            __map
+                .serialize_entry(
+                    "offset",
+                    &::buffa::json_helpers::ProtoJson(&self.offset),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.limit) {
+            __map
+                .serialize_entry(
+                    "limit",
+                    &::buffa::json_helpers::ProtoJson(&self.limit),
+                )?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for ListFindingsRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "ListFindingsRequest";
+    const FULL_NAME: &'static str = "audit.v1.ListFindingsRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.ListFindingsRequest";
+}
+::buffa::impl_default_view_instance!(ListFindingsRequestView);
+::buffa::impl_view_reborrow!(ListFindingsRequestView);
+/** Self-contained, `'static` owned view of a `ListFindingsRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`ListFindingsRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`ListFindingsRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct ListFindingsRequestOwnedView(
+    ::buffa::OwnedView<ListFindingsRequestView<'static>>,
+);
+impl ListFindingsRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListFindingsRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListFindingsRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::ListFindingsRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListFindingsRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`ListFindingsRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &ListFindingsRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::ListFindingsRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+    /// Field 2: `review_status`
+    #[must_use]
+    pub fn review_status(&self) -> &'_ str {
+        self.0.reborrow().review_status
+    }
+    /// Field 3: `offset`
+    #[must_use]
+    pub fn offset(&self) -> u32 {
+        self.0.reborrow().offset
+    }
+    /// Field 4: `limit`
+    #[must_use]
+    pub fn limit(&self) -> u32 {
+        self.0.reborrow().limit
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<ListFindingsRequestView<'static>>>
+for ListFindingsRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<ListFindingsRequestView<'static>>) -> Self {
+        ListFindingsRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<ListFindingsRequestOwnedView>
+for ::buffa::OwnedView<ListFindingsRequestView<'static>> {
+    fn from(wrapper: ListFindingsRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<ListFindingsRequestView<'static>>>
+for ListFindingsRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<ListFindingsRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::ListFindingsRequest {
+    type View<'a> = ListFindingsRequestView<'a>;
+    type ViewHandle = ListFindingsRequestOwnedView;
+}
+impl ::serde::Serialize for ListFindingsRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct ListFindingsResponseView<'a> {
+    /// Field 1: `findings`
+    pub findings: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::FindingView<'a>,
+    >,
+    /// Field 2: `total`
+    pub total: u64,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for ListFindingsResponseView<'a> {
+    type Owned = super::super::ListFindingsResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.total = ::buffa::types::decode_uint64(&mut cur)?;
+            }
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<super::super::__buffa::view::FindingView>(),
+                )?;
+                view.findings
+                    .push(
+                        <super::super::__buffa::view::FindingView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::ListFindingsResponse,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::ListFindingsResponse,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::ListFindingsResponse {
+            findings: self
+                .findings
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            total: self.total,
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for ListFindingsResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.findings {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.total != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.total) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        for v in &self.findings {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if self.total != 0u64 {
+            ::buffa::types::put_uint64_field(2u32, self.total, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for ListFindingsResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !self.findings.is_empty() {
+            __map.serialize_entry("findings", &*self.findings)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u64(&self.total) {
+            __map
+                .serialize_entry(
+                    "total",
+                    &::buffa::json_helpers::ProtoJson(&self.total),
+                )?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for ListFindingsResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "ListFindingsResponse";
+    const FULL_NAME: &'static str = "audit.v1.ListFindingsResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.ListFindingsResponse";
+}
+::buffa::impl_default_view_instance!(ListFindingsResponseView);
+::buffa::impl_view_reborrow!(ListFindingsResponseView);
+/** Self-contained, `'static` owned view of a `ListFindingsResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`ListFindingsResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`ListFindingsResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct ListFindingsResponseOwnedView(
+    ::buffa::OwnedView<ListFindingsResponseView<'static>>,
+);
+impl ListFindingsResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListFindingsResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListFindingsResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::ListFindingsResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListFindingsResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`ListFindingsResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &ListFindingsResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::ListFindingsResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `findings`
+    #[must_use]
+    pub fn findings(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::FindingView<'_>> {
+        &self.0.reborrow().findings
+    }
+    /// Field 2: `total`
+    #[must_use]
+    pub fn total(&self) -> u64 {
+        self.0.reborrow().total
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<ListFindingsResponseView<'static>>>
+for ListFindingsResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<ListFindingsResponseView<'static>>) -> Self {
+        ListFindingsResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<ListFindingsResponseOwnedView>
+for ::buffa::OwnedView<ListFindingsResponseView<'static>> {
+    fn from(wrapper: ListFindingsResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<ListFindingsResponseView<'static>>>
+for ListFindingsResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<ListFindingsResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::ListFindingsResponse {
+    type View<'a> = ListFindingsResponseView<'a>;
+    type ViewHandle = ListFindingsResponseOwnedView;
+}
+impl ::serde::Serialize for ListFindingsResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct GetFindingRequestView<'a> {
+    /// Field 1: `finding_id`
+    pub finding_id: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for GetFindingRequestView<'a> {
+    type Owned = super::super::GetFindingRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finding_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::GetFindingRequest, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::GetFindingRequest, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::GetFindingRequest {
+            finding_id: self.finding_id.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for GetFindingRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.finding_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finding_id) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.finding_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.finding_id, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for GetFindingRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finding_id) {
+            __map.serialize_entry("findingId", self.finding_id)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for GetFindingRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "GetFindingRequest";
+    const FULL_NAME: &'static str = "audit.v1.GetFindingRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.GetFindingRequest";
+}
+::buffa::impl_default_view_instance!(GetFindingRequestView);
+::buffa::impl_view_reborrow!(GetFindingRequestView);
+/** Self-contained, `'static` owned view of a `GetFindingRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`GetFindingRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`GetFindingRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct GetFindingRequestOwnedView(
+    ::buffa::OwnedView<GetFindingRequestView<'static>>,
+);
+impl GetFindingRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetFindingRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetFindingRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::GetFindingRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetFindingRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`GetFindingRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &GetFindingRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::GetFindingRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `finding_id`
+    #[must_use]
+    pub fn finding_id(&self) -> &'_ str {
+        self.0.reborrow().finding_id
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<GetFindingRequestView<'static>>>
+for GetFindingRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<GetFindingRequestView<'static>>) -> Self {
+        GetFindingRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<GetFindingRequestOwnedView>
+for ::buffa::OwnedView<GetFindingRequestView<'static>> {
+    fn from(wrapper: GetFindingRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<GetFindingRequestView<'static>>>
+for GetFindingRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<GetFindingRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::GetFindingRequest {
+    type View<'a> = GetFindingRequestView<'a>;
+    type ViewHandle = GetFindingRequestOwnedView;
+}
+impl ::serde::Serialize for GetFindingRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct GetFindingResponseView<'a> {
+    /// Field 1: `finding`
+    pub finding: ::buffa::MessageFieldView<super::super::__buffa::view::FindingView<'a>>,
+    /// Field 2: `reviews`
+    pub reviews: ::buffa::RepeatedView<'a, super::super::__buffa::view::ReviewView<'a>>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for GetFindingResponseView<'a> {
+    type Owned = super::super::GetFindingResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                match view.finding.as_mut() {
+                    Some(existing) => {
+                        ::buffa::MessageView::merge_into_view(existing, sub, __sub_ctx)?
+                    }
+                    None => {
+                        view.finding = ::buffa::MessageFieldView::set(
+                            <super::super::__buffa::view::FindingView as ::buffa::MessageView>::decode_view_ctx(
+                                sub,
+                                __sub_ctx,
+                            )?,
+                        );
+                    }
+                }
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<super::super::__buffa::view::ReviewView>(),
+                )?;
+                view.reviews
+                    .push(
+                        <super::super::__buffa::view::ReviewView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::GetFindingResponse, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::GetFindingResponse, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::GetFindingResponse {
+            finding: match self.finding.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        super::super::Finding,
+                        ::buffa::Inline<super::super::Finding>,
+                    >::some(v.to_owned_from_source(__buffa_src)?)
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            reviews: self
+                .reviews
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for GetFindingResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.finding.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.finding.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.reviews {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if self.finding.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.finding.write_to(__cache, buf);
+        }
+        for v in &self.reviews {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for GetFindingResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        {
+            if let ::core::option::Option::Some(__v) = self.finding.as_option() {
+                __map.serialize_entry("finding", __v)?;
+            }
+        }
+        if !self.reviews.is_empty() {
+            __map.serialize_entry("reviews", &*self.reviews)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for GetFindingResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "GetFindingResponse";
+    const FULL_NAME: &'static str = "audit.v1.GetFindingResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.GetFindingResponse";
+}
+::buffa::impl_default_view_instance!(GetFindingResponseView);
+::buffa::impl_view_reborrow!(GetFindingResponseView);
+/** Self-contained, `'static` owned view of a `GetFindingResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`GetFindingResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`GetFindingResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct GetFindingResponseOwnedView(
+    ::buffa::OwnedView<GetFindingResponseView<'static>>,
+);
+impl GetFindingResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetFindingResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetFindingResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::GetFindingResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetFindingResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`GetFindingResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &GetFindingResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::GetFindingResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `finding`
+    #[must_use]
+    pub fn finding(
+        &self,
+    ) -> &::buffa::MessageFieldView<super::super::__buffa::view::FindingView<'_>> {
+        &self.0.reborrow().finding
+    }
+    /// Field 2: `reviews`
+    #[must_use]
+    pub fn reviews(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::ReviewView<'_>> {
+        &self.0.reborrow().reviews
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<GetFindingResponseView<'static>>>
+for GetFindingResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<GetFindingResponseView<'static>>) -> Self {
+        GetFindingResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<GetFindingResponseOwnedView>
+for ::buffa::OwnedView<GetFindingResponseView<'static>> {
+    fn from(wrapper: GetFindingResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<GetFindingResponseView<'static>>>
+for GetFindingResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<GetFindingResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::GetFindingResponse {
+    type View<'a> = GetFindingResponseView<'a>;
+    type ViewHandle = GetFindingResponseOwnedView;
+}
+impl ::serde::Serialize for GetFindingResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct SubmitReviewRequestView<'a> {
+    /// Field 1: `request_id`
+    pub request_id: &'a str,
+    /// Field 2: `finding_id`
+    pub finding_id: &'a str,
+    /// Field 3: `expected_revision`
+    pub expected_revision: u32,
+    /// Field 4: `verdict`
+    pub verdict: &'a str,
+    /// Field 5: `rationale`
+    pub rationale: &'a str,
+    /// Field 6: `counter_evidence`
+    pub counter_evidence: &'a str,
+    /// Field 7: `missing_information`
+    pub missing_information: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for SubmitReviewRequestView<'a> {
+    type Owned = super::super::SubmitReviewRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.request_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finding_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.expected_revision = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.verdict = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.rationale = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.counter_evidence = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.missing_information = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::SubmitReviewRequest,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::SubmitReviewRequest,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::SubmitReviewRequest {
+            request_id: self.request_id.to_string(),
+            finding_id: self.finding_id.to_string(),
+            expected_revision: self.expected_revision,
+            verdict: self.verdict.to_string(),
+            rationale: self.rationale.to_string(),
+            counter_evidence: self.counter_evidence.to_string(),
+            missing_information: self.missing_information.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for SubmitReviewRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.request_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.request_id) as u64;
+        }
+        if !self.finding_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finding_id) as u64;
+        }
+        if self.expected_revision != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.expected_revision) as u64;
+        }
+        if !self.verdict.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.verdict) as u64;
+        }
+        if !self.rationale.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.rationale) as u64;
+        }
+        if !self.counter_evidence.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.counter_evidence) as u64;
+        }
+        if !self.missing_information.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.missing_information)
+                        as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.request_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.request_id, buf);
+        }
+        if !self.finding_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.finding_id, buf);
+        }
+        if self.expected_revision != 0u32 {
+            ::buffa::types::put_uint32_field(3u32, self.expected_revision, buf);
+        }
+        if !self.verdict.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.verdict, buf);
+        }
+        if !self.rationale.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.rationale, buf);
+        }
+        if !self.counter_evidence.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.counter_evidence, buf);
+        }
+        if !self.missing_information.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.missing_information, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for SubmitReviewRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.request_id) {
+            __map.serialize_entry("requestId", self.request_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finding_id) {
+            __map.serialize_entry("findingId", self.finding_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.expected_revision) {
+            __map
+                .serialize_entry(
+                    "expectedRevision",
+                    &::buffa::json_helpers::ProtoJson(&self.expected_revision),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.verdict) {
+            __map.serialize_entry("verdict", self.verdict)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.rationale) {
+            __map.serialize_entry("rationale", self.rationale)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.counter_evidence) {
+            __map.serialize_entry("counterEvidence", self.counter_evidence)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.missing_information) {
+            __map.serialize_entry("missingInformation", self.missing_information)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for SubmitReviewRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "SubmitReviewRequest";
+    const FULL_NAME: &'static str = "audit.v1.SubmitReviewRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SubmitReviewRequest";
+}
+::buffa::impl_default_view_instance!(SubmitReviewRequestView);
+::buffa::impl_view_reborrow!(SubmitReviewRequestView);
+/** Self-contained, `'static` owned view of a `SubmitReviewRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`SubmitReviewRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`SubmitReviewRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct SubmitReviewRequestOwnedView(
+    ::buffa::OwnedView<SubmitReviewRequestView<'static>>,
+);
+impl SubmitReviewRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            SubmitReviewRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            SubmitReviewRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::SubmitReviewRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            SubmitReviewRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`SubmitReviewRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &SubmitReviewRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::SubmitReviewRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `request_id`
+    #[must_use]
+    pub fn request_id(&self) -> &'_ str {
+        self.0.reborrow().request_id
+    }
+    /// Field 2: `finding_id`
+    #[must_use]
+    pub fn finding_id(&self) -> &'_ str {
+        self.0.reborrow().finding_id
+    }
+    /// Field 3: `expected_revision`
+    #[must_use]
+    pub fn expected_revision(&self) -> u32 {
+        self.0.reborrow().expected_revision
+    }
+    /// Field 4: `verdict`
+    #[must_use]
+    pub fn verdict(&self) -> &'_ str {
+        self.0.reborrow().verdict
+    }
+    /// Field 5: `rationale`
+    #[must_use]
+    pub fn rationale(&self) -> &'_ str {
+        self.0.reborrow().rationale
+    }
+    /// Field 6: `counter_evidence`
+    #[must_use]
+    pub fn counter_evidence(&self) -> &'_ str {
+        self.0.reborrow().counter_evidence
+    }
+    /// Field 7: `missing_information`
+    #[must_use]
+    pub fn missing_information(&self) -> &'_ str {
+        self.0.reborrow().missing_information
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<SubmitReviewRequestView<'static>>>
+for SubmitReviewRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<SubmitReviewRequestView<'static>>) -> Self {
+        SubmitReviewRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<SubmitReviewRequestOwnedView>
+for ::buffa::OwnedView<SubmitReviewRequestView<'static>> {
+    fn from(wrapper: SubmitReviewRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<SubmitReviewRequestView<'static>>>
+for SubmitReviewRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<SubmitReviewRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::SubmitReviewRequest {
+    type View<'a> = SubmitReviewRequestView<'a>;
+    type ViewHandle = SubmitReviewRequestOwnedView;
+}
+impl ::serde::Serialize for SubmitReviewRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct SubmitReviewResponseView<'a> {
+    /// Field 1: `finding`
+    pub finding: ::buffa::MessageFieldView<super::super::__buffa::view::FindingView<'a>>,
+    /// Field 2: `review`
+    pub review: ::buffa::MessageFieldView<super::super::__buffa::view::ReviewView<'a>>,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for SubmitReviewResponseView<'a> {
+    type Owned = super::super::SubmitReviewResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                match view.finding.as_mut() {
+                    Some(existing) => {
+                        ::buffa::MessageView::merge_into_view(existing, sub, __sub_ctx)?
+                    }
+                    None => {
+                        view.finding = ::buffa::MessageFieldView::set(
+                            <super::super::__buffa::view::FindingView as ::buffa::MessageView>::decode_view_ctx(
+                                sub,
+                                __sub_ctx,
+                            )?,
+                        );
+                    }
+                }
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                match view.review.as_mut() {
+                    Some(existing) => {
+                        ::buffa::MessageView::merge_into_view(existing, sub, __sub_ctx)?
+                    }
+                    None => {
+                        view.review = ::buffa::MessageFieldView::set(
+                            <super::super::__buffa::view::ReviewView as ::buffa::MessageView>::decode_view_ctx(
+                                sub,
+                                __sub_ctx,
+                            )?,
+                        );
+                    }
+                }
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::SubmitReviewResponse,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::SubmitReviewResponse,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::SubmitReviewResponse {
+            finding: match self.finding.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        super::super::Finding,
+                        ::buffa::Inline<super::super::Finding>,
+                    >::some(v.to_owned_from_source(__buffa_src)?)
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            review: match self.review.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        super::super::Review,
+                        ::buffa::Inline<super::super::Review>,
+                    >::some(v.to_owned_from_source(__buffa_src)?)
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for SubmitReviewResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.finding.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.finding.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.review.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.review.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if self.finding.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.finding.write_to(__cache, buf);
+        }
+        if self.review.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.review.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for SubmitReviewResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        {
+            if let ::core::option::Option::Some(__v) = self.finding.as_option() {
+                __map.serialize_entry("finding", __v)?;
+            }
+        }
+        {
+            if let ::core::option::Option::Some(__v) = self.review.as_option() {
+                __map.serialize_entry("review", __v)?;
+            }
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for SubmitReviewResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "SubmitReviewResponse";
+    const FULL_NAME: &'static str = "audit.v1.SubmitReviewResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SubmitReviewResponse";
+}
+::buffa::impl_default_view_instance!(SubmitReviewResponseView);
+::buffa::impl_view_reborrow!(SubmitReviewResponseView);
+/** Self-contained, `'static` owned view of a `SubmitReviewResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`SubmitReviewResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`SubmitReviewResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct SubmitReviewResponseOwnedView(
+    ::buffa::OwnedView<SubmitReviewResponseView<'static>>,
+);
+impl SubmitReviewResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            SubmitReviewResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            SubmitReviewResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::SubmitReviewResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            SubmitReviewResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`SubmitReviewResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &SubmitReviewResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::SubmitReviewResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `finding`
+    #[must_use]
+    pub fn finding(
+        &self,
+    ) -> &::buffa::MessageFieldView<super::super::__buffa::view::FindingView<'_>> {
+        &self.0.reborrow().finding
+    }
+    /// Field 2: `review`
+    #[must_use]
+    pub fn review(
+        &self,
+    ) -> &::buffa::MessageFieldView<super::super::__buffa::view::ReviewView<'_>> {
+        &self.0.reborrow().review
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<SubmitReviewResponseView<'static>>>
+for SubmitReviewResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<SubmitReviewResponseView<'static>>) -> Self {
+        SubmitReviewResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<SubmitReviewResponseOwnedView>
+for ::buffa::OwnedView<SubmitReviewResponseView<'static>> {
+    fn from(wrapper: SubmitReviewResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<SubmitReviewResponseView<'static>>>
+for SubmitReviewResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<SubmitReviewResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::SubmitReviewResponse {
+    type View<'a> = SubmitReviewResponseView<'a>;
+    type ViewHandle = SubmitReviewResponseOwnedView;
+}
+impl ::serde::Serialize for SubmitReviewResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct UpdateAnnotationRequestView<'a> {
+    /// Field 1: `request_id`
+    pub request_id: &'a str,
+    /// Field 2: `annotation_id`
+    pub annotation_id: &'a str,
+    /// Field 3: `expected_revision`
+    pub expected_revision: u32,
+    /// Field 4: `tag`
+    pub tag: &'a str,
+    /// Field 5: `rationale`
+    pub rationale: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for UpdateAnnotationRequestView<'a> {
+    type Owned = super::super::UpdateAnnotationRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.request_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.annotation_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                view.expected_revision = ::buffa::types::decode_uint32(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.tag = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.rationale = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::UpdateAnnotationRequest,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::UpdateAnnotationRequest,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::UpdateAnnotationRequest {
+            request_id: self.request_id.to_string(),
+            annotation_id: self.annotation_id.to_string(),
+            expected_revision: self.expected_revision,
+            tag: self.tag.to_string(),
+            rationale: self.rationale.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for UpdateAnnotationRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.request_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.request_id) as u64;
+        }
+        if !self.annotation_id.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.annotation_id) as u64;
+        }
+        if self.expected_revision != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.expected_revision) as u64;
+        }
+        if !self.tag.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.tag) as u64;
+        }
+        if !self.rationale.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.rationale) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.request_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.request_id, buf);
+        }
+        if !self.annotation_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.annotation_id, buf);
+        }
+        if self.expected_revision != 0u32 {
+            ::buffa::types::put_uint32_field(3u32, self.expected_revision, buf);
+        }
+        if !self.tag.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.tag, buf);
+        }
+        if !self.rationale.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.rationale, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for UpdateAnnotationRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.request_id) {
+            __map.serialize_entry("requestId", self.request_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.annotation_id) {
+            __map.serialize_entry("annotationId", self.annotation_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_zero_u32(&self.expected_revision) {
+            __map
+                .serialize_entry(
+                    "expectedRevision",
+                    &::buffa::json_helpers::ProtoJson(&self.expected_revision),
+                )?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.tag) {
+            __map.serialize_entry("tag", self.tag)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.rationale) {
+            __map.serialize_entry("rationale", self.rationale)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for UpdateAnnotationRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "UpdateAnnotationRequest";
+    const FULL_NAME: &'static str = "audit.v1.UpdateAnnotationRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.UpdateAnnotationRequest";
+}
+::buffa::impl_default_view_instance!(UpdateAnnotationRequestView);
+::buffa::impl_view_reborrow!(UpdateAnnotationRequestView);
+/** Self-contained, `'static` owned view of a `UpdateAnnotationRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`UpdateAnnotationRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`UpdateAnnotationRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct UpdateAnnotationRequestOwnedView(
+    ::buffa::OwnedView<UpdateAnnotationRequestView<'static>>,
+);
+impl UpdateAnnotationRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            UpdateAnnotationRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            UpdateAnnotationRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::UpdateAnnotationRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            UpdateAnnotationRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`UpdateAnnotationRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &UpdateAnnotationRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::UpdateAnnotationRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `request_id`
+    #[must_use]
+    pub fn request_id(&self) -> &'_ str {
+        self.0.reborrow().request_id
+    }
+    /// Field 2: `annotation_id`
+    #[must_use]
+    pub fn annotation_id(&self) -> &'_ str {
+        self.0.reborrow().annotation_id
+    }
+    /// Field 3: `expected_revision`
+    #[must_use]
+    pub fn expected_revision(&self) -> u32 {
+        self.0.reborrow().expected_revision
+    }
+    /// Field 4: `tag`
+    #[must_use]
+    pub fn tag(&self) -> &'_ str {
+        self.0.reborrow().tag
+    }
+    /// Field 5: `rationale`
+    #[must_use]
+    pub fn rationale(&self) -> &'_ str {
+        self.0.reborrow().rationale
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<UpdateAnnotationRequestView<'static>>>
+for UpdateAnnotationRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<UpdateAnnotationRequestView<'static>>) -> Self {
+        UpdateAnnotationRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<UpdateAnnotationRequestOwnedView>
+for ::buffa::OwnedView<UpdateAnnotationRequestView<'static>> {
+    fn from(wrapper: UpdateAnnotationRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<UpdateAnnotationRequestView<'static>>>
+for UpdateAnnotationRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<UpdateAnnotationRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::UpdateAnnotationRequest {
+    type View<'a> = UpdateAnnotationRequestView<'a>;
+    type ViewHandle = UpdateAnnotationRequestOwnedView;
+}
+impl ::serde::Serialize for UpdateAnnotationRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct UpdateAnnotationResponseView<'a> {
+    /// Field 1: `annotation`
+    pub annotation: ::buffa::MessageFieldView<
+        super::super::__buffa::view::LogicAnnotationView<'a>,
+    >,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for UpdateAnnotationResponseView<'a> {
+    type Owned = super::super::UpdateAnnotationResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                match view.annotation.as_mut() {
+                    Some(existing) => {
+                        ::buffa::MessageView::merge_into_view(existing, sub, __sub_ctx)?
+                    }
+                    None => {
+                        view.annotation = ::buffa::MessageFieldView::set(
+                            <super::super::__buffa::view::LogicAnnotationView as ::buffa::MessageView>::decode_view_ctx(
+                                sub,
+                                __sub_ctx,
+                            )?,
+                        );
+                    }
+                }
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::UpdateAnnotationResponse,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::UpdateAnnotationResponse,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::UpdateAnnotationResponse {
+            annotation: match self.annotation.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        super::super::LogicAnnotation,
+                        ::buffa::Inline<super::super::LogicAnnotation>,
+                    >::some(v.to_owned_from_source(__buffa_src)?)
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for UpdateAnnotationResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.annotation.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.annotation.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if self.annotation.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.annotation.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for UpdateAnnotationResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        {
+            if let ::core::option::Option::Some(__v) = self.annotation.as_option() {
+                __map.serialize_entry("annotation", __v)?;
+            }
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for UpdateAnnotationResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "UpdateAnnotationResponse";
+    const FULL_NAME: &'static str = "audit.v1.UpdateAnnotationResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.UpdateAnnotationResponse";
+}
+::buffa::impl_default_view_instance!(UpdateAnnotationResponseView);
+::buffa::impl_view_reborrow!(UpdateAnnotationResponseView);
+/** Self-contained, `'static` owned view of a `UpdateAnnotationResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`UpdateAnnotationResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`UpdateAnnotationResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct UpdateAnnotationResponseOwnedView(
+    ::buffa::OwnedView<UpdateAnnotationResponseView<'static>>,
+);
+impl UpdateAnnotationResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            UpdateAnnotationResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            UpdateAnnotationResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::UpdateAnnotationResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            UpdateAnnotationResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`UpdateAnnotationResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &UpdateAnnotationResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::UpdateAnnotationResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `annotation`
+    #[must_use]
+    pub fn annotation(
+        &self,
+    ) -> &::buffa::MessageFieldView<
+        super::super::__buffa::view::LogicAnnotationView<'_>,
+    > {
+        &self.0.reborrow().annotation
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<UpdateAnnotationResponseView<'static>>>
+for UpdateAnnotationResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<UpdateAnnotationResponseView<'static>>) -> Self {
+        UpdateAnnotationResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<UpdateAnnotationResponseOwnedView>
+for ::buffa::OwnedView<UpdateAnnotationResponseView<'static>> {
+    fn from(wrapper: UpdateAnnotationResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<UpdateAnnotationResponseView<'static>>>
+for UpdateAnnotationResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<UpdateAnnotationResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::UpdateAnnotationResponse {
+    type View<'a> = UpdateAnnotationResponseView<'a>;
+    type ViewHandle = UpdateAnnotationResponseOwnedView;
+}
+impl ::serde::Serialize for UpdateAnnotationResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct RuntimeRecordView<'a> {
+    /// Field 1: `id`
+    pub id: &'a str,
+    /// Field 2: `run_id`
+    pub run_id: &'a str,
+    /// Field 3: `source_run_id`
+    pub source_run_id: &'a str,
+    /// Field 4: `finding_id`
+    pub finding_id: &'a str,
+    /// Field 5: `status`
+    pub status: &'a str,
+    /// Field 6: `created_at`
+    pub created_at: &'a str,
+    /// Field 7: `config_json`
+    pub config_json: &'a str,
+    /// Field 8: `result_json`
+    pub result_json: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for RuntimeRecordView<'a> {
+    type Owned = super::super::RuntimeRecord;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.source_run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finding_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.status = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.created_at = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.config_json = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.result_json = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::RuntimeRecord, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::RuntimeRecord, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::RuntimeRecord {
+            id: self.id.to_string(),
+            run_id: self.run_id.to_string(),
+            source_run_id: self.source_run_id.to_string(),
+            finding_id: self.finding_id.to_string(),
+            status: self.status.to_string(),
+            created_at: self.created_at.to_string(),
+            config_json: self.config_json.to_string(),
+            result_json: self.result_json.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for RuntimeRecordView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.id) as u64;
+        }
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        if !self.source_run_id.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.source_run_id) as u64;
+        }
+        if !self.finding_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finding_id) as u64;
+        }
+        if !self.status.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.status) as u64;
+        }
+        if !self.created_at.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.created_at) as u64;
+        }
+        if !self.config_json.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.config_json) as u64;
+        }
+        if !self.result_json.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.result_json) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.id, buf);
+        }
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.run_id, buf);
+        }
+        if !self.source_run_id.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.source_run_id, buf);
+        }
+        if !self.finding_id.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.finding_id, buf);
+        }
+        if !self.status.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.status, buf);
+        }
+        if !self.created_at.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.created_at, buf);
+        }
+        if !self.config_json.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.config_json, buf);
+        }
+        if !self.result_json.is_empty() {
+            ::buffa::types::put_string_field(8u32, &self.result_json, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for RuntimeRecordView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.id) {
+            __map.serialize_entry("id", self.id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.source_run_id) {
+            __map.serialize_entry("sourceRunId", self.source_run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finding_id) {
+            __map.serialize_entry("findingId", self.finding_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.status) {
+            __map.serialize_entry("status", self.status)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.created_at) {
+            __map.serialize_entry("createdAt", self.created_at)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.config_json) {
+            __map.serialize_entry("configJson", self.config_json)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.result_json) {
+            __map.serialize_entry("resultJson", self.result_json)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for RuntimeRecordView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "RuntimeRecord";
+    const FULL_NAME: &'static str = "audit.v1.RuntimeRecord";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.RuntimeRecord";
+}
+::buffa::impl_default_view_instance!(RuntimeRecordView);
+::buffa::impl_view_reborrow!(RuntimeRecordView);
+/** Self-contained, `'static` owned view of a `RuntimeRecord` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`RuntimeRecordView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`RuntimeRecordView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct RuntimeRecordOwnedView(::buffa::OwnedView<RuntimeRecordView<'static>>);
+impl RuntimeRecordOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            RuntimeRecordOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            RuntimeRecordOwnedView(::buffa::OwnedView::decode_with_options(bytes, opts)?),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::RuntimeRecord,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            RuntimeRecordOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`RuntimeRecordView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &RuntimeRecordView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::RuntimeRecord {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `id`
+    #[must_use]
+    pub fn id(&self) -> &'_ str {
+        self.0.reborrow().id
+    }
+    /// Field 2: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+    /// Field 3: `source_run_id`
+    #[must_use]
+    pub fn source_run_id(&self) -> &'_ str {
+        self.0.reborrow().source_run_id
+    }
+    /// Field 4: `finding_id`
+    #[must_use]
+    pub fn finding_id(&self) -> &'_ str {
+        self.0.reborrow().finding_id
+    }
+    /// Field 5: `status`
+    #[must_use]
+    pub fn status(&self) -> &'_ str {
+        self.0.reborrow().status
+    }
+    /// Field 6: `created_at`
+    #[must_use]
+    pub fn created_at(&self) -> &'_ str {
+        self.0.reborrow().created_at
+    }
+    /// Field 7: `config_json`
+    #[must_use]
+    pub fn config_json(&self) -> &'_ str {
+        self.0.reborrow().config_json
+    }
+    /// Field 8: `result_json`
+    #[must_use]
+    pub fn result_json(&self) -> &'_ str {
+        self.0.reborrow().result_json
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<RuntimeRecordView<'static>>>
+for RuntimeRecordOwnedView {
+    fn from(inner: ::buffa::OwnedView<RuntimeRecordView<'static>>) -> Self {
+        RuntimeRecordOwnedView(inner)
+    }
+}
+impl ::core::convert::From<RuntimeRecordOwnedView>
+for ::buffa::OwnedView<RuntimeRecordView<'static>> {
+    fn from(wrapper: RuntimeRecordOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<RuntimeRecordView<'static>>>
+for RuntimeRecordOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<RuntimeRecordView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::RuntimeRecord {
+    type View<'a> = RuntimeRecordView<'a>;
+    type ViewHandle = RuntimeRecordOwnedView;
+}
+impl ::serde::Serialize for RuntimeRecordOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct CreateRuntimeRequestView<'a> {
+    /// Field 1: `request_id`
+    pub request_id: &'a str,
+    /// Field 2: `source_run_id`
+    pub source_run_id: &'a str,
+    /// Field 3: `finding_id`
+    pub finding_id: &'a str,
+    /// Empty selects the persisted verification plan for this finding.
+    ///
+    /// Field 4: `config_json`
+    pub config_json: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for CreateRuntimeRequestView<'a> {
+    type Owned = super::super::CreateRuntimeRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.request_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.source_run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.finding_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.config_json = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::CreateRuntimeRequest,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::CreateRuntimeRequest,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::CreateRuntimeRequest {
+            request_id: self.request_id.to_string(),
+            source_run_id: self.source_run_id.to_string(),
+            finding_id: self.finding_id.to_string(),
+            config_json: self.config_json.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for CreateRuntimeRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.request_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.request_id) as u64;
+        }
+        if !self.source_run_id.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.source_run_id) as u64;
+        }
+        if !self.finding_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finding_id) as u64;
+        }
+        if !self.config_json.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.config_json) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.request_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.request_id, buf);
+        }
+        if !self.source_run_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.source_run_id, buf);
+        }
+        if !self.finding_id.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.finding_id, buf);
+        }
+        if !self.config_json.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.config_json, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for CreateRuntimeRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.request_id) {
+            __map.serialize_entry("requestId", self.request_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.source_run_id) {
+            __map.serialize_entry("sourceRunId", self.source_run_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.finding_id) {
+            __map.serialize_entry("findingId", self.finding_id)?;
+        }
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.config_json) {
+            __map.serialize_entry("configJson", self.config_json)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for CreateRuntimeRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "CreateRuntimeRequest";
+    const FULL_NAME: &'static str = "audit.v1.CreateRuntimeRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.CreateRuntimeRequest";
+}
+::buffa::impl_default_view_instance!(CreateRuntimeRequestView);
+::buffa::impl_view_reborrow!(CreateRuntimeRequestView);
+/** Self-contained, `'static` owned view of a `CreateRuntimeRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`CreateRuntimeRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`CreateRuntimeRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct CreateRuntimeRequestOwnedView(
+    ::buffa::OwnedView<CreateRuntimeRequestView<'static>>,
+);
+impl CreateRuntimeRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CreateRuntimeRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CreateRuntimeRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::CreateRuntimeRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CreateRuntimeRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`CreateRuntimeRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &CreateRuntimeRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::CreateRuntimeRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `request_id`
+    #[must_use]
+    pub fn request_id(&self) -> &'_ str {
+        self.0.reborrow().request_id
+    }
+    /// Field 2: `source_run_id`
+    #[must_use]
+    pub fn source_run_id(&self) -> &'_ str {
+        self.0.reborrow().source_run_id
+    }
+    /// Field 3: `finding_id`
+    #[must_use]
+    pub fn finding_id(&self) -> &'_ str {
+        self.0.reborrow().finding_id
+    }
+    /// Empty selects the persisted verification plan for this finding.
+    ///
+    /// Field 4: `config_json`
+    #[must_use]
+    pub fn config_json(&self) -> &'_ str {
+        self.0.reborrow().config_json
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<CreateRuntimeRequestView<'static>>>
+for CreateRuntimeRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<CreateRuntimeRequestView<'static>>) -> Self {
+        CreateRuntimeRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<CreateRuntimeRequestOwnedView>
+for ::buffa::OwnedView<CreateRuntimeRequestView<'static>> {
+    fn from(wrapper: CreateRuntimeRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<CreateRuntimeRequestView<'static>>>
+for CreateRuntimeRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<CreateRuntimeRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::CreateRuntimeRequest {
+    type View<'a> = CreateRuntimeRequestView<'a>;
+    type ViewHandle = CreateRuntimeRequestOwnedView;
+}
+impl ::serde::Serialize for CreateRuntimeRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct CreateRuntimeResponseView<'a> {
+    /// Field 1: `record`
+    pub record: ::buffa::MessageFieldView<
+        super::super::__buffa::view::RuntimeRecordView<'a>,
+    >,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for CreateRuntimeResponseView<'a> {
+    type Owned = super::super::CreateRuntimeResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                match view.record.as_mut() {
+                    Some(existing) => {
+                        ::buffa::MessageView::merge_into_view(existing, sub, __sub_ctx)?
+                    }
+                    None => {
+                        view.record = ::buffa::MessageFieldView::set(
+                            <super::super::__buffa::view::RuntimeRecordView as ::buffa::MessageView>::decode_view_ctx(
+                                sub,
+                                __sub_ctx,
+                            )?,
+                        );
+                    }
+                }
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::CreateRuntimeResponse,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::CreateRuntimeResponse,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::CreateRuntimeResponse {
+            record: match self.record.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        super::super::RuntimeRecord,
+                        ::buffa::Inline<super::super::RuntimeRecord>,
+                    >::some(v.to_owned_from_source(__buffa_src)?)
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for CreateRuntimeResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.record.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.record.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if self.record.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.record.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for CreateRuntimeResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        {
+            if let ::core::option::Option::Some(__v) = self.record.as_option() {
+                __map.serialize_entry("record", __v)?;
+            }
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for CreateRuntimeResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "CreateRuntimeResponse";
+    const FULL_NAME: &'static str = "audit.v1.CreateRuntimeResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.CreateRuntimeResponse";
+}
+::buffa::impl_default_view_instance!(CreateRuntimeResponseView);
+::buffa::impl_view_reborrow!(CreateRuntimeResponseView);
+/** Self-contained, `'static` owned view of a `CreateRuntimeResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`CreateRuntimeResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`CreateRuntimeResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct CreateRuntimeResponseOwnedView(
+    ::buffa::OwnedView<CreateRuntimeResponseView<'static>>,
+);
+impl CreateRuntimeResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CreateRuntimeResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CreateRuntimeResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::CreateRuntimeResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            CreateRuntimeResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`CreateRuntimeResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &CreateRuntimeResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::CreateRuntimeResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `record`
+    #[must_use]
+    pub fn record(
+        &self,
+    ) -> &::buffa::MessageFieldView<super::super::__buffa::view::RuntimeRecordView<'_>> {
+        &self.0.reborrow().record
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<CreateRuntimeResponseView<'static>>>
+for CreateRuntimeResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<CreateRuntimeResponseView<'static>>) -> Self {
+        CreateRuntimeResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<CreateRuntimeResponseOwnedView>
+for ::buffa::OwnedView<CreateRuntimeResponseView<'static>> {
+    fn from(wrapper: CreateRuntimeResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<CreateRuntimeResponseView<'static>>>
+for CreateRuntimeResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<CreateRuntimeResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::CreateRuntimeResponse {
+    type View<'a> = CreateRuntimeResponseView<'a>;
+    type ViewHandle = CreateRuntimeResponseOwnedView;
+}
+impl ::serde::Serialize for CreateRuntimeResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct GetRuntimeRequestView<'a> {
+    /// Field 1: `record_id`
+    pub record_id: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for GetRuntimeRequestView<'a> {
+    type Owned = super::super::GetRuntimeRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.record_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::GetRuntimeRequest, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::GetRuntimeRequest, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::GetRuntimeRequest {
+            record_id: self.record_id.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for GetRuntimeRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.record_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.record_id) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.record_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.record_id, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for GetRuntimeRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.record_id) {
+            __map.serialize_entry("recordId", self.record_id)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for GetRuntimeRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "GetRuntimeRequest";
+    const FULL_NAME: &'static str = "audit.v1.GetRuntimeRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.GetRuntimeRequest";
+}
+::buffa::impl_default_view_instance!(GetRuntimeRequestView);
+::buffa::impl_view_reborrow!(GetRuntimeRequestView);
+/** Self-contained, `'static` owned view of a `GetRuntimeRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`GetRuntimeRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`GetRuntimeRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct GetRuntimeRequestOwnedView(
+    ::buffa::OwnedView<GetRuntimeRequestView<'static>>,
+);
+impl GetRuntimeRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetRuntimeRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetRuntimeRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::GetRuntimeRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetRuntimeRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`GetRuntimeRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &GetRuntimeRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::GetRuntimeRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `record_id`
+    #[must_use]
+    pub fn record_id(&self) -> &'_ str {
+        self.0.reborrow().record_id
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<GetRuntimeRequestView<'static>>>
+for GetRuntimeRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<GetRuntimeRequestView<'static>>) -> Self {
+        GetRuntimeRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<GetRuntimeRequestOwnedView>
+for ::buffa::OwnedView<GetRuntimeRequestView<'static>> {
+    fn from(wrapper: GetRuntimeRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<GetRuntimeRequestView<'static>>>
+for GetRuntimeRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<GetRuntimeRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::GetRuntimeRequest {
+    type View<'a> = GetRuntimeRequestView<'a>;
+    type ViewHandle = GetRuntimeRequestOwnedView;
+}
+impl ::serde::Serialize for GetRuntimeRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct GetRuntimeResponseView<'a> {
+    /// Field 1: `record`
+    pub record: ::buffa::MessageFieldView<
+        super::super::__buffa::view::RuntimeRecordView<'a>,
+    >,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for GetRuntimeResponseView<'a> {
+    type Owned = super::super::GetRuntimeResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                match view.record.as_mut() {
+                    Some(existing) => {
+                        ::buffa::MessageView::merge_into_view(existing, sub, __sub_ctx)?
+                    }
+                    None => {
+                        view.record = ::buffa::MessageFieldView::set(
+                            <super::super::__buffa::view::RuntimeRecordView as ::buffa::MessageView>::decode_view_ctx(
+                                sub,
+                                __sub_ctx,
+                            )?,
+                        );
+                    }
+                }
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::GetRuntimeResponse, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::GetRuntimeResponse, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::GetRuntimeResponse {
+            record: match self.record.as_option() {
+                Some(v) => {
+                    ::buffa::MessageField::<
+                        super::super::RuntimeRecord,
+                        ::buffa::Inline<super::super::RuntimeRecord>,
+                    >::some(v.to_owned_from_source(__buffa_src)?)
+                }
+                None => ::buffa::MessageField::none(),
+            },
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for GetRuntimeResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.record.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.record.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if self.record.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.record.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for GetRuntimeResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        {
+            if let ::core::option::Option::Some(__v) = self.record.as_option() {
+                __map.serialize_entry("record", __v)?;
+            }
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for GetRuntimeResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "GetRuntimeResponse";
+    const FULL_NAME: &'static str = "audit.v1.GetRuntimeResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.GetRuntimeResponse";
+}
+::buffa::impl_default_view_instance!(GetRuntimeResponseView);
+::buffa::impl_view_reborrow!(GetRuntimeResponseView);
+/** Self-contained, `'static` owned view of a `GetRuntimeResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`GetRuntimeResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`GetRuntimeResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct GetRuntimeResponseOwnedView(
+    ::buffa::OwnedView<GetRuntimeResponseView<'static>>,
+);
+impl GetRuntimeResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetRuntimeResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetRuntimeResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::GetRuntimeResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            GetRuntimeResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`GetRuntimeResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &GetRuntimeResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::GetRuntimeResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `record`
+    #[must_use]
+    pub fn record(
+        &self,
+    ) -> &::buffa::MessageFieldView<super::super::__buffa::view::RuntimeRecordView<'_>> {
+        &self.0.reborrow().record
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<GetRuntimeResponseView<'static>>>
+for GetRuntimeResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<GetRuntimeResponseView<'static>>) -> Self {
+        GetRuntimeResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<GetRuntimeResponseOwnedView>
+for ::buffa::OwnedView<GetRuntimeResponseView<'static>> {
+    fn from(wrapper: GetRuntimeResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<GetRuntimeResponseView<'static>>>
+for GetRuntimeResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<GetRuntimeResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::GetRuntimeResponse {
+    type View<'a> = GetRuntimeResponseView<'a>;
+    type ViewHandle = GetRuntimeResponseOwnedView;
+}
+impl ::serde::Serialize for GetRuntimeResponseOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct ListRuntimeRequestView<'a> {
+    /// Field 1: `run_id`
+    pub run_id: &'a str,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for ListRuntimeRequestView<'a> {
+    type Owned = super::super::ListRuntimeRequest;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                view.run_id = ::buffa::types::borrow_str(&mut cur)?;
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<super::super::ListRuntimeRequest, ::buffa::DecodeError> {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<super::super::ListRuntimeRequest, ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::ListRuntimeRequest {
+            run_id: self.run_id.to_string(),
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for ListRuntimeRequestView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.run_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.run_id) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.run_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.run_id, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for ListRuntimeRequestView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !::buffa::json_helpers::skip_if::is_empty_str(self.run_id) {
+            __map.serialize_entry("runId", self.run_id)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for ListRuntimeRequestView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "ListRuntimeRequest";
+    const FULL_NAME: &'static str = "audit.v1.ListRuntimeRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.ListRuntimeRequest";
+}
+::buffa::impl_default_view_instance!(ListRuntimeRequestView);
+::buffa::impl_view_reborrow!(ListRuntimeRequestView);
+/** Self-contained, `'static` owned view of a `ListRuntimeRequest` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`ListRuntimeRequestView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`ListRuntimeRequestView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct ListRuntimeRequestOwnedView(
+    ::buffa::OwnedView<ListRuntimeRequestView<'static>>,
+);
+impl ListRuntimeRequestOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListRuntimeRequestOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListRuntimeRequestOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::ListRuntimeRequest,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListRuntimeRequestOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`ListRuntimeRequestView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &ListRuntimeRequestView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::ListRuntimeRequest {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `run_id`
+    #[must_use]
+    pub fn run_id(&self) -> &'_ str {
+        self.0.reborrow().run_id
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<ListRuntimeRequestView<'static>>>
+for ListRuntimeRequestOwnedView {
+    fn from(inner: ::buffa::OwnedView<ListRuntimeRequestView<'static>>) -> Self {
+        ListRuntimeRequestOwnedView(inner)
+    }
+}
+impl ::core::convert::From<ListRuntimeRequestOwnedView>
+for ::buffa::OwnedView<ListRuntimeRequestView<'static>> {
+    fn from(wrapper: ListRuntimeRequestOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<ListRuntimeRequestView<'static>>>
+for ListRuntimeRequestOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<ListRuntimeRequestView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::ListRuntimeRequest {
+    type View<'a> = ListRuntimeRequestView<'a>;
+    type ViewHandle = ListRuntimeRequestOwnedView;
+}
+impl ::serde::Serialize for ListRuntimeRequestOwnedView {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        ::serde::Serialize::serialize(&self.0, __s)
+    }
+}
+#[derive(Clone, Debug, Default)]
+pub struct ListRuntimeResponseView<'a> {
+    /// Field 1: `records`
+    pub records: ::buffa::RepeatedView<
+        'a,
+        super::super::__buffa::view::RuntimeRecordView<'a>,
+    >,
+    pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+}
+impl<'a> ::buffa::MessageView<'a> for ListRuntimeResponseView<'a> {
+    type Owned = super::super::ListRuntimeResponse;
+    fn decode_view(buf: &'a [u8]) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        let __limit = ::core::cell::Cell::new(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT);
+        <Self as ::buffa::MessageView>::decode_view_ctx(
+            buf,
+            ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit),
+        )
+    }
+    fn decode_view_with_ctx(
+        buf: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+    }
+    #[inline]
+    fn merge_view_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        cur: &'a [u8],
+        before_tag: &'a [u8],
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+        let _ = ctx;
+        #[allow(unused_variables)]
+        let view = self;
+        let mut cur = cur;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __sub_ctx = ctx.descend()?;
+                let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                ctx.register_element_memory(
+                    ::core::mem::size_of::<
+                        super::super::__buffa::view::RuntimeRecordView,
+                    >(),
+                )?;
+                view.records
+                    .push(
+                        <super::super::__buffa::view::RuntimeRecordView as ::buffa::MessageView>::decode_view_ctx(
+                            sub,
+                            __sub_ctx,
+                        )?,
+                    );
+            }
+            _ => {
+                ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                let span_len = before_tag.len() - cur.len();
+                view.__buffa_unknown_fields.push_record(before_tag, span_len, ctx)?;
+            }
+        }
+        ::core::result::Result::Ok(cur)
+    }
+    fn to_owned_message(
+        &self,
+    ) -> ::core::result::Result<
+        super::super::ListRuntimeResponse,
+        ::buffa::DecodeError,
+    > {
+        self.to_owned_from_source(None)
+    }
+    #[allow(clippy::useless_conversion, clippy::needless_update)]
+    fn to_owned_from_source(
+        &self,
+        __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+    ) -> ::core::result::Result<
+        super::super::ListRuntimeResponse,
+        ::buffa::DecodeError,
+    > {
+        #[allow(unused_imports)]
+        use ::buffa::alloc::string::ToString as _;
+        let _ = __buffa_src;
+        ::core::result::Result::Ok(super::super::ListRuntimeResponse {
+            records: self
+                .records
+                .iter()
+                .map(|v| v.to_owned_from_source(__buffa_src))
+                .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+            __buffa_unknown_fields: self.__buffa_unknown_fields.to_owned()?.into(),
+            ..::core::default::Default::default()
+        })
+    }
+}
+impl<'a> ::buffa::ViewEncode<'a> for ListRuntimeResponseView<'a> {
+    #[allow(clippy::needless_borrow, clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        for v in &self.records {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    #[allow(clippy::needless_borrow)]
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        for v in &self.records {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+}
+/// Serializes this view as protobuf JSON.
+///
+/// Implicit-presence fields with default values are omitted, `required`
+/// fields are always emitted, explicit-presence (`optional`) fields are
+/// emitted only when set, bytes fields are base64-encoded, and enum
+/// values are their proto name strings.
+///
+/// This impl uses `serialize_map(None)` because the number of emitted
+/// fields depends on default-omission rules; serializers that require
+/// known map lengths (e.g. `bincode`) will return a runtime error.
+/// Use the owned message type for those formats.
+impl<'__a> ::serde::Serialize for ListRuntimeResponseView<'__a> {
+    fn serialize<__S: ::serde::Serializer>(
+        &self,
+        __s: __S,
+    ) -> ::core::result::Result<__S::Ok, __S::Error> {
+        use ::serde::ser::SerializeMap as _;
+        let mut __map = __s.serialize_map(::core::option::Option::None)?;
+        if !self.records.is_empty() {
+            __map.serialize_entry("records", &*self.records)?;
+        }
+        __map.end()
+    }
+}
+impl<'a> ::buffa::MessageName for ListRuntimeResponseView<'a> {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "ListRuntimeResponse";
+    const FULL_NAME: &'static str = "audit.v1.ListRuntimeResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.ListRuntimeResponse";
+}
+::buffa::impl_default_view_instance!(ListRuntimeResponseView);
+::buffa::impl_view_reborrow!(ListRuntimeResponseView);
+/** Self-contained, `'static` owned view of a `ListRuntimeResponse` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`ListRuntimeResponseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`ListRuntimeResponseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+#[derive(Clone, Debug)]
+pub struct ListRuntimeResponseOwnedView(
+    ::buffa::OwnedView<ListRuntimeResponseView<'static>>,
+);
+impl ListRuntimeResponseOwnedView {
+    /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+    ///
+    /// The view borrows directly from the buffer's data; the buffer is
+    /// retained inside the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+    /// protobuf data.
+    pub fn decode(
+        bytes: ::buffa::bytes::Bytes,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListRuntimeResponseOwnedView(::buffa::OwnedView::decode(bytes)?),
+        )
+    }
+    /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+    /// max message size).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+    /// exceeds the configured limits.
+    pub fn decode_with_options(
+        bytes: ::buffa::bytes::Bytes,
+        opts: &::buffa::DecodeOptions,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListRuntimeResponseOwnedView(
+                ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+            ),
+        )
+    }
+    /// Build from an owned message via an encode → decode round-trip.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+    /// message's encoded size exceeds the 2 GiB protobuf limit, or
+    /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+    /// somehow invalid (should not happen for well-formed messages).
+    pub fn from_owned(
+        msg: &super::super::ListRuntimeResponse,
+    ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+        ::core::result::Result::Ok(
+            ListRuntimeResponseOwnedView(::buffa::OwnedView::from_owned(msg)?),
+        )
+    }
+    /// Borrow the full [`ListRuntimeResponseView`] with its lifetime tied to `&self`.
+    #[must_use]
+    pub fn view(&self) -> &ListRuntimeResponseView<'_> {
+        self.0.reborrow()
+    }
+    /// Convert to the owned message type.
+    ///
+    /// Infallible: this type's constructors wire-decode their
+    /// buffer, and a view produced by wire decoding always
+    /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+    /// whose contract also governs handles converted from a raw
+    /// [`::buffa::OwnedView`].
+    #[must_use]
+    pub fn to_owned_message(&self) -> super::super::ListRuntimeResponse {
+        self.0.to_owned_message()
+    }
+    /// The underlying bytes buffer.
+    #[must_use]
+    pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+        self.0.bytes()
+    }
+    /// Consume the handle, returning the underlying bytes buffer.
+    #[must_use]
+    pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+        self.0.into_bytes()
+    }
+    /// Field 1: `records`
+    #[must_use]
+    pub fn records(
+        &self,
+    ) -> &::buffa::RepeatedView<'_, super::super::__buffa::view::RuntimeRecordView<'_>> {
+        &self.0.reborrow().records
+    }
+}
+impl ::core::convert::From<::buffa::OwnedView<ListRuntimeResponseView<'static>>>
+for ListRuntimeResponseOwnedView {
+    fn from(inner: ::buffa::OwnedView<ListRuntimeResponseView<'static>>) -> Self {
+        ListRuntimeResponseOwnedView(inner)
+    }
+}
+impl ::core::convert::From<ListRuntimeResponseOwnedView>
+for ::buffa::OwnedView<ListRuntimeResponseView<'static>> {
+    fn from(wrapper: ListRuntimeResponseOwnedView) -> Self {
+        wrapper.0
+    }
+}
+impl ::core::convert::AsRef<::buffa::OwnedView<ListRuntimeResponseView<'static>>>
+for ListRuntimeResponseOwnedView {
+    fn as_ref(&self) -> &::buffa::OwnedView<ListRuntimeResponseView<'static>> {
+        &self.0
+    }
+}
+impl ::buffa::HasMessageView for super::super::ListRuntimeResponse {
+    type View<'a> = ListRuntimeResponseView<'a>;
+    type ViewHandle = ListRuntimeResponseOwnedView;
+}
+impl ::serde::Serialize for ListRuntimeResponseOwnedView {
     fn serialize<__S: ::serde::Serializer>(
         &self,
         __s: __S,

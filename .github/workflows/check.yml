@@ -6,6 +6,32 @@ env:
   CARGO_TERM_COLOR: always
   PYTHONUTF8: "1"
 jobs:
+  runtime:
+    name: Linux runtime / real containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace --locked
+      - run: python3 scripts/manage.py runtime
+      - run: python3 scripts/check_runtime.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: runtime-verification
+          include-hidden-files: true
+          path: |
+            .data/verification/runtime-*/summary.json
+            .data/verification/runtime-*/source-*.json
+            .data/verification/runtime-*/fixed-*.json
+            .data/verification/runtime-*/original-*.json
+            .data/verification/runtime-*/cancellation.json
+            .data/verification/runtime-*/server.log
+            .data/verification/runtime-*/executor.log
   rust:
     name: Rust / ${{ matrix.os }}
     strategy:

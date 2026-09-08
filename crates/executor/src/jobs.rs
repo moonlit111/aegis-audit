@@ -25,6 +25,7 @@ pub struct Tools {
     pub ghidra: Option<PathBuf>,
     pub script_dir: PathBuf,
     pub git: bool,
+    pub runtime_image: Option<String>,
 }
 #[derive(Clone)]
 pub struct JobContext {
@@ -36,7 +37,7 @@ pub struct JobContext {
     pub reaped: Arc<AtomicBool>,
 }
 
-async fn process_tool(
+pub(crate) async fn process_tool(
     ctx: &JobContext,
     spec: ProcessSpec,
     name: &str,
@@ -139,10 +140,11 @@ async fn git_step(
 
 pub async fn execute(ctx: JobContext, workdir: &Path) -> Result<String> {
     let payload: Value = serde_json::from_str(&ctx.lease.payload_json)?;
-    if ctx.lease.kind == "IMPORT" {
-        import_target(&ctx, workdir, &payload).await
-    } else {
-        analyze(&ctx, workdir, &payload).await
+    match ctx.lease.kind.as_str() {
+        "IMPORT" => import_target(&ctx, workdir, &payload).await,
+        "ANALYZE" => analyze(&ctx, workdir, &payload).await,
+        "RUNTIME" => crate::runtime::execute(&ctx, workdir, &payload).await,
+        _ => anyhow::bail!("Unknown work kind"),
     }
 }
 
@@ -418,6 +420,60 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
         })
         .await??
     };
+    if manifest.kind != "BINARY"
+        && payload["scope"]
+            .as_str()
+            .is_some_and(|scope| scope != d::SCOPE)
+    {
+        if ctx.tools.runtime_image.is_some() {
+            let sandbox = workdir.join("semgrep");
+            aegis_application::runtime::prepare_work(&sandbox)?;
+            let (status, record) = container_tool(
+                ctx,
+                &sandbox,
+                &workdir.join("source"),
+                vec![
+                    "semgrep".into(),
+                    "scan".into(),
+                    "--json".into(),
+                    "--metrics=off".into(),
+                    "--disable-version-check".into(),
+                    "--config".into(),
+                    "/runner/rules.yml".into(),
+                    "/target".into(),
+                ],
+                "semgrep",
+                120,
+            )
+            .await?;
+            result.tools.push(record);
+            if status.exit_code == Some(0)
+                && !status.truncated
+                && !status.timed_out
+                && !status.cancelled
+            {
+                let raw = status.stdout;
+                ensure!(
+                    raw.len() <= 16 * 1024 * 1024,
+                    "Semgrep output exceeds quota"
+                );
+                let report: Value = serde_json::from_slice(&raw)?;
+                let artifact = ctx
+                    .control
+                    .upload_bytes(&ctx.lease, "semgrep.json", "application/json", raw)
+                    .await?;
+                result.metadata["semgrep"] = json!({"status":"COMPLETED","artifact_id":artifact.id,"engine":"Semgrep CE 1.176.1","findings_are_clues":true,"results":report["results"],"errors":report["errors"]});
+            } else {
+                result.metadata["semgrep"] =
+                    json!({"status":"FAILED","exit_code":status.exit_code});
+                result
+                    .warnings
+                    .push("Semgrep 未完成；保留原始日志，语义审计仍可继续".into());
+            }
+        } else {
+            result.metadata["semgrep"] = json!({"status":"UNSUPPORTED","reason":"执行器未准备 Linux 工具镜像；使用内建线索并进行独立语义审计"});
+        }
+    }
     ensure!(!ctx.cancel.is_cancelled(), "analysis cancelled");
     result.validate(&manifest).map_err(anyhow::Error::msg)?;
     result.metadata["target_sha256"] = json!(manifest.target_sha256);
@@ -436,4 +492,72 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
         )
         .await?
         .id)
+}
+
+pub(crate) async fn container_tool(
+    ctx: &JobContext,
+    work: &Path,
+    target: &Path,
+    args: Vec<String>,
+    name: &str,
+    seconds: u64,
+) -> Result<(process::ProcessOutput, d::ToolExecution)> {
+    let image = ctx
+        .tools
+        .runtime_image
+        .as_ref()
+        .context("Linux runtime image is unavailable")?;
+    let started = d::now();
+    let command = args.clone();
+    let sender = ctx.progress.clone();
+    ctx.reaped.store(false, Ordering::SeqCst);
+    let output = aegis_application::runtime::run(
+        aegis_application::runtime::ContainerSpec {
+            image: image.clone(),
+            work: work.into(),
+            target: target.into(),
+            runner: ctx
+                .tools
+                .script_dir
+                .parent()
+                .context("tool root missing")?
+                .join("runtime"),
+            args,
+            timeout: Duration::from_secs(seconds),
+        },
+        ctx.cancel.clone(),
+        move |message| {
+            let _ = sender.try_send((message.into(), 0, 0));
+        },
+    )
+    .await?;
+    ctx.reaped.store(output.processes_reaped, Ordering::SeqCst);
+    let mut bytes = output.stdout.clone();
+    bytes.extend_from_slice(b"\n--- stderr ---\n");
+    bytes.extend_from_slice(&output.stderr);
+    let artifact = ctx
+        .control
+        .upload_bytes(
+            &ctx.lease,
+            &format!("{name}-{}.log", d::id()),
+            "text/plain; charset=utf-8",
+            bytes,
+        )
+        .await?;
+    let record = d::ToolExecution {
+        name: name.into(),
+        version: image.clone(),
+        command,
+        started_at: started,
+        finished_at: d::now(),
+        exit_code: output.exit_code,
+        terminated: output.cancelled || output.timed_out,
+        log_artifact_id: artifact.id,
+        details: json!({"isolation":"DOCKER","platform":"linux/amd64","network":"none","processes_reaped":output.processes_reaped,"timed_out":output.timed_out,"cancelled":output.cancelled,"log_truncated":output.truncated}),
+    };
+    ensure!(
+        output.processes_reaped,
+        "Container removal was not confirmed"
+    );
+    Ok((output, record))
 }

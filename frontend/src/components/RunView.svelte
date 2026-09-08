@@ -41,6 +41,7 @@
   import {
     isTerminal,
     runLabel,
+    scopeLabel,
     tone,
     parseJson,
     dateTime,
@@ -50,6 +51,8 @@
   } from '../lib/format';
   import CodeViewer from './CodeViewer.svelte';
   import CallGraph from './CallGraph.svelte';
+  import AuditPanel from './AuditPanel.svelte';
+  import RuntimePanel from './RuntimePanel.svelte';
 
   let {
     runId,
@@ -66,6 +69,7 @@
   let query = $state('');
   let language = $state('');
   let tab = $state('program');
+  let runtimeFinding = $state('');
   let viewer = $state('code');
   let events = $state<RunEvent[]>([]);
   let streamStatus = $state('连接中');
@@ -93,8 +97,11 @@
     try {
       const response = await runsApi.getRun({ runId }, { signal: controller.signal });
       if (!alive) return;
+      const initial = !run;
       const previousCount = run?.unitCount;
       run = response.run;
+      if (initial && run?.scope === 'SECURITY_AUDIT') tab = 'audit';
+      if (initial && run && ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope)) tab = 'runtime';
       artifacts = response.artifacts;
       if (!snapshot && run)
         snapshot = (
@@ -249,7 +256,7 @@
 <a href="#/runs" class="back-link"><ArrowLeft size={14} />全部分析任务</a>
 <div class="run-heading">
   <div>
-    <div class="eyebrow">PROGRAM STRUCTURE</div>
+    <div class="eyebrow">{scopeLabel(run?.scope || '')}</div>
     <h1 title={snapshot?.name}>{snapshot?.name || '程序结构分析'}</h1>
     <p>
       <code>{runId.slice(0, 8)}</code><span>·</span>{dateTime(run?.createdAt || '')}<span>·</span>固定快照分析
@@ -298,7 +305,19 @@
         >{summary.edge_count ?? '—'}<small>{summary.unresolved_calls ?? 0} 条未解析</small></strong
       >
     </div>
-    <div class="audit-not-run"><span>漏洞审计 / 利用验证</span><strong>未执行</strong></div>
+    <div class="audit-not-run">
+      <span>漏洞审计</span><strong
+        >{run.scope === 'SECURITY_AUDIT'
+          ? {
+              COMPLETED: '完成',
+              PARTIAL: '部分完成',
+              RUNNING: '分析中',
+              QUEUED: '待分析',
+              CANCELLED: '已取消',
+            }[summary.vulnerability_audit || ''] || '准备中'
+          : '未执行'}</strong
+      >
+    </div>
   </div>
   {#if run.error}<div class="error-banner"><AlertCircle size={18} /><span>{run.error}</span></div>{/if}
   {#if !isTerminal(run.state)}<div class="running-banner">
@@ -311,6 +330,19 @@
       ><a href="#/environment">执行环境<ArrowUpRight size={13} /></a>
     </div>{/if}
   <div class="view-tabs" role="tablist" aria-label="分析内容">
+    <button
+      role="tab"
+      aria-selected={tab === 'runtime'}
+      class:active={tab === 'runtime'}
+      onclick={() => (tab = 'runtime')}><ListChecks size={16} />运行验证</button
+    >
+    {#if run.scope === 'SECURITY_AUDIT'}<button
+        role="tab"
+        aria-selected={tab === 'audit'}
+        class:active={tab === 'audit'}
+        onclick={() => (tab = 'audit')}
+        ><ListChecks size={16} />漏洞审计<span class="tab-count">{summary.finding_count || 0}</span></button
+      >{/if}
     <button
       role="tab"
       aria-selected={tab === 'program'}
@@ -339,7 +371,22 @@
       ></i>{streamStatus}</span
     >
   </div>
-  {#if tab === 'program'}
+  {#if tab === 'audit'}
+    <AuditPanel
+      {run}
+      {notify}
+      onverify={(id) => {
+        runtimeFinding = id;
+        tab = 'runtime';
+      }}
+      onselectunit={(id) => {
+        tab = 'program';
+        void selectUnit(id);
+      }}
+    />
+  {:else if tab === 'runtime'}
+    <RuntimePanel {run} {unit} {notify} {onchanged} findingId={runtimeFinding} />
+  {:else if tab === 'program'}
     <div class="program-layout">
       <aside class="unit-explorer">
         <div class="explorer-title"><strong>程序索引</strong><span>{total}</span></div>
@@ -495,8 +542,8 @@
                   </div>
                 </details>
                 <details>
-                  <summary>字符串引用 · {metadata.strings?.length || 0} 条</summary
-                  >{#each metadata.strings || [] as string}<p>
+                  <summary>字符串引用 · {metadata.referenced_strings?.length || 0} 条</summary
+                  >{#each metadata.referenced_strings || [] as string}<p>
                       <code>{string.address}</code>
                       {string.value}
                     </p>{/each}

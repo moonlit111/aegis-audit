@@ -35,7 +35,7 @@ pub fn valid_text(value: &str, max: usize, label: &str) -> Result<String> {
     Ok(text.to_owned())
 }
 
-async fn load<T: DeserializeOwned>(
+pub(crate) async fn load<T: DeserializeOwned>(
     conn: &mut SqliteConnection,
     table: &str,
     id: &str,
@@ -122,7 +122,7 @@ pub async fn event(
         .await?;
     Ok(())
 }
-async fn update_run(conn: &mut SqliteConnection, run: &d::AuditRun) -> Result<()> {
+pub(crate) async fn update_run(conn: &mut SqliteConnection, run: &d::AuditRun) -> Result<()> {
     sqlx::query("UPDATE audit_runs SET state=?,data=? WHERE id=?")
         .bind(run.state.as_str())
         .bind(serde_json::to_string(run)?)
@@ -363,7 +363,41 @@ impl Store {
         Ok(snapshot)
     }
     pub async fn create_run(&self, request: &str, snapshot_id: &str) -> Result<d::AuditRun> {
-        let hash = d::sha256(snapshot_id.as_bytes());
+        self.create_run_with_options(request, snapshot_id, d::SCOPE, d::AuditConfig::default())
+            .await
+    }
+    pub async fn create_run_with_options(
+        &self,
+        request: &str,
+        snapshot_id: &str,
+        scope: &str,
+        config: d::AuditConfig,
+    ) -> Result<d::AuditRun> {
+        if ![d::SCOPE, d::AUDIT_SCOPE].contains(&scope) {
+            return Err(AppError::Invalid("未知的分析范围".into()));
+        }
+        let settings = if scope == d::AUDIT_SCOPE {
+            config.validate().map_err(AppError::Invalid)?;
+            let settings = self.model_settings().await?;
+            if settings.key.is_none() {
+                return Err(AppError::Precondition(
+                    "开始漏洞审计前需要配置模型连接".into(),
+                ));
+            }
+            Some(settings)
+        } else {
+            None
+        };
+        let hash = if let Some(settings) = &settings {
+            d::sha256(&serde_json::to_vec(&json!([
+                snapshot_id,
+                scope,
+                config,
+                settings.fingerprint()
+            ]))?)
+        } else {
+            d::sha256(snapshot_id.as_bytes())
+        };
         let _guard = self.writes.lock().await;
         let mut tx = self.pool.begin().await?;
         if let Some(id) = duplicate(&mut tx, "CreateRun", request, &hash).await? {
@@ -392,7 +426,7 @@ impl Store {
             } else {
                 d::RunState::WaitingExecutor
             },
-            scope: d::SCOPE.into(),
+            scope: scope.into(),
             created_at: d::now(),
             started_at: String::new(),
             finished_at: String::new(),
@@ -401,9 +435,12 @@ impl Store {
             error: String::new(),
         };
         sqlx::query("INSERT INTO audit_runs(id,project_id,snapshot_id,state,created_at,data) VALUES(?,?,?,?,?,?)").bind(&run.id).bind(&run.project_id).bind(snapshot_id).bind(run.state.as_str()).bind(&run.created_at).bind(serde_json::to_string(&run)?).execute(&mut *tx).await?;
+        if let Some(settings) = settings {
+            sqlx::query("INSERT INTO audit_workflows(run_id,state,config,model,config_hash,created_at) VALUES(?,'WAITING_STRUCTURE',?,?,?,?)")
+                .bind(&run.id).bind(serde_json::to_string(&config)?).bind(&settings.model).bind(settings.fingerprint()).bind(&run.created_at).execute(&mut *tx).await?;
+        }
         let work = d::id();
-        let payload =
-            json!({"kind":snapshot.kind,"manifest_artifact_id":snapshot.manifest_artifact_id});
+        let payload = json!({"kind":snapshot.kind,"manifest_artifact_id":snapshot.manifest_artifact_id,"scope":scope});
         sqlx::query("INSERT INTO work_items(id,snapshot_id,run_id,kind,capability,state,created_at,input_artifact_id,payload) VALUES(?,?,?,'ANALYZE',?,'QUEUED',?,?,?)").bind(&work).bind(snapshot_id).bind(&run.id).bind(capability).bind(d::now()).bind(&snapshot.normalized_artifact_id).bind(payload.to_string()).execute(&mut *tx).await?;
         event(
             &mut tx,
@@ -446,8 +483,9 @@ impl Store {
             return Ok(run);
         }
         let active: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM work_items WHERE run_id=? AND state IN ('RUNNING','EXPIRED')",
+            "SELECT (SELECT COUNT(*) FROM work_items WHERE run_id=? AND state IN ('RUNNING','EXPIRED')) + (SELECT COUNT(*) FROM agent_tasks WHERE run_id=? AND status='RUNNING')",
         )
+        .bind(id)
         .bind(id)
         .fetch_one(&mut *tx)
         .await?;
@@ -459,6 +497,10 @@ impl Store {
         };
         if active == 0 {
             run.finished_at = d::now();
+            sqlx::query("UPDATE audit_workflows SET state='CANCELLED' WHERE run_id=?")
+                .bind(id)
+                .execute(&mut *tx)
+                .await?;
         }
         update_run(&mut tx, &run).await?;
         event(
@@ -750,7 +792,7 @@ impl Store {
         self.changed.notify_waiters();
         Ok(())
     }
-    async fn ensure_output(
+    pub(crate) async fn ensure_output(
         conn: &mut SqliteConnection,
         id: &str,
         work: &str,
@@ -885,6 +927,18 @@ impl Store {
                     .bind(&snapshot.id)
                     .execute(&mut *tx)
                     .await?;
+            } else if kind == "RUNTIME" {
+                self.ingest_runtime(
+                    &mut tx,
+                    run_id
+                        .as_deref()
+                        .ok_or_else(|| AppError::Invalid("运行任务缺少关联任务".into()))?,
+                    work,
+                    attempt,
+                    result_id,
+                    &bytes,
+                )
+                .await?;
             } else if let Some(run_id) = &run_id {
                 let result: d::AnalysisResult = serde_json::from_slice(&bytes)
                     .map_err(|e| AppError::Invalid(format!("解析结果格式无效：{e}")))?;
@@ -950,12 +1004,28 @@ impl Store {
                 run.finished_at = d::now();
                 run.unit_count = result.units.len() as u64;
                 run.summary = json!({"metadata":result.metadata,"files":result.files,"warnings":result.warnings,"tools":result.tools,"exclusions":manifest.exclusions,"unit_count":run.unit_count,"function_count":result.units.iter().filter(|u|u.metadata["kind"]=="function").count(),"edge_count":result.edges.len(),"unresolved_calls":result.edges.iter().filter(|e|e.target_key.is_empty()).count(),"result_artifact_id":result_id,"vulnerability_audit":"NOT_RUN","verification":"NOT_RUN"});
+                if run.scope == d::AUDIT_SCOPE {
+                    run.summary["structure_partial"] = json!(result.partial());
+                    run.summary["vulnerability_audit"] = json!("QUEUED");
+                    run.state = d::RunState::Running;
+                    run.finished_at.clear();
+                    sqlx::query("UPDATE audit_workflows SET state='QUEUED' WHERE run_id=?")
+                        .bind(run_id)
+                        .execute(&mut *tx)
+                        .await?;
+                }
                 update_run(&mut tx, &run).await?;
                 event(
                     &mut tx,
                     run_id,
-                    "RUN_COMPLETED",
-                    if run.state == d::RunState::Partial {
+                    if run.scope == d::AUDIT_SCOPE {
+                        "STRUCTURE_COMPLETED"
+                    } else {
+                        "RUN_COMPLETED"
+                    },
+                    if run.scope == d::AUDIT_SCOPE {
+                        "结构解析已完成，进入智能体审计与独立复核"
+                    } else if run.state == d::RunState::Partial {
                         "结构分析完成，存在覆盖缺口"
                     } else {
                         "程序结构分析完成；未执行漏洞检测或验证"
@@ -1148,8 +1218,8 @@ impl Store {
     pub async fn run_artifacts(&self, id: &str) -> Result<Vec<d::Artifact>> {
         let run: d::AuditRun = self.get("audit_runs", id).await?;
         let snapshot: d::Snapshot = self.get("snapshots", &run.snapshot_id).await?;
-        let rows:Vec<String>=sqlx::query_scalar("SELECT DISTINCT a.data FROM artifacts a WHERE a.id IN (?,?,?) OR a.work_item_id IN (SELECT id FROM work_items WHERE run_id=? OR (snapshot_id=? AND kind='IMPORT')) OR a.id IN (SELECT artifact_id FROM report_exports WHERE run_id=?) ORDER BY a.name,a.id")
-            .bind(&snapshot.original_artifact_id).bind(&snapshot.normalized_artifact_id).bind(&snapshot.manifest_artifact_id).bind(id).bind(&run.snapshot_id).bind(id).fetch_all(&self.pool).await?;
+        let rows:Vec<String>=sqlx::query_scalar("SELECT DISTINCT a.data FROM artifacts a WHERE a.id IN (?,?,?) OR a.work_item_id IN (SELECT id FROM work_items WHERE run_id=? OR (snapshot_id=? AND kind='IMPORT')) OR a.id IN (SELECT artifact_id FROM report_exports WHERE run_id=?) OR a.id IN (SELECT artifact_id FROM model_calls WHERE run_id=?) OR a.id IN (SELECT json_extract(data,'$.request_artifact_id') FROM model_calls WHERE run_id=?) OR a.id IN (SELECT json_extract(data,'$.result_artifact_id') FROM agent_tasks WHERE run_id=?) ORDER BY a.name,a.id")
+            .bind(&snapshot.original_artifact_id).bind(&snapshot.normalized_artifact_id).bind(&snapshot.manifest_artifact_id).bind(id).bind(&run.snapshot_id).bind(id).bind(id).bind(id).bind(id).fetch_all(&self.pool).await?;
         rows.into_iter()
             .map(|s| Ok(serde_json::from_str(&s)?))
             .collect()
@@ -1187,8 +1257,9 @@ impl Store {
             units.push(unit);
         }
         let artifacts = self.run_artifacts(run_id).await?;
+        let audit = self.audit_evidence(run_id).await?;
         let (bytes, mime, extension) = aegis_application::report::render(
-            &project, &snapshot, &run, &units, &artifacts, format,
+            &project, &snapshot, &run, &units, &artifacts, &audit, format,
         )?;
         let artifact = self
             .stage_bytes(&bytes, &format!("aegis-report-{run_id}.{extension}"), mime)

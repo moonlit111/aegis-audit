@@ -6,6 +6,8 @@ import {
   ProgramService,
   ReportService,
   SystemService,
+  FindingService,
+  RuntimeService,
 } from '../gen/audit/v1/audit_pb';
 
 let csrf = '';
@@ -25,6 +27,8 @@ export const runsApi = createClient(RunService, transport);
 export const programsApi = createClient(ProgramService, transport);
 export const reportsApi = createClient(ReportService, transport);
 export const systemApi = createClient(SystemService, transport);
+export const findingsApi = createClient(FindingService, transport);
+export const runtimeApi = createClient(RuntimeService, transport);
 export const requestId = () => crypto.randomUUID();
 export const artifactUrl = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`;
 

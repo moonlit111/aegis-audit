@@ -1,0 +1,61 @@
+{
+  "purpose": "development regression, not formal acceptance",
+  "results": [
+    {
+      "variant": "source",
+      "run_id": "66fe7988-c0e6-4cdd-a1eb-4270beb710c9",
+      "state": "RUN_STATE_COMPLETED",
+      "validated_categories": {
+        "INJECTION": 1,
+        "PATH_TRAVERSAL": 1,
+        "MEMORY_BOUNDS": 1,
+        "AUTHORIZATION": 1
+      },
+      "findings": 4,
+      "model_calls": 37,
+      "model_usage": {
+        "calls": 37,
+        "cost_cny": null,
+        "measured_tokens": 137351,
+        "unknown_usage_calls": 0
+      },
+      "reports": {
+        "json": "1012c0fb-a3ef-4866-b8dc-3cee48985495",
+        "html": "fd8bd0c0-4751-4c5b-924e-31e41551a67d",
+        "markdown": "ef5db769-e7d9-408e-b821-3e7b2bedd00e"
+      },
+      "audited_units": 9,
+      "eligible_units": 9,
+      "static_scope": "COMPONENT",
+      "dynamic_verification": "NOT_RUN"
+    },
+    {
+      "variant": "fixed",
+      "run_id": "82849726-351e-4cc5-a654-5091ae43ea95",
+      "state": "RUN_STATE_COMPLETED",
+      "validated_categories": {},
+      "findings": 0,
+      "model_calls": 17,
+      "model_usage": {
+        "calls": 17,
+        "cost_cny": null,
+        "measured_tokens": 60353,
+        "unknown_usage_calls": 0
+      },
+      "reports": {
+        "json": "dfe31d82-e3df-4c98-b8e2-c19b24ce90c6",
+        "html": "4012f747-7f60-4e73-bdd4-67146e30d282",
+        "markdown": "8995c4d8-c2ed-407f-91f3-708d7bd57826"
+      },
+      "audited_units": 9,
+      "eligible_units": 9,
+      "static_scope": "COMPONENT",
+      "dynamic_verification": "NOT_RUN"
+    }
+  ],
+  "schema_version": 1,
+  "checked_at": "2026-09-08T18:17:04.322310+00:00",
+  "prompt_version": "audit-8",
+  "local_evidence_directory": ".data/verification/audit-live-20260909-013800",
+  "passed": true
+}

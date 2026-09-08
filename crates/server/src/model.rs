@@ -16,18 +16,18 @@ struct Preferences {
     model: String,
 }
 
-struct Settings {
-    model: String,
-    key: Option<String>,
+pub(crate) struct Settings {
+    pub model: String,
+    pub key: Option<String>,
 }
 impl Settings {
-    fn fingerprint(&self) -> String {
+    pub fn fingerprint(&self) -> String {
         d::sha256(format!("{}:{}", self.model, self.key.as_deref().unwrap_or_default()).as_bytes())
     }
 }
 
 impl Store {
-    async fn model_settings(&self) -> Result<Settings> {
+    pub(crate) async fn model_settings(&self) -> Result<Settings> {
         let model = match tokio::fs::read(self.root.join("model.json")).await {
             Ok(bytes) => {
                 serde_json::from_slice::<Preferences>(&bytes)
@@ -71,7 +71,7 @@ impl Store {
         result.model = settings.model.clone();
         result.configured = settings.key.is_some();
         if result.configured {
-            let last: Option<String> = sqlx::query_scalar("SELECT data FROM model_calls WHERE config_hash=? ORDER BY created_at DESC,id DESC LIMIT 1").bind(settings.fingerprint()).fetch_optional(&self.pool).await?;
+            let last: Option<String> = sqlx::query_scalar("SELECT data FROM model_calls WHERE config_hash=? AND run_id IS NULL ORDER BY created_at DESC,id DESC LIMIT 1").bind(settings.fingerprint()).fetch_optional(&self.pool).await?;
             if let Some(last) = last {
                 result.last_call = convert::model_call(serde_json::from_str(&last)?).into();
             }
@@ -94,10 +94,11 @@ impl Store {
                 .await?;
             return Ok(serde_json::from_str(&data)?);
         }
-        let active: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM model_calls WHERE status='RUNNING'")
-                .fetch_one(&mut *tx)
-                .await?;
+        let active: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM model_calls WHERE status='RUNNING' AND run_id IS NULL",
+        )
+        .fetch_one(&mut *tx)
+        .await?;
         if active > 0 {
             return Err(AppError::Precondition("已有连接检查正在执行".into()));
         }
@@ -192,10 +193,11 @@ impl Store {
     pub async fn recover_model_probes(&self) -> Result<()> {
         let _guard = self.writes.lock().await;
         let mut tx = self.pool.begin().await?;
-        let rows: Vec<String> =
-            sqlx::query_scalar("SELECT data FROM model_calls WHERE status='RUNNING'")
-                .fetch_all(&mut *tx)
-                .await?;
+        let rows: Vec<String> = sqlx::query_scalar(
+            "SELECT data FROM model_calls WHERE status='RUNNING' AND run_id IS NULL",
+        )
+        .fetch_all(&mut *tx)
+        .await?;
         for row in rows {
             let mut call: d::ModelCall = serde_json::from_str(&row)?;
             call.status = "INTERRUPTED".into();

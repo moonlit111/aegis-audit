@@ -1,7 +1,8 @@
 //! DeepSeek official transport. Secrets are never part of saved request/response records.
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Context, Result, ensure};
+use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{future::Future, pin::Pin, time::Duration};
 
 pub const ENDPOINT: &str = "https://api.deepseek.com";
 pub const DEFAULT_MODEL: &str = "deepseek-v4-flash";
@@ -21,13 +22,51 @@ pub struct ProbeResult {
     pub usage_available: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelRequest {
+    pub model: String,
+    pub messages: Vec<Value>,
+    pub max_tokens: u32,
+    pub reasoning_effort: String,
+}
+
+pub struct ModelResponse {
+    pub content: String,
+    pub finish_reason: String,
+    pub result: ProbeResult,
+}
+
+pub trait ModelClient: Send + Sync {
+    fn complete<'a>(
+        &'a self,
+        request: &'a ModelRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<ModelResponse>> + Send + 'a>>;
+}
+
+#[derive(Debug)]
+pub struct ProviderFailure {
+    pub status: u16,
+    pub retryable: bool,
+    pub detail: &'static str,
+}
+impl std::fmt::Display for ProviderFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "DeepSeek 官方接口返回 HTTP {}：{}",
+            self.status, self.detail
+        )
+    }
+}
+impl std::error::Error for ProviderFailure {}
+
 impl DeepSeek {
     pub fn new(key: String) -> Result<Self> {
         ensure!(!key.trim().is_empty(), "DeepSeek 密钥尚未配置");
         let _ = rustls::crypto::ring::default_provider().install_default();
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(60))
+            .timeout(Duration::from_secs(300))
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Ok(Self {
@@ -47,16 +86,29 @@ impl DeepSeek {
             "temperature":0,
             "stream":false
         });
+        let result = self.send(&body, 64 * 1024).await?;
+        let content = result.response["choices"][0]["message"]["content"]
+            .as_str()
+            .context("DeepSeek 未返回消息内容")?;
+        let answer: Value = serde_json::from_str(content).context("DeepSeek 结构化响应校验失败")?;
+        ensure!(
+            answer["connected"] == true,
+            "DeepSeek 连接检查结果不符合约定"
+        );
+        Ok(result)
+    }
+
+    async fn send(&self, body: &Value, limit: usize) -> Result<ProbeResult> {
         let mut response = self
             .client
             .post(format!("{}/chat/completions", self.endpoint))
             .bearer_auth(&self.key)
-            .json(&body)
+            .json(body)
             .send()
             .await
             .map_err(|error| {
                 anyhow::anyhow!(if error.is_timeout() {
-                    "DeepSeek 连接检查超时"
+                    "DeepSeek 请求超时；用量未知"
                 } else {
                     "DeepSeek 网络连接失败"
                 })
@@ -71,7 +123,12 @@ impl DeepSeek {
                 500..=599 => "服务暂时不可用",
                 _ => "请求被拒绝",
             };
-            bail!("DeepSeek 官方接口返回 HTTP {status}：{detail}");
+            return Err(ProviderFailure {
+                status,
+                retryable: status == 429 || status >= 500,
+                detail,
+            }
+            .into());
         }
         let mut bytes = Vec::new();
         while let Some(chunk) = response
@@ -80,8 +137,8 @@ impl DeepSeek {
             .map_err(|_| anyhow::anyhow!("DeepSeek 响应传输中断"))?
         {
             ensure!(
-                bytes.len() + chunk.len() <= 64 * 1024,
-                "连接检查响应超过 64 KiB 上限"
+                bytes.len() + chunk.len() <= limit,
+                "DeepSeek 响应超过归档上限"
             );
             bytes.extend_from_slice(&chunk);
         }
@@ -90,14 +147,6 @@ impl DeepSeek {
         ensure!(
             !serde_json::to_string(&response)?.contains(&self.key),
             "DeepSeek 响应包含不应归档的凭据，已拒绝保存"
-        );
-        let content = response["choices"][0]["message"]["content"]
-            .as_str()
-            .context("DeepSeek 未返回消息内容")?;
-        let answer: Value = serde_json::from_str(content).context("DeepSeek 结构化响应校验失败")?;
-        ensure!(
-            answer["connected"] == true,
-            "DeepSeek 连接检查结果不符合约定"
         );
         let usage = &response["usage"];
         Ok(ProbeResult {
@@ -109,6 +158,54 @@ impl DeepSeek {
                 && usage["completion_tokens"].is_u64()
                 && usage["total_tokens"].is_u64(),
             response,
+        })
+    }
+}
+
+impl ModelClient for DeepSeek {
+    fn complete<'a>(
+        &'a self,
+        request: &'a ModelRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<ModelResponse>> + Send + 'a>> {
+        Box::pin(async move {
+            ensure!(
+                (128..=32768).contains(&request.max_tokens),
+                "模型输出 token 限制无效"
+            );
+            ensure!(
+                ["low", "high", "max", "disabled"].contains(&request.reasoning_effort.as_str()),
+                "模型推理强度无效"
+            );
+            ensure!(
+                serde_json::to_vec(&request.messages)?.len() <= 256 * 1024,
+                "模型上下文超过 256 KiB"
+            );
+            let mut body = json!({
+                "model":request.model, "messages":request.messages, "max_tokens":request.max_tokens,
+                "response_format":{"type":"json_object"}, "thinking":{"type":"enabled"},
+                "reasoning_effort":request.reasoning_effort, "stream":false
+            });
+            if request.reasoning_effort == "disabled" {
+                body["thinking"] = json!({"type":"disabled"});
+                body.as_object_mut()
+                    .expect("request object")
+                    .remove("reasoning_effort");
+                body["temperature"] = json!(0);
+            }
+            let result = self.send(&body, 1024 * 1024).await?;
+            let content = result.response["choices"][0]["message"]["content"]
+                .as_str()
+                .unwrap_or_default()
+                .into();
+            let finish_reason = result.response["choices"][0]["finish_reason"]
+                .as_str()
+                .unwrap_or("unknown")
+                .into();
+            Ok(ModelResponse {
+                content,
+                finish_reason,
+                result,
+            })
         })
     }
 }

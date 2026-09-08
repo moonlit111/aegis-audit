@@ -1,5 +1,6 @@
 mod client;
 mod jobs;
+mod runtime;
 
 use aegis_protocol as p;
 use anyhow::{Context, Result, ensure};
@@ -22,7 +23,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Parser)]
 #[command(
     version,
-    about = "AegisAudit executor — import and static structure analysis only"
+    about = "AegisAudit executor — program analysis and isolated local verification"
 )]
 struct Options {
     #[arg(long, default_value = "http://127.0.0.1:7331")]
@@ -168,12 +169,14 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             );
         }
     }
+    let runtime_image = aegis_application::runtime::image_id().await;
     let tools = Tools {
         ghidra: ghidra.clone(),
         script_dir: absolute(&options.script_dir),
         git: git.is_some(),
+        runtime_image: runtime_image.clone(),
     };
-    let caps = vec![
+    let mut caps = vec![
         p::ToolCapability {
             name: "import".into(),
             version: env!("CARGO_PKG_VERSION").into(),
@@ -203,6 +206,20 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             ..Default::default()
         },
     ];
+    for name in ["linux-runtime", "semgrep", "upx", "afl++"] {
+        caps.push(p::ToolCapability {
+            name: name.into(),
+            version: runtime_image.clone().unwrap_or_default(),
+            available: runtime_image.is_some(),
+            detail: if runtime_image.is_some() {
+                "固定 Linux amd64 容器镜像；网络关闭、目标只读挂载，执行后确认容器回收"
+            } else {
+                "需要 Docker 和 aegis-runtime:0.2.0 镜像；运行 python3 scripts/manage.py runtime"
+            }
+            .into(),
+            ..Default::default()
+        });
+    }
     (tools, caps)
 }
 

@@ -7,6 +7,7 @@
 .cache/
 target/
 node_modules/
+.pnpm-store/
 frontend/dist/
 playwright-report/
 test-results/

@@ -35,7 +35,7 @@ def collect(destination):
                 files.append(relative.as_posix())
         notices.append({'ecosystem': ecosystem, 'name': name, 'version': version, 'license': license_id, 'repository': repository, 'notice_files': files})
     (destination / 'index.json').write_text(json.dumps(notices, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    (destination / 'README.txt').write_text('Dependency license metadata and upstream notice files.\nThe Rust list includes optional/build dependencies as a conservative superset.\nJava, Ghidra and Git are installed separately with their upstream licenses.\n', encoding='utf-8')
+    (destination / 'README.txt').write_text('Dependency license metadata and upstream notice files.\nThe Rust list includes optional/build dependencies as a conservative superset.\nJava, Ghidra and Git are installed separately with their upstream licenses.\nThe optional Linux runtime image is built locally from tools/runtime/Dockerfile, retains its package licenses, and is not included in this ZIP.\nSee Docs/开源参考与依赖.md for external tools and code references.\n', encoding='utf-8')
     return notices
 
 

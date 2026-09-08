@@ -79,6 +79,28 @@ pub mod __buffa {
         reg.register_json_any(super::__MODEL_CONNECTION_JSON_ANY);
         reg.register_json_any(super::__CHECK_MODEL_CONNECTION_REQUEST_JSON_ANY);
         reg.register_json_any(super::__CHECK_MODEL_CONNECTION_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__EVIDENCE_REF_JSON_ANY);
+        reg.register_json_any(super::__FINDING_JSON_ANY);
+        reg.register_json_any(super::__REVIEW_JSON_ANY);
+        reg.register_json_any(super::__LOGIC_ANNOTATION_JSON_ANY);
+        reg.register_json_any(super::__AGENT_TASK_JSON_ANY);
+        reg.register_json_any(super::__GET_AUDIT_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__GET_AUDIT_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__LIST_FINDINGS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__LIST_FINDINGS_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__GET_FINDING_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__GET_FINDING_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__SUBMIT_REVIEW_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__SUBMIT_REVIEW_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__UPDATE_ANNOTATION_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__UPDATE_ANNOTATION_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__RUNTIME_RECORD_JSON_ANY);
+        reg.register_json_any(super::__CREATE_RUNTIME_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__CREATE_RUNTIME_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__GET_RUNTIME_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__GET_RUNTIME_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__LIST_RUNTIME_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__LIST_RUNTIME_RESPONSE_JSON_ANY);
     }
 }
 #[doc(inline)]
@@ -309,5 +331,93 @@ pub use self::__buffa::view::CheckModelConnectionRequestOwnedView;
 pub use self::__buffa::view::CheckModelConnectionResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::CheckModelConnectionResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::EvidenceRefView;
+#[doc(inline)]
+pub use self::__buffa::view::EvidenceRefOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::FindingView;
+#[doc(inline)]
+pub use self::__buffa::view::FindingOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ReviewView;
+#[doc(inline)]
+pub use self::__buffa::view::ReviewOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::LogicAnnotationView;
+#[doc(inline)]
+pub use self::__buffa::view::LogicAnnotationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::AgentTaskView;
+#[doc(inline)]
+pub use self::__buffa::view::AgentTaskOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::GetAuditRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::GetAuditRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::GetAuditResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::GetAuditResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListFindingsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::ListFindingsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListFindingsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::ListFindingsResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::GetFindingRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::GetFindingRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::GetFindingResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::GetFindingResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SubmitReviewRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::SubmitReviewRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SubmitReviewResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::SubmitReviewResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::UpdateAnnotationRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::UpdateAnnotationRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::UpdateAnnotationResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::UpdateAnnotationResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::RuntimeRecordView;
+#[doc(inline)]
+pub use self::__buffa::view::RuntimeRecordOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateRuntimeRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateRuntimeRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateRuntimeResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateRuntimeResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::GetRuntimeRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::GetRuntimeRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::GetRuntimeResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::GetRuntimeResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListRuntimeRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::ListRuntimeRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListRuntimeResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::ListRuntimeResponseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::register_types;

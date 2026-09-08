@@ -1,0 +1,33 @@
+rules:
+  - id: aegis.python.shell-boundary
+    languages: [python]
+    message: Shell execution boundary; verify input provenance and defenses independently.
+    severity: WARNING
+    pattern: subprocess.$FUNCTION(..., shell=True, ...)
+  - id: aegis.python.evaluation-boundary
+    languages: [python]
+    message: Dynamic evaluation boundary; a match alone does not establish a vulnerability.
+    severity: WARNING
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+  - id: aegis.python.file-boundary
+    languages: [python]
+    message: File access boundary; check path normalization and authorization.
+    severity: INFO
+    pattern: open($PATH, ...)
+  - id: aegis.c.unbounded-copy
+    languages: [c]
+    message: Memory copy boundary; compare source length with destination capacity and guards.
+    severity: WARNING
+    pattern-either:
+      - pattern: strcpy($DEST, $SOURCE)
+      - pattern: strcat($DEST, $SOURCE)
+      - pattern: sprintf($DEST, ...)
+  - id: aegis.go.shell-boundary
+    languages: [go]
+    message: Shell interpreter boundary; verify external input flow.
+    severity: WARNING
+    pattern-either:
+      - pattern: exec.Command("sh", "-c", ...)
+      - pattern: exec.Command("bash", "-c", ...)

@@ -1,6 +1,109 @@
 use aegis_domain as d;
 use aegis_protocol as p;
 
+pub fn evidence(v: d::EvidenceRef) -> p::EvidenceRef {
+    p::EvidenceRef {
+        unit_id: v.unit_id,
+        artifact_id: v.artifact_id,
+        path: v.path,
+        start_line: v.start_line,
+        end_line: v.end_line,
+        address: v.address,
+        quote: v.quote,
+        ..Default::default()
+    }
+}
+pub fn finding(v: d::Finding) -> p::Finding {
+    p::Finding {
+        static_scope: v.static_scope,
+        id: v.id,
+        run_id: v.run_id,
+        title: v.draft.title,
+        category: v.draft.category,
+        cwe: v.draft.cwe,
+        severity: v.draft.severity,
+        severity_reason: v.draft.severity_reason,
+        unit_id: v.draft.unit_id,
+        input_source: v.draft.input_source,
+        sink: v.draft.sink,
+        missing_guard: v.draft.missing_guard,
+        preconditions: v.draft.preconditions,
+        impact: v.draft.impact,
+        recommendation: v.draft.recommendation,
+        evidence: v.evidence.into_iter().map(evidence).collect(),
+        review_status: v.review_status,
+        verification_status: v.verification_status,
+        revision: v.revision,
+        model_call_id: v.model_call_id,
+        created_at: v.created_at,
+        ..Default::default()
+    }
+}
+pub fn review(v: d::Review) -> p::Review {
+    p::Review {
+        assessments_json: serde_json::to_string(&v.draft.assessments).unwrap_or_default(),
+        id: v.id,
+        finding_id: v.finding_id,
+        actor: v.actor,
+        verdict: v.draft.verdict,
+        rationale: v.draft.rationale,
+        counter_evidence: v.draft.counter_evidence,
+        missing_information: v.draft.missing_information,
+        evidence: v.evidence.into_iter().map(evidence).collect(),
+        model_call_id: v.model_call_id,
+        revision: v.revision,
+        created_at: v.created_at,
+        ..Default::default()
+    }
+}
+pub fn annotation(v: d::LogicAnnotation) -> p::LogicAnnotation {
+    p::LogicAnnotation {
+        id: v.id,
+        run_id: v.run_id,
+        unit_id: v.draft.unit_id,
+        tag: v.draft.tag,
+        rationale: v.draft.rationale,
+        evidence: v.evidence.into_iter().map(evidence).collect(),
+        actor: v.actor,
+        revision: v.revision,
+        model_call_id: v.model_call_id,
+        updated_at: v.updated_at,
+        ..Default::default()
+    }
+}
+pub fn agent_task(v: d::AgentTask) -> p::AgentTask {
+    p::AgentTask {
+        id: v.id,
+        run_id: v.run_id,
+        role: v.role,
+        item_key: v.item_key,
+        status: v.status,
+        created_at: v.created_at,
+        finished_at: v.finished_at,
+        result_artifact_id: v.result_artifact_id,
+        result_json: v.result.to_string(),
+        error: v.error,
+        ..Default::default()
+    }
+}
+
+pub fn runtime_record(v: d::RuntimeRecord) -> p::RuntimeRecord {
+    p::RuntimeRecord {
+        id: v.id,
+        run_id: v.run_id,
+        source_run_id: v.source_run_id,
+        finding_id: v.finding_id,
+        status: v.status,
+        created_at: v.created_at,
+        config_json: serde_json::to_string(&v.config).expect("serializable runtime config"),
+        result_json: v
+            .result
+            .map(|result| serde_json::to_string(&result).expect("serializable runtime result"))
+            .unwrap_or_default(),
+        ..Default::default()
+    }
+}
+
 pub fn model_call(value: d::ModelCall) -> p::ModelCall {
     p::ModelCall {
         id: value.id,
@@ -17,6 +120,12 @@ pub fn model_call(value: d::ModelCall) -> p::ModelCall {
         provider_request_id: value.provider_request_id,
         artifact_id: value.artifact_id,
         error: value.error,
+        run_id: value.run_id,
+        task_id: value.task_id,
+        role: value.role,
+        prompt_version: value.prompt_version,
+        request_artifact_id: value.request_artifact_id,
+        finish_reason: value.finish_reason,
         ..Default::default()
     }
 }

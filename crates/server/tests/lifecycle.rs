@@ -33,12 +33,15 @@ struct Fixture {
 }
 impl Fixture {
     async fn new(store: &Store) -> Self {
-        let directory = tempfile::tempdir().unwrap();
-        std::fs::write(
-            directory.path().join("中文.py"),
+        Self::with_source(
+            store,
             "def helper(value):\n    return value\n\ndef main():\n    return helper('中文')\n",
         )
-        .unwrap();
+        .await
+    }
+    async fn with_source(store: &Store, code: &str) -> Self {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("中文.py"), code).unwrap();
         let zip = tempfile::NamedTempFile::new().unwrap();
         let bundle = import::pack_directory(
             directory.path(),
@@ -143,6 +146,12 @@ impl Fixture {
         (run, lease)
     }
 }
+
+#[path = "support/audit_behaviors.rs"]
+mod audit_behaviors;
+
+#[path = "support/runtime_behaviors.rs"]
+mod runtime_behaviors;
 
 #[tokio::test]
 async fn concurrent_idempotent_creates_and_conflicting_bodies() {
