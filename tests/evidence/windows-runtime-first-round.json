@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "batch": "windows-runtime-first-round-20260909",
+  "owner": "A",
+  "observed_at": "2026-09-09T15:00:00+08:00",
+  "baseline": {
+    "repo": "https://github.com/moonlit111/aegis-audit",
+    "branch": "main",
+    "head": "a0722775ec12c8468840260fb950be37f46aa7b5",
+    "note": "main 已合并 windows/relay-20260909（PR #1），无未提交改动"
+  },
+  "host_summary": {
+    "os": "Windows 11 Home China (CoreCountrySpecific, SKU 99, build 26200.9168)",
+    "windows_sandbox": "unavailable",
+    "evidence": "WindowsSandbox*.exe 与 vmcompute/HCS 全部缺失；HvHost Stopped；家庭版不在 Sandbox 支持矩阵内",
+    "toolchain": "Python 3.13.14、Node 24.15.0、Git 2.54 可用；Rust 与 MSVC 未安装",
+    "running_services": "无 aegis-server / aegis-executor 进程"
+  },
+  "result": {
+    "a01_isolation_probe": "BLOCKED_PLATFORM_UNSUPPORTED",
+    "delivered": [
+      "动态执行代码迁移清单（Docker/ELF/AFLPP 假设）",
+      "提交给 C 的最小运行契约需求",
+      "本机环境与阻塞证据"
+    ],
+    "not_run": [
+      "Sandbox 启动/断网/只读/输出映射/销毁/跨会话残留探针",
+      "任何正式漏洞程序或模型审计",
+      "管理员操作、功能启用、重启、软件安装"
+    ]
+  },
+  "raw_evidence": ".data/verification/windows-runtime/first-round-20260909/",
+  "next": "等待用户决定隔离环境（升级 Pro / 另一台 Pro 机器 / 其他后端 / 暂缓动态）与工具链安装方式"
+}
