@@ -3,10 +3,13 @@ compile_error!("AegisAudit supports Windows x64 only.");
 
 pub mod audit;
 pub mod credentials;
+pub mod deobfuscation;
 pub mod import;
 pub mod model;
 pub mod process;
+pub mod protection;
 pub mod report;
+pub mod runconfig;
 pub mod runtime;
 pub mod sast;
 pub mod source;

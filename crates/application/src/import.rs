@@ -377,16 +377,9 @@ pub fn inspect_binary(bytes: &[u8]) -> Result<Value> {
         _ => bail!("unsupported target architecture: {:?}", file.architecture()),
     };
     let sections: Vec<Value> = file.sections().take(256).map(|s| json!({"name":s.name().unwrap_or("<invalid>"),"address":format!("0x{:x}",s.address()),"size":s.size()})).collect();
-    let protection_hints: Vec<&str> = if sections
-        .iter()
-        .any(|s| s["name"].as_str().is_some_and(|n| n.starts_with("UPX")))
-    {
-        vec!["UPX 节区特征；仅为识别线索，本轮未执行去壳"]
-    } else {
-        vec![]
-    };
+    let protection = crate::protection::assess(bytes)?;
     Ok(
-        json!({"format":format,"architecture":architecture,"entry":format!("0x{:x}",file.entry()),"sections":sections,"protection_hints":protection_hints,"target_executed":false}),
+        json!({"format":format,"architecture":architecture,"entry":format!("0x{:x}",file.entry()),"sections":sections,"protection":protection,"target_executed":false}),
     )
 }
 

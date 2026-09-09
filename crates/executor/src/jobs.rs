@@ -194,12 +194,73 @@ async fn import_target(ctx: &JobContext, workdir: &Path, payload: &Value) -> Res
             )
             .await?;
         let data = tokio::fs::read(&input).await?;
-        let metadata = import::inspect_binary(&data)?;
+        let mut metadata = import::inspect_binary(&data)?;
         let name = payload["name"]
             .as_str()
             .filter(|n| !n.is_empty())
             .unwrap_or("target.bin");
         import::relative_path(name)?;
+        if metadata["protection"]["kind"] != "NONE" {
+            let outcome = aegis_application::protection::process(
+                &data,
+                workdir,
+                None,
+                aegis_application::protection::ProcessLimits::default(),
+                ctx.cancel.clone(),
+            )
+            .await?;
+            if outcome["state"] == "PROCESSED" {
+                let derived = workdir.join("protection-upx").join("derived.bin");
+                let artifact = ctx
+                    .control
+                    .upload_file(
+                        &ctx.lease,
+                        &derived,
+                        &format!("{name}.unpacked"),
+                        "application/octet-stream",
+                    )
+                    .await?;
+                metadata["protection"]["derived_artifact_id"] = json!(artifact.id);
+                let mut logs = Vec::new();
+                logs.extend_from_slice(b"--- stdout ---\n");
+                logs.extend_from_slice(outcome["stdout"].as_str().unwrap_or("").as_bytes());
+                logs.extend_from_slice(b"\n--- stderr ---\n");
+                logs.extend_from_slice(outcome["stderr"].as_str().unwrap_or("").as_bytes());
+                let log = ctx
+                    .control
+                    .upload_bytes(
+                        &ctx.lease,
+                        &format!("upx-{}.log", d::id()),
+                        "text/plain; charset=utf-8",
+                        logs,
+                    )
+                    .await?;
+                tools.push(d::ToolExecution {
+                    name: "upx".into(),
+                    version: outcome["tool_version"].as_str().unwrap_or_default().into(),
+                    command: vec![
+                        "upx".into(),
+                        "-d".into(),
+                        "-o".into(),
+                        "derived.bin".into(),
+                        "original.bin".into(),
+                    ],
+                    started_at: outcome["started_at"].as_str().unwrap_or_default().into(),
+                    finished_at: outcome["finished_at"].as_str().unwrap_or_default().into(),
+                    exit_code: outcome["exit_code"].as_i64().map(|code| code as i32),
+                    terminated: false,
+                    log_artifact_id: log.id,
+                    details: json!({
+                        "state":outcome["state"],
+                        "original_sha256":outcome["original_sha256"],
+                        "derived_sha256":outcome["derived_sha256"],
+                        "processes_reaped":outcome.get("processes_reaped"),
+                        "target_executed":false,
+                    }),
+                });
+            }
+            metadata["protection"]["processing"] = outcome;
+        }
         let file = d::FileRecord {
             path: name.into(),
             sha256: d::sha256(&data),
@@ -288,6 +349,11 @@ async fn import_target(ctx: &JobContext, workdir: &Path, payload: &Value) -> Res
         })
         .await??;
         original_exclusions.append(&mut bundle.exclusions);
+        let scan_root = source_dir.clone();
+        let run_config =
+            tokio::task::spawn_blocking(move || aegis_application::runconfig::detect(&scan_root))
+                .await??;
+        bundle.metadata["run_config"] = run_config;
         let artifact = ctx
             .control
             .upload_file(
@@ -396,7 +462,16 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
             bytes.len() <= 64 * 1024 * 1024,
             "Ghidra output exceeds limit"
         );
+        let raw: Value = serde_json::from_slice(&bytes)?;
         let mut result: d::AnalysisResult = serde_json::from_slice(&bytes)?;
+        if let Some(recovered) = raw["deobfuscation"]
+            .as_array()
+            .filter(|items| !items.is_empty())
+        {
+            // B06: instruction/P-code recovery is additive evidence; the typed
+            // analysis result keeps it in metadata so no shared struct changes.
+            result.metadata["deobfuscation"] = json!(recovered);
+        }
         let original_path = &manifest
             .files
             .first()
