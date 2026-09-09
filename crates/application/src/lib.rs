@@ -9,6 +9,7 @@ pub mod model;
 pub mod process;
 pub mod protection;
 pub mod report;
+pub mod runconfig;
 pub mod runtime;
 pub mod sast;
 pub mod source;

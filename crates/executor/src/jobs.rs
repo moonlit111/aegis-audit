@@ -349,6 +349,11 @@ async fn import_target(ctx: &JobContext, workdir: &Path, payload: &Value) -> Res
         })
         .await??;
         original_exclusions.append(&mut bundle.exclusions);
+        let scan_root = source_dir.clone();
+        let run_config =
+            tokio::task::spawn_blocking(move || aegis_application::runconfig::detect(&scan_root))
+                .await??;
+        bundle.metadata["run_config"] = run_config;
         let artifact = ctx
             .control
             .upload_file(
