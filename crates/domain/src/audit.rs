@@ -296,6 +296,9 @@ pub struct Review {
 pub struct AnnotationDraft {
     pub unit_id: String,
     pub tag: String,
+    /// 子类型（B03）。人工修订可留空；非空时必须属于该标签的允许集合。
+    #[serde(default)]
+    pub subtype: String,
     pub rationale: String,
     pub evidence: Vec<EvidenceInput>,
 }
@@ -304,12 +307,19 @@ impl AnnotationDraft {
         &self,
         units: &HashMap<String, ProgramUnit>,
     ) -> Result<Vec<EvidenceRef>, String> {
+        let subtypes: &[&str] = match self.tag.as_str() {
+            "AUTHENTICATION" => &["PASSWORD", "SESSION", "TOKEN"],
+            "CRYPTOGRAPHY" => &["PASSWORD_HASH", "HASH", "SYMMETRIC", "ASYMMETRIC", "RANDOM"],
+            "REGISTRATION" => &["ACCOUNT"],
+            _ => &[],
+        };
         if !["AUTHENTICATION", "CRYPTOGRAPHY", "REGISTRATION"].contains(&self.tag.as_str())
+            || (!self.subtype.is_empty() && !subtypes.contains(&self.subtype.as_str()))
             || self.rationale.trim().is_empty()
             || self.rationale.len() > 8192
             || !self.evidence.iter().any(|e| e.unit_id == self.unit_id)
         {
-            return Err("关键逻辑标签或依据无效".into());
+            return Err("关键逻辑标签、子类型或依据无效".into());
         }
         evidence(&self.evidence, units)
     }
@@ -415,5 +425,47 @@ mod tests {
         review.assessments[0].evidence[0].quote = "invented()".into();
         review.verdict = "INCONCLUSIVE".into();
         assert!(review.validate_model(&units).is_err());
+    }
+
+    #[test]
+    fn key_logic_subtypes_are_checked_but_manual_edits_may_omit_them() {
+        let unit = ProgramUnit {
+            id: "u".into(),
+            run_id: "r".into(),
+            snapshot_id: "s".into(),
+            artifact_id: "a".into(),
+            unit: crate::UnitInput {
+                path: "accounts.py".into(),
+                language: "python".into(),
+                start_line: 1,
+                code: "def login(password):\n    return bcrypt.checkpw(password, stored)".into(),
+                ..Default::default()
+            },
+        };
+        let units = HashMap::from([("u".into(), unit)]);
+        let draft = |tag: &str, subtype: &str| AnnotationDraft {
+            unit_id: "u".into(),
+            tag: tag.into(),
+            subtype: subtype.into(),
+            rationale: "实际调用 bcrypt 校验口令".into(),
+            evidence: vec![
+                serde_json::from_value(json!({"unit_id":"u","start_line":2,"end_line":2})).unwrap(),
+            ],
+        };
+        assert!(
+            draft("CRYPTOGRAPHY", "PASSWORD_HASH")
+                .validate(&units)
+                .is_ok()
+        );
+        assert!(draft("AUTHENTICATION", "PASSWORD").validate(&units).is_ok());
+        assert!(draft("REGISTRATION", "").validate(&units).is_ok());
+        assert!(draft("CRYPTOGRAPHY", "SYMMETRIC").validate(&units).is_ok());
+        assert!(draft("CRYPTOGRAPHY", "PASSWORD").validate(&units).is_err());
+        assert!(
+            draft("AUTHENTICATION", "PASSWORD_HASH")
+                .validate(&units)
+                .is_err()
+        );
+        assert!(draft("UNKNOWN", "PASSWORD").validate(&units).is_err());
     }
 }
