@@ -1,0 +1,24 @@
+{
+  "purpose": "Benign UPX mechanism fixture for the B05 processing chain",
+  "explicitly_not": "a course acceptance case or a real closed-source packed object",
+  "source": "packable.rs",
+  "source_sha256": "7752b8f7f319060214e8ab6d74bedb2b1016caec224b5aacb39d66df1278ddd3",
+  "toolchain": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "reproducibility": "rustc embeds build paths; the committed artifacts and hashes are authoritative",
+  "fixtures": {
+    "plain": {
+      "file": "packable-plain.exe",
+      "sha256": "7a745e22d3dcec893f9b25e60c591a6773b014f21a399580f34cb8e09b7ed6b9",
+      "size": 203776
+    },
+    "upx": {
+      "file": "packable-upx.exe",
+      "sha256": "dffe379d16233c1535fbca40fd76ea22b148970f7f1e0eb82d9dd47d124f9254",
+      "size": 66048,
+      "tool": "upx 5.1.1",
+      "compression_ratio": 0.3241
+    }
+  }
+}

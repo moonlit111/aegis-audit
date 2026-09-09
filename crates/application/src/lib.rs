@@ -6,6 +6,7 @@ pub mod credentials;
 pub mod import;
 pub mod model;
 pub mod process;
+pub mod protection;
 pub mod report;
 pub mod runtime;
 pub mod sast;
