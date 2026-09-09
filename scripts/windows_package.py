@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 from aegis import ROOT, environment
 from bootstrap import install_archive, install_python_tools
@@ -28,6 +29,21 @@ def prepare():
     subprocess.run([str(interpreter), '-m', 'pip', 'install', '--disable-pip-version-check',
                     '-r', str(ROOT / 'tools/windows/requirements.txt')], check=True)
     install_archive(SPECS['git'], TOOLS / 'git')
+    install_archive(SPECS['zig'], TOOLS / 'zig')
+    subprocess.run(
+        [sys.executable, str(ROOT / 'tools/windows/sandbox/install-llvm.py')],
+        check=True,
+    )
+    subprocess.run(
+        [sys.executable, str(ROOT / 'tools/windows/sandbox/install-tinyinst.py')],
+        check=True,
+    )
+    zig = TOOLS / 'zig/zig.exe'
+    if not zig.is_file():
+        raise RuntimeError('The pinned standalone Zig installation is incomplete.')
+    version = subprocess.check_output([str(zig), 'version'], text=True).strip()
+    if version != SPECS['zig']['version']:
+        raise RuntimeError(f'Bundled Zig version is {version}, expected {SPECS["zig"]["version"]}.')
     subprocess.run([str(python), '-c', 'import tkinter; print("Bundled Python and Tk:", tkinter.TkVersion)'], check=True)
     return interpreter
 
@@ -99,7 +115,10 @@ def bundle(stage, version):
         raise RuntimeError('Install the pinned Java/Ghidra runtime with scripts/bootstrap.py first.')
     for source, target in [(jdk, stage / '.tools/jdk'),
                            (ghidra, stage / '.tools/ghidra_12.1.3_PUBLIC'),
-                           (TOOLS / 'git', stage / '.tools/git')]:
+                           (TOOLS / 'git', stage / '.tools/git'),
+                           (TOOLS / 'zig', stage / '.tools/zig'),
+                           (TOOLS / 'llvm-min', stage / '.tools/llvm-min'),
+                           (TOOLS / 'tinyinst', stage / '.tools/tinyinst')]:
         shutil.copytree(source, target)
     shutil.copytree(TOOLS / 'windows-python', stage / '.tools/windows-python',
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'Scripts'))
@@ -107,6 +126,10 @@ def bundle(stage, version):
     icon.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'tools/windows/aegis.ico', icon)
     shutil.copy2(ROOT / 'tools/windows/versions.json', icon.parent / 'versions.json')
+    sandbox_tools = stage / 'tools/windows/sandbox'
+    sandbox_tools.mkdir(parents=True, exist_ok=True)
+    for file in (ROOT / 'tools/windows/sandbox').glob('*.ps1'):
+        shutil.copy2(file, sandbox_tools / file.name)
     # The upstream JDK includes the redistributable required by the native Rust tools.
     runtime = jdk / 'bin/vcruntime140.dll'
     if not runtime.is_file():
@@ -119,8 +142,11 @@ def bundle(stage, version):
         'data_directory': '.data', 'requires_system_python': False,
         'requires_rust_or_node': False, 'bundled_python': SPECS['python']['version'],
         'bundled_git': SPECS['git']['version'], 'bundled_java': '21.0.12.1+1',
-        'bundled_ghidra': '12.1.3', 'bundled_semgrep': '1.176.1', 'api_credentials_included': False,
-        'dynamic_runtime': 'NOT_YET_WINDOWS_NATIVE',
+        'bundled_ghidra': '12.1.3', 'bundled_semgrep': '1.176.1',
+        'bundled_zig': SPECS['zig']['version'], 'api_credentials_included': False,
+        'bundled_llvm': SPECS['llvm']['version'],
+        'bundled_tinyinst': SPECS['tinyinst']['version'],
+        'dynamic_runtime': 'WINDOWS_SANDBOX_PROTOTYPE_NOT_INTEGRATED',
     }, indent=2) + '\n', encoding='utf-8')
 
 
