@@ -1,0 +1,12 @@
+{
+  "python": {
+    "version": "3.13.13",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20260508/cpython-3.13.13%2B20260508-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+    "sha256": "08eaecdf56b0929f4fc07d0d6b21e96df768de80d42b87d339c932a4bd12a9a1"
+  },
+  "git": {
+    "version": "2.55.0.windows.5",
+    "url": "https://github.com/git-for-windows/git/releases/download/v2.55.0.windows.5/MinGit-2.55.0.5-64-bit.zip",
+    "sha256": "56d7b226b7693196cfc71fef26568f536c4a021ab6c37ff2db4287bed908e96e"
+  }
+}

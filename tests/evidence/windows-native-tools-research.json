@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-08T22:27:11.3037332Z",
+  "platform": "Windows 11 Pro x64, build 26200",
+  "purpose": "Native Windows tool feasibility; not formal vulnerability acceptance or a comparative effectiveness benchmark",
+  "semgrep": {
+    "version": "1.176.1",
+    "upstream_status": "Windows beta",
+    "wheel": "semgrep-1.176.1-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-win_amd64.whl",
+    "wheel_sha256": "5ca9822b9b8d645b6f078160139b966bd66a3829b87c4e63e1bb5f8d7f71732f",
+    "wheel_url": "https://files.pythonhosted.org/packages/61/d5/6eecdbb00740d801f4e58a16355dd72746171cb7607dac1156d475496a39/semgrep-1.176.1-cp310.cp311.cp312.cp313.cp314.py310.py311.py312.py313.py314-none-win_amd64.whl",
+    "native_core_machine": "PE AMD64 (0x8664)",
+    "native_core_sha256": "b31f1609346d050628a2e4de9812bbca7a4b3dd625f598903c31cb33912b43c7",
+    "exit_code": 0,
+    "scanned_files": 4,
+    "rule_matches": 2,
+    "errors": 0,
+    "rule_file": "tools/runtime/rules.yml",
+    "rule_sha256": "b29e02abe7ad0b4c6f37dd7a77f92f9db9f154599988d7742e6bc40d0db0097b",
+    "inputs": [
+      {
+        "path": "accounts.py",
+        "sha256": "01dfe94434fca6be8c78d6ffc44194d4f14a11991bfaf314832bf6cb643f8ce8"
+      },
+      {
+        "path": "commands.py",
+        "sha256": "ad713dc7d74cd55d3adaec690b5cc35a1a80218a75242a0f0fbe049d3046981a"
+      },
+      {
+        "path": "documents.py",
+        "sha256": "d30f6ae44d957f7bd13a9976e79de8824688fe4b46efd321e81a972b24a7b90a"
+      },
+      {
+        "path": "messages.c",
+        "sha256": "4f277149209e29e440193d509aff4ade188be804ccdfc20ba051f4a53d1879e8"
+      }
+    ],
+    "metrics": "off",
+    "version_check": "disabled",
+    "config_source": "local rules only",
+    "application_integration_at_initial_probe": "NOT_YET_INTEGRATED",
+    "raw_result": ".data/windows/native-semgrep-scan-verified-20260909.json",
+    "earlier_attempt": ".data/windows/native-semgrep-scan-20260909.json: zero scanned files due to default test-directory ignores; not counted as success"
+  },
+  "native_adapter": {
+    "observed_at": "2026-09-08T23:39:30.239Z",
+    "status": "INTEGRATED_AND_TESTED",
+    "platform": "windows/x86_64",
+    "interpreter": ".tools/windows-python/python.exe",
+    "module_entrypoint": "semgrep.console_scripts.entrypoint",
+    "native_cli_mode": "--experimental",
+    "scanned_files": 5,
+    "rule_matches": 2,
+    "scan_errors": 0,
+    "unicode_and_space_paths": true,
+    "target_module_not_imported": true,
+    "scanner_path_contains_only_windows_system32": true,
+    "zero_targets_state": "NO_TARGETS",
+    "cancellation_reaped": true,
+    "timeout_reaped": true,
+    "integration_tests_passed": 2,
+    "pipeline_scanned_files": 4,
+    "pipeline_rule_matches": 2,
+    "pipeline_structural_units": 9,
+    "pipeline_target_sha256": "0fdd0d7bac0c4e071df8e0fdb114b182c20348a8529a54088a7dc161ea70d290",
+    "raw_pipeline_semgrep_sha256": "3667403841b59e7a63c547336cb4ac5b5a557450dd4906676e13d408f33e4db8",
+    "pipeline": "real HTTP control service, snapshot import, work lease, scanner process, artifact upload and persistence",
+    "model_api_called": false,
+    "target_execution": false,
+    "formal_acceptance": "NOT_RUN",
+    "latest_standalone_package_acceptance": "NOT_RUN",
+    "raw_evidence_directory": ".data/windows/native-sast-standalone-path-20260909/",
+    "log": ".data/windows/native-sast-standalone-path-20260909.log",
+    "fixed_regressions": [
+      "The deprecated top-level python -m semgrep exits rather than scanning; use the pinned console entrypoint module.",
+      "Deep task-local TEMP paths caused native socketpair failures; isolated short system-temp directories passed the same scans.",
+      "Do not classify missing, duplicate, foreign or silently unscanned source coverage as a complete scan."
+    ],
+    "limits": [
+      "Windows beta and experimental CLI flags require pinned-version regression tests.",
+      "Small local ruleset; not all Semgrep rules or languages are covered.",
+      "Static rule clues are not model findings, validated vulnerabilities or exploitation evidence."
+    ]
+  },
+  "inspected_repositories": [
+    {
+      "commit": "324133fe60b540327d182fbb8c800aa65a613349",
+      "sources": [
+        "README.md",
+        "docker/sandbox/Dockerfile"
+      ],
+      "repository": "lintsinghua/DeepAudit"
+    },
+    {
+      "commit": "52b19233477a783004467c1522651eec96015e73",
+      "sources": [
+        "README.md",
+        "containers/Dockerfile"
+      ],
+      "repository": "usestrix/strix"
+    },
+    {
+      "commit": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "sources": [
+        "README.md"
+      ],
+      "repository": "googleprojectzero/winafl"
+    },
+    {
+      "commit": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "sources": [
+        "README.md"
+      ],
+      "repository": "googleprojectzero/Jackalope"
+    },
+    {
+      "repository": "microsoft/onefuzz",
+      "archived": true,
+      "use": "Historical architecture reference only"
+    }
+  ],
+  "official_documents": [
+    "https://docs.semgrep.dev/getting-started/quickstart",
+    "https://learn.microsoft.com/en-us/cpp/sanitizers/asan",
+    "https://learn.microsoft.com/en-us/windows/security/application-security/application-isolation/windows-sandbox/"
+  ]
+}

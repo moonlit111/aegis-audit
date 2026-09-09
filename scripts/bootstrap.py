@@ -6,7 +6,6 @@ import inspect
 import json
 import os
 from pathlib import Path
-import platform
 import shutil
 import subprocess
 import tarfile
@@ -14,19 +13,15 @@ import tempfile
 import urllib.parse
 import urllib.request
 import zipfile
-from aegis import ROOT, environment
+from aegis import ROOT, environment, require_windows, resolve_command
 
 TOOLS = ROOT / '.tools'
 VERSIONS = json.loads((ROOT / 'tools/versions.json').read_text(encoding='utf-8'))
 
 
 def host_key():
-    system = platform.system().lower()
-    arch = {'aarch64': 'arm64', 'arm64': 'arm64', 'amd64': 'x64', 'x86_64': 'x64'}.get(platform.machine().lower(), platform.machine().lower())
-    key = system + '-' + arch
-    if key not in VERSIONS['platforms']:
-        raise RuntimeError('Bootstrap currently supports macOS ARM64, Windows x64 and Linux x64. Configure other toolchains manually.')
-    return key
+    require_windows()
+    return 'windows-x64'
 
 
 def digest(path):
@@ -65,11 +60,6 @@ def unpack(archive, destination):
                     if root.resolve() not in target.parents:
                         raise RuntimeError('Archive path escapes extraction directory')
                 package.extractall(root)
-                if os.name != 'nt':
-                    for item in package.infolist():
-                        permissions = item.external_attr >> 16 & 0o777
-                        if permissions:
-                            (root / item.filename).chmod(permissions)
         else:
             with tarfile.open(archive) as package:
                 for item in package.getmembers():
@@ -92,7 +82,18 @@ def install_archive(spec, destination):
 
 
 def command(args, env=None, cwd=ROOT):
-    subprocess.run([str(arg) for arg in args], cwd=cwd, env=env or environment(), check=True)
+    env = env or environment()
+    subprocess.run(resolve_command(args, env), cwd=cwd, env=env, check=True)
+
+
+def install_python_tools():
+    require_windows()
+    specs = json.loads((ROOT / 'tools/windows/versions.json').read_text(encoding='utf-8'))
+    install_archive(specs['python'], TOOLS / 'windows-python')
+    python = TOOLS / 'windows-python/python.exe'
+    command([python, '-I', '-m', 'pip', 'install', '--disable-pip-version-check',
+             '-r', ROOT / 'tools/windows/semgrep-requirements.txt'])
+    return python
 
 
 def main():
@@ -105,27 +106,26 @@ def main():
     host = VERSIONS['platforms'][host_key()]
     TOOLS.mkdir(parents=True, exist_ok=True)
     if not shutil.which('git'):
-        raise RuntimeError('Install Git first (Git for Windows / Xcode Command Line Tools / system package manager).')
+        raise RuntimeError('Install Git for Windows before bootstrapping the source checkout.')
     if not options.runtime_only:
         install_archive(host['node'], TOOLS / 'node')
         env = environment()
         env['RUSTUP_HOME'] = str(TOOLS / 'rustup')
         env['CARGO_HOME'] = str(TOOLS / 'cargo')
-        suffix = '.exe' if os.name == 'nt' else ''
+        suffix = '.exe'
         rustup = TOOLS / 'cargo/bin' / ('rustup' + suffix)
         if not rustup.is_file():
             url = f'https://static.rust-lang.org/rustup/dist/{host["rust_host"]}/rustup-init{suffix}'
             with urllib.request.urlopen(url + '.sha256', timeout=30) as response:
                 checksum = response.read().decode().split()[0]
             installer = download(url, checksum)
-            installer.chmod(0o755)
             command([installer, '-y', '--no-modify-path', '--profile', 'minimal', '--default-toolchain', VERSIONS['rust']], env)
         command([rustup, 'toolchain', 'install', VERSIONS['rust'], '--profile', 'minimal'], env)
         command([rustup, 'component', 'add', '--toolchain', VERSIONS['rust'], 'rustfmt', 'clippy'], env)
         env = environment()
-        npm = 'npm.cmd' if os.name == 'nt' else 'npm'
-        pnpm = 'pnpm.cmd' if os.name == 'nt' else 'pnpm'
-        local_pnpm = TOOLS / ('pnpm/pnpm.cmd' if os.name == 'nt' else 'pnpm/bin/pnpm')
+        npm = 'npm.cmd'
+        pnpm = 'pnpm.cmd'
+        local_pnpm = TOOLS / 'pnpm/pnpm.cmd'
         if not local_pnpm.exists():
             command([npm, 'install', '--global', '--prefix', TOOLS / 'pnpm', 'pnpm@' + VERSIONS['pnpm'], '--no-audit', '--no-fund'], env)
         env = environment()
@@ -134,30 +134,22 @@ def main():
         binary.parent.mkdir(exist_ok=True)
         if not binary.exists() or digest(binary) != host['buf']['sha256']:
             shutil.copy2(download(host['buf']['url'], host['buf']['sha256']), binary)
-            binary.chmod(0o755)
-        installed = subprocess.check_output(['cargo', 'install', '--list'], env=env, text=True)
+        installed = subprocess.check_output(resolve_command(['cargo', 'install', '--list'], env), env=env, text=True)
         for package, version in [('connectrpc-codegen', VERSIONS['connect_codegen']), ('protoc-gen-buffa', VERSIONS['buffa_codegen']), ('protoc-gen-buffa-packaging', VERSIONS['buffa_codegen'])]:
             if f'{package} v{version}:' not in installed:
                 command(['cargo', 'install', package, '--version', version, '--locked'], env)
+    install_python_tools()
     if not options.core_only:
         install_archive(host['jdk'], TOOLS / 'jdk')
         sdk_root = options.sdk_dir or Path.home() / '.cache/aegis-audit'
-        if not str(sdk_root).isascii():
-            sdk_root = Path(os.environ.get('PUBLIC', 'C:/Users/Public')) / 'AegisAudit/tools' if os.name == 'nt' else Path('/Users/Shared/AegisAudit/tools')
-        if not str(sdk_root).isascii():
-            raise RuntimeError('Ghidra requires an ASCII SDK path; pass --sdk-dir.')
         ghidra = sdk_root / ('ghidra_' + VERSIONS['ghidra']['version'] + '_PUBLIC')
         install_archive(VERSIONS['ghidra'], ghidra)
         (TOOLS / 'paths.json').write_text(json.dumps({'ghidra': str(ghidra.resolve())}, indent=2) + '\n', encoding='utf-8')
-        native = 'decompile.exe' if os.name == 'nt' else 'decompile'
+        native = 'decompile.exe'
         if not any((ghidra / ('Ghidra/Features/Decompiler/' + directory) / host['ghidra_native'] / native).is_file() for directory in ['os', 'build/os']):
-            env = environment()
-            env['GRADLE_USER_HOME'] = str(TOOLS / 'gradle-cache')
-            gradle = ghidra / 'support/gradle' / ('gradlew.bat' if os.name == 'nt' else 'gradlew')
-            if os.name != 'nt': gradle.chmod(gradle.stat().st_mode | 0o111)
-            command([gradle, 'buildNatives', '--no-daemon', '--max-workers=4', '--console=plain'], env, ghidra / 'support/gradle')
+            raise RuntimeError('The Ghidra Windows native decompiler is missing; repair the pinned SDK installation.')
     next_action = 'start --open' if options.runtime_only else 'build'
-    print('Tool setup complete. Run: python scripts/manage.py ' + next_action, flush=True)
+    print('Tool setup complete. Run: py -3 scripts/manage.py ' + next_action, flush=True)
 
 
 if __name__ == '__main__':

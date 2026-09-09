@@ -6,14 +6,15 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-from aegis import ROOT, environment
+from aegis import ROOT, environment, resolve_command
 
 
 def collect(destination):
     destination.mkdir(parents=True, exist_ok=True)
-    metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--locked', '--format-version', '1'], cwd=ROOT, env=environment()))
+    env = environment()
+    metadata = json.loads(subprocess.check_output(resolve_command(['cargo', 'metadata', '--locked', '--format-version', '1'], env), cwd=ROOT, env=env))
     pnpm = 'pnpm.cmd' if __import__('os').name == 'nt' else 'pnpm'
-    frontend = json.loads(subprocess.check_output([pnpm, '--dir', 'frontend', 'licenses', 'list', '--prod', '--json'], cwd=ROOT, env=environment()))
+    frontend = json.loads(subprocess.check_output(resolve_command([pnpm, '--dir', 'frontend', 'licenses', 'list', '--prod', '--json'], env), cwd=ROOT, env=env))
     packages = []
     for package in metadata['packages']:
         if package['source']:

@@ -9,13 +9,21 @@ if (-not $OutputPath) {
 
 function Get-AegisTool([string]$Name, [string[]]$ToolArgs) {
     $Executable = Get-Command $Name -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $Executable) { return @{ available = $false; detail = "Not found in PATH" } }
+    if (-not $Executable) { return @{ found = $false; available = $false; detail = "Not found in PATH" } }
+    $PreviousEncoding = [Console]::OutputEncoding
     try {
         $ErrorActionPreference = "Continue"
-        $ToolOutput = (& $Executable.Source @ToolArgs 2>&1 | Out-String).Trim()
-        return @{ available = $true; path = $Executable.Source; exit_code = $LASTEXITCODE; detail = $ToolOutput }
+        # WSL writes UTF-16 when redirected, including on Windows PowerShell 5.1.
+        if ([IO.Path]::GetFileName($Executable.Source) -ieq "wsl.exe") {
+            [Console]::OutputEncoding = [Text.Encoding]::Unicode
+        }
+        $ToolOutput = ((& $Executable.Source @ToolArgs 2>&1 | ForEach-Object { $_.ToString() }) -join "`n").Trim()
+        $ToolExitCode = $LASTEXITCODE
+        return @{ found = $true; available = $ToolExitCode -eq 0; path = $Executable.Source; exit_code = $ToolExitCode; detail = $ToolOutput }
     } catch {
-        return @{ available = $true; path = $Executable.Source; error = $_.Exception.Message }
+        return @{ found = $true; available = $false; path = $Executable.Source; error = $_.Exception.Message }
+    } finally {
+        [Console]::OutputEncoding = $PreviousEncoding
     }
 }
 

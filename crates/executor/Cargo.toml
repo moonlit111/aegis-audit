@@ -22,3 +22,7 @@ tokio-util.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
+
+[dev-dependencies]
+aegis-server = { path = "../server" }
+axum.workspace = true
