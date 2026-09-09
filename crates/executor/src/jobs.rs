@@ -26,6 +26,7 @@ pub struct Tools {
     pub script_dir: PathBuf,
     pub git: bool,
     pub runtime_image: Option<String>,
+    pub semgrep: Option<aegis_application::sast::Semgrep>,
 }
 #[derive(Clone)]
 pub struct JobContext {
@@ -108,12 +109,20 @@ async fn git_step(
         "protocol.ext.allow=never".into(),
     ];
     command.extend(args);
-    let env = BTreeMap::from([
+    let mut env = BTreeMap::from([
         ("GIT_TERMINAL_PROMPT".into(), "0".into()),
         ("GIT_CONFIG_NOSYSTEM".into(), "1".into()),
         ("GIT_CONFIG_GLOBAL".into(), null.into()),
         ("GIT_LFS_SKIP_SMUDGE".into(), "1".into()),
     ]);
+    for key in ["http_proxy", "https_proxy", "all_proxy", "no_proxy"] {
+        if let Ok(value) = std::env::var(key).or_else(|_| std::env::var(key.to_ascii_uppercase()))
+            && !value.is_empty()
+        {
+            validate_git_proxy(key, &value)?;
+            env.insert(key.into(), value);
+        }
+    }
     let (out, record) = process_tool(
         ctx,
         ProcessSpec {
@@ -136,6 +145,26 @@ async fn git_step(
             .collect::<String>()
     );
     Ok(record)
+}
+
+fn validate_git_proxy(key: &str, value: &str) -> Result<()> {
+    ensure!(
+        value.len() <= 8192 && !value.contains(['\r', '\n', '\0']),
+        "invalid Git proxy setting"
+    );
+    if key != "no_proxy" {
+        let url = reqwest::Url::parse(value)
+            .context("Git proxy must be an absolute HTTP/HTTPS/SOCKS URL")?;
+        ensure!(
+            matches!(url.scheme(), "http" | "https" | "socks5" | "socks5h"),
+            "unsupported Git proxy scheme"
+        );
+        ensure!(
+            url.host_str().is_some() && url.username().is_empty() && url.password().is_none(),
+            "Git proxy credentials are not forwarded to tools; use a local proxy without credentials"
+        );
+    }
+    Ok(())
 }
 
 pub async fn execute(ctx: JobContext, workdir: &Path) -> Result<String> {
@@ -425,27 +454,22 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
             .as_str()
             .is_some_and(|scope| scope != d::SCOPE)
     {
-        if ctx.tools.runtime_image.is_some() {
-            let sandbox = workdir.join("semgrep");
-            aegis_application::runtime::prepare_work(&sandbox)?;
-            let (status, record) = container_tool(
+        if let Some(scanner) = &ctx.tools.semgrep {
+            let work = workdir.join("semgrep");
+            tokio::fs::create_dir_all(&work).await?;
+            let (status, mut record) = process_tool(
                 ctx,
-                &sandbox,
-                &workdir.join("source"),
-                vec![
-                    "semgrep".into(),
-                    "scan".into(),
-                    "--json".into(),
-                    "--metrics=off".into(),
-                    "--disable-version-check".into(),
-                    "--config".into(),
-                    "/runner/rules.yml".into(),
-                    "/target".into(),
-                ],
+                scanner.scan_spec(&workdir.join("source"), &work),
                 "semgrep",
-                120,
+                aegis_application::sast::SEMGREP_VERSION,
             )
             .await?;
+            record.details["platform"] = json!("windows/x86_64");
+            record.details["process_supervision"] = json!("WINDOWS_JOB_OBJECT");
+            record.details["target_execution"] = json!(false);
+            record.details["core_sha256"] = json!(scanner.core_sha256);
+            record.details["rules_sha256"] =
+                json!(d::sha256(&tokio::fs::read(&scanner.rules).await?));
             result.tools.push(record);
             if status.exit_code == Some(0)
                 && !status.truncated
@@ -457,12 +481,34 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
                     raw.len() <= 16 * 1024 * 1024,
                     "Semgrep output exceeds quota"
                 );
-                let report: Value = serde_json::from_slice(&raw)?;
                 let artifact = ctx
                     .control
-                    .upload_bytes(&ctx.lease, "semgrep.json", "application/json", raw)
+                    .upload_bytes(&ctx.lease, "semgrep.json", "application/json", raw.clone())
                     .await?;
-                result.metadata["semgrep"] = json!({"status":"COMPLETED","artifact_id":artifact.id,"engine":"Semgrep CE 1.176.1","findings_are_clues":true,"results":report["results"],"errors":report["errors"]});
+                let parsed = serde_json::from_slice::<Value>(&raw)
+                    .map_err(anyhow::Error::from)
+                    .and_then(|report| {
+                        aegis_application::sast::validate_report(&report, &manifest.files)
+                    });
+                result.metadata["semgrep"] = match parsed {
+                    Ok(mut report) => {
+                        report["artifact_id"] = json!(artifact.id);
+                        if report["status"] != "COMPLETED" {
+                            result.warnings.push(
+                                "Windows Semgrep 覆盖不完整；规则命中不代表漏洞成立，语义审计继续"
+                                    .into(),
+                            );
+                        }
+                        report
+                    }
+                    Err(error) => {
+                        result.warnings.push(
+                            "Windows Semgrep 结果未通过范围/格式校验；保留原始产物，语义审计继续"
+                                .into(),
+                        );
+                        json!({"status":"FAILED","artifact_id":artifact.id,"reason":error.to_string()})
+                    }
+                };
             } else {
                 result.metadata["semgrep"] =
                     json!({"status":"FAILED","exit_code":status.exit_code});
@@ -471,7 +517,7 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
                     .push("Semgrep 未完成；保留原始日志，语义审计仍可继续".into());
             }
         } else {
-            result.metadata["semgrep"] = json!({"status":"UNSUPPORTED","reason":"执行器未准备 Linux 工具镜像；使用内建线索并进行独立语义审计"});
+            result.metadata["semgrep"] = json!({"status":"UNSUPPORTED","reason":"执行器未准备 Windows 原生 Semgrep 1.176.1；使用内建线索并进行独立语义审计"});
         }
     }
     ensure!(!ctx.cancel.is_cancelled(), "analysis cancelled");
@@ -560,4 +606,23 @@ pub(crate) async fn container_tool(
         "Container removal was not confirmed"
     );
     Ok((output, record))
+}
+
+#[cfg(test)]
+mod proxy_tests {
+    use super::*;
+
+    #[test]
+    fn proxy_support_does_not_forward_embedded_credentials_or_shell_commands() {
+        assert!(validate_git_proxy("https_proxy", "http://127.0.0.1:7897").is_ok());
+        assert!(validate_git_proxy("all_proxy", "socks5://127.0.0.1:7897").is_ok());
+        assert!(validate_git_proxy("no_proxy", "localhost,127.0.0.1").is_ok());
+        for value in [
+            "http://user:secret@proxy.example",
+            "file:///C:/private",
+            "http://proxy\ncommand",
+        ] {
+            assert!(validate_git_proxy("https_proxy", value).is_err());
+        }
+    }
 }

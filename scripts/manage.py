@@ -10,18 +10,19 @@ import sys
 import time
 import urllib.request
 import webbrowser
-from aegis import ROOT, environment
+from aegis import ROOT, environment, require_windows, resolve_command
 
 DATA = ROOT / '.data'
 STATE = DATA / 'launcher.json'
 
 
 def run(args):
-    return subprocess.run([str(arg) for arg in args], cwd=ROOT, env=environment(), check=True)
+    env = environment()
+    return subprocess.run(resolve_command(args, env), cwd=ROOT, env=env, check=True)
 
 
 def executable(name):
-    suffix = '.exe' if os.name == 'nt' else ''
+    suffix = '.exe'
     for folder in ['bin', 'target/release', 'target/debug']:
         candidate = ROOT / folder / (name + suffix)
         if candidate.is_file():
@@ -32,12 +33,12 @@ def executable(name):
 def process_identity(pid):
     if not isinstance(pid, int) or pid <= 0:
         return ''
-    if os.name == 'nt':
-        command = ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command',
-                   f'$p = Get-CimInstance Win32_Process -Filter "ProcessId = {pid}"; if ($p) {{ $p | Select-Object CreationDate,CommandLine | ConvertTo-Json -Compress }}']
-    else:
-        command = ['ps', '-p', str(pid), '-o', 'lstart=', '-o', 'command=']
-    result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', errors='replace')
+    require_windows()
+    powershell = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    command = [str(powershell), '-NoProfile', '-NonInteractive', '-Command',
+               f'$p = Get-CimInstance Win32_Process -Filter "ProcessId = {pid}"; if ($p) {{ $p | Select-Object CreationDate,CommandLine | ConvertTo-Json -Compress }}']
+    flags = {'creationflags': subprocess.CREATE_NO_WINDOW}
+    result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', errors='replace', **flags)
     return result.stdout.strip() if result.returncode == 0 else ''
 
 
@@ -50,7 +51,7 @@ def stop_item(item):
     if not owned(item):
         return
     pid = item['pid']
-    os.kill(pid, signal.CTRL_BREAK_EVENT if os.name == 'nt' else signal.SIGTERM)
+    os.kill(pid, signal.CTRL_BREAK_EVENT)
     for _ in range(300):
         if not owned(item):
             return
@@ -68,7 +69,8 @@ def health(base):
         return False
 
 
-def start(options):
+def start(options, process_factory=None):
+    require_windows()
     if STATE.exists():
         previous = json.loads(STATE.read_text(encoding='utf-8'))
         if any(owned(item) for item in previous['processes']):
@@ -80,7 +82,7 @@ def start(options):
     (DATA / 'logs').mkdir(parents=True, exist_ok=True)
     if not (ROOT / 'frontend/dist/index.html').is_file():
         raise RuntimeError('Frontend build is missing. Run: python scripts/manage.py build')
-    flags = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == 'nt' else {'start_new_session': True}
+    flags = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
     processes = []
     try:
         specs = [
@@ -89,7 +91,8 @@ def start(options):
         ]
         for name, args in specs:
             with (DATA / 'logs' / (name + '.log')).open('ab') as log:
-                process = subprocess.Popen([str(arg) for arg in args], cwd=ROOT, env=environment(), stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, **flags)
+                spawn = process_factory or subprocess.Popen
+                process = spawn([str(arg) for arg in args], cwd=ROOT, env=environment(), stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, **flags)
             time.sleep(0.15)
             if process.poll() is not None:
                 raise RuntimeError(name + ' failed to start. See .data/logs/' + name + '.log')
@@ -114,13 +117,14 @@ def start(options):
 
 
 def main():
+    require_windows()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['build', 'start', 'stop', 'status', 'doctor', 'check', 'codegen', 'runtime'])
     parser.add_argument('--port', type=int, default=7331)
     parser.add_argument('--open', action='store_true')
     parser.add_argument('--debug', action='store_true', help='Build debug binaries')
     options = parser.parse_args()
-    pnpm = 'pnpm.cmd' if os.name == 'nt' else 'pnpm'
+    pnpm = 'pnpm.cmd'
     if options.action == 'build':
         if not (ROOT / 'Cargo.toml').is_file(): raise RuntimeError('Build requires a source checkout')
         run(['cargo', 'build', '--workspace', '--locked', *([] if options.debug else ['--release'])])
@@ -148,6 +152,7 @@ def main():
     elif options.action == 'codegen':
         run([sys.executable, ROOT / 'scripts/codegen.py'])
     elif options.action == 'check':
+        run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'])
         run(['cargo', 'fmt', '--all', '--', '--check'])
         run([sys.executable, ROOT / 'scripts/codegen.py', '--check'])
         run(['cargo', 'clippy', '--workspace', '--all-targets', '--locked', '--', '-D', 'warnings'])

@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
-from aegis import ROOT, environment
+from aegis import ROOT, environment, resolve_command
 
 
 def stop(process):
@@ -32,8 +32,8 @@ def main():
     env = environment()
     pnpm = 'pnpm.cmd' if os.name == 'nt' else 'pnpm'
     if not options.no_build:
-        subprocess.run(['cargo', 'build', '--workspace', '--locked'], cwd=ROOT, env=env, check=True)
-        subprocess.run([pnpm, '--dir', 'frontend', 'build'], cwd=ROOT, env=env, check=True)
+        subprocess.run(resolve_command(['cargo', 'build', '--workspace', '--locked'], env), cwd=ROOT, env=env, check=True)
+        subprocess.run(resolve_command([pnpm, '--dir', 'frontend', 'build'], env), cwd=ROOT, env=env, check=True)
     if options.skip_ghidra:
         env['AEGIS_SKIP_GHIDRA'] = '1'
     if options.runtime:
@@ -65,7 +65,7 @@ def main():
                     raise RuntimeError('Test control service did not start')
                 executor = subprocess.Popen([str(ROOT / 'target/debug' / ('aegis-executor' + suffix)), '--server', env['AEGIS_E2E_BASE_URL'], '--work-dir', str(data / 'executor'), '--bootstrap-file', str(data / 'server/executor-bootstrap.token')], cwd=ROOT, env=env, stdout=executor_log, stderr=subprocess.STDOUT, **flags)
                 processes.append(executor)
-                result = subprocess.run([pnpm, '--dir', 'frontend', 'test:e2e'], cwd=ROOT, env=env)
+                result = subprocess.run(resolve_command([pnpm, '--dir', 'frontend', 'test:e2e'], env), cwd=ROOT, env=env)
                 return result.returncode
             finally:
                 for process in reversed(processes):

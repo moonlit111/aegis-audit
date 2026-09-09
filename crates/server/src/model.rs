@@ -45,7 +45,14 @@ impl Store {
         }
         let key = match tokio::fs::read_to_string(self.root.join("deepseek.token")).await {
             Ok(value) => {
-                let value = value.trim().to_owned();
+                let value = aegis_application::credentials::decode(&value).map_err(|_| {
+                    AppError::Precondition(
+                        "本地模型凭据无法由当前 Windows 账户解密，请重新配置".into(),
+                    )
+                })?;
+                if value.len() > 16384 || value.chars().any(char::is_whitespace) {
+                    return Err(AppError::Precondition("本地模型凭据格式无效".into()));
+                }
                 if value.is_empty() { None } else { Some(value) }
             }
             Err(error) if error.kind() == ErrorKind::NotFound => None,
@@ -218,6 +225,81 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires the pinned private Windows Python; no model API is called"]
+    async fn native_python_dpapi_credentials_are_read_by_the_rust_server() {
+        use std::{path::Path, process::Stdio, time::Duration};
+        use tokio::io::AsyncWriteExt;
+
+        let directory = tempfile::Builder::new()
+            .prefix("aegis credential \u{5bc6}\u{94a5} ")
+            .tempdir()
+            .unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap();
+        let python =
+            std::env::var_os("AEGIS_PYTHON_HOME").expect("private Windows Python is required");
+        let mut child = tokio::process::Command::new(Path::new(&python).join("python.exe"))
+            .args(["-I", "-X", "utf8", "-c", "import sys; sys.path.insert(0, sys.argv.pop(1)); from configure_model import main; main()"])
+            .arg(root.join("scripts")).arg("--stdin").arg("--data-dir").arg(directory.path())
+            .stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped())
+            .kill_on_drop(true).spawn().unwrap();
+        let fixture_key = "interop-fixture-not-a-real-provider-key";
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(format!("{fixture_key}\n").as_bytes())
+            .await
+            .unwrap();
+        let output = tokio::time::timeout(Duration::from_secs(15), child.wait_with_output())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(!String::from_utf8_lossy(&output.stdout).contains(fixture_key));
+        let stored = tokio::fs::read_to_string(directory.path().join("deepseek.token"))
+            .await
+            .unwrap();
+        assert!(stored.starts_with(aegis_application::credentials::PREFIX));
+        assert!(!stored.contains(fixture_key));
+        let store = Store::open(directory.path()).await.unwrap();
+        assert_eq!(
+            store.model_settings().await.unwrap().key.as_deref(),
+            Some(fixture_key)
+        );
+        let status = store.model_connection().await.unwrap();
+        assert!(status.configured && status.last_call.id.is_empty());
+        assert!(
+            !serde_json::to_string(&status)
+                .unwrap()
+                .contains(fixture_key)
+        );
+        tokio::fs::write(directory.path().join("deepseek.token"), "aegis-dpapi-v1:00")
+            .await
+            .unwrap();
+        assert!(!store.model_connection().await.unwrap().configured);
+        assert!(store.start_model_probe(&d::id()).await.is_err());
+        if let Some(path) = std::env::var_os("AEGIS_NATIVE_SAST_EVIDENCE") {
+            let path = Path::new(&path);
+            std::fs::create_dir_all(path).unwrap();
+            std::fs::write(path.join("credentials-interop.json"), serde_json::to_vec_pretty(&json!({
+                "observed_at": d::now(), "platform": "windows/x86_64", "format": "aegis-dpapi-v1",
+                "python_writer_rust_reader": "PASSED", "plaintext_not_stored": true,
+                "corrupt_ciphertext_rejected_before_api_call": true,
+                "real_provider_credential_used": false, "model_api_called": false
+            })).unwrap()).unwrap();
+        }
+        store.pool.close().await;
+    }
 
     #[tokio::test]
     async fn credentials_stay_private_and_interrupted_calls_are_not_reported_as_success() {

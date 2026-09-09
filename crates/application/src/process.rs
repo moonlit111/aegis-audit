@@ -46,33 +46,6 @@ async fn drain(
     }
 }
 
-#[cfg(unix)]
-struct ProcessGroup(u32);
-#[cfg(unix)]
-impl ProcessGroup {
-    fn new(child: &Child) -> Result<Self> {
-        Ok(Self(child.id().context("child has no PID")?))
-    }
-    fn terminate(&self) {
-        // The child is launched in its own process group; this never targets our group.
-        unsafe {
-            libc::kill(-(self.0 as i32), libc::SIGKILL);
-        }
-    }
-    fn empty(&self) -> bool {
-        unsafe {
-            libc::kill(-(self.0 as i32), 0) == -1
-                && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
-        }
-    }
-}
-#[cfg(unix)]
-impl Drop for ProcessGroup {
-    fn drop(&mut self) {
-        self.terminate();
-    }
-}
-
 #[cfg(windows)]
 struct ProcessGroup(windows_sys::Win32::Foundation::HANDLE);
 #[cfg(windows)]
@@ -213,15 +186,26 @@ pub async fn run(
             command.env(key, value);
         }
     }
-    let temp = tempfile::tempdir_in(&spec.directory)?;
+    // Do not put transient files in the target snapshot. Native tools such as
+    // Semgrep also use AF_UNIX sockets under TEMP, with much shorter path limits.
+    let temp = tempfile::Builder::new().prefix("aegis-tool-").tempdir()?;
     for name in ["TMPDIR", "TMP", "TEMP"] {
         command.env(name, temp.path());
     }
-    command.envs(spec.env);
-    #[cfg(unix)]
+    #[cfg(windows)]
     {
-        command.process_group(0);
+        // Ghidra needs APPDATA; keep tool settings away from the user's profile.
+        let profile = temp.path().join("profile");
+        let roaming = profile.join("AppData/Roaming");
+        let local = profile.join("AppData/Local");
+        tokio::fs::create_dir_all(&roaming).await?;
+        tokio::fs::create_dir_all(&local).await?;
+        command
+            .env("USERPROFILE", profile)
+            .env("APPDATA", roaming)
+            .env("LOCALAPPDATA", local);
     }
+    command.envs(spec.env);
     #[cfg(windows)]
     {
         command.creation_flags(0x00000200 | 0x00000004);
@@ -302,59 +286,68 @@ fn append(output: &mut ProcessOutput, stream: &str, data: &[u8], progress: &mut 
     }
 }
 
-#[cfg(all(test, unix))]
-mod tests {
+#[cfg(all(test, windows))]
+mod windows_tests {
     use super::*;
+
     #[tokio::test]
-    async fn timeout_reaps_process_group_and_retains_output() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run(
+    async fn tools_get_private_profile_directories() {
+        let directory = tempfile::Builder::new()
+            .prefix("aegis profile ")
+            .tempdir()
+            .unwrap();
+        let script = directory.path().join("profile-check.cmd");
+        std::fs::write(
+            &script,
+            concat!(
+                "@echo off\r\n",
+                "if not exist \"%APPDATA%\\.\" exit /b 9\r\n",
+                "if not exist \"%LOCALAPPDATA%\\.\" exit /b 10\r\n",
+                "if not exist \"%USERPROFILE%\\.\" exit /b 11\r\n",
+                "echo %APPDATA%\r\necho %LOCALAPPDATA%\r\necho %USERPROFILE%\r\n"
+            ),
+        )
+        .unwrap();
+        let output = run(
             ProcessSpec {
-                program: "/bin/sh".into(),
-                args: vec!["-c".into(), "printf 'before timeout'; sleep 10".into()],
-                directory: dir.path().to_owned(),
+                program: "cmd.exe".into(),
+                args: vec![
+                    "/D".into(),
+                    "/U".into(),
+                    "/C".into(),
+                    script.to_string_lossy().into_owned(),
+                ],
+                directory: directory.path().to_owned(),
                 env: BTreeMap::new(),
-                timeout: Duration::from_millis(150),
+                timeout: Duration::from_secs(5),
             },
             CancellationToken::new(),
             |_| {},
         )
         .await
         .unwrap();
-        assert!(result.timed_out);
-        assert!(result.processes_reaped);
-        assert_eq!(result.stdout, b"before timeout");
+        assert_eq!(output.exit_code, Some(0));
+        assert!(output.processes_reaped && !output.cancelled && !output.timed_out);
+        let (words, remainder) = output.stdout.as_chunks::<2>();
+        assert!(remainder.is_empty());
+        let wide: Vec<_> = words.iter().map(|pair| u16::from_le_bytes(*pair)).collect();
+        let stdout = String::from_utf16(&wide).unwrap();
+        let paths: Vec<_> = stdout
+            .lines()
+            .map(|line| PathBuf::from(line.trim()))
+            .collect();
+        assert_eq!(paths.len(), 3);
+        for path in paths {
+            assert!(path.starts_with(std::env::temp_dir()), "{path:?}");
+            assert!(!path.starts_with(directory.path()), "{path:?}");
+            assert!(path.components().any(|part| {
+                part.as_os_str()
+                    .to_string_lossy()
+                    .starts_with("aegis-tool-")
+            }));
+            assert!(!path.exists(), "temporary profile must be cleaned up");
+        }
     }
-    #[tokio::test]
-    async fn explicit_cancellation_is_not_a_successful_exit() {
-        let dir = tempfile::tempdir().unwrap();
-        let token = CancellationToken::new();
-        let trigger = token.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(100)).await;
-            trigger.cancel();
-        });
-        let result = run(
-            ProcessSpec {
-                program: "/bin/sleep".into(),
-                args: vec!["10".into()],
-                directory: dir.path().to_owned(),
-                env: BTreeMap::new(),
-                timeout: Duration::from_secs(20),
-            },
-            token,
-            |_| {},
-        )
-        .await
-        .unwrap();
-        assert!(result.cancelled && result.processes_reaped);
-        assert!(!result.timed_out);
-    }
-}
-
-#[cfg(all(test, windows))]
-mod windows_tests {
-    use super::*;
 
     #[tokio::test]
     async fn timeout_reaps_windows_job_and_descendants() {

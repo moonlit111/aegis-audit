@@ -3,7 +3,7 @@
 import argparse
 import hashlib
 import subprocess
-from aegis import ROOT, environment
+from aegis import ROOT, environment, resolve_command
 
 
 def snapshot():
@@ -17,8 +17,9 @@ def main():
     parser.add_argument('--check', action='store_true')
     options = parser.parse_args()
     before = snapshot()
-    subprocess.run(['buf', 'lint'], cwd=ROOT, env=environment(), check=True)
-    subprocess.run(['buf', 'generate'], cwd=ROOT, env=environment(), check=True)
+    env = environment()
+    subprocess.run(resolve_command(['buf', 'lint'], env), cwd=ROOT, env=env, check=True)
+    subprocess.run(resolve_command(['buf', 'generate'], env), cwd=ROOT, env=env, check=True)
     after = snapshot()
     if options.check and before != after:
         changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))

@@ -2,6 +2,9 @@ mod client;
 mod jobs;
 mod runtime;
 
+#[cfg(test)]
+mod native_sast_tests;
+
 use aegis_protocol as p;
 use anyhow::{Context, Result, ensure};
 use clap::Parser;
@@ -36,6 +39,10 @@ struct Options {
     name: String,
     #[arg(long, env = "GHIDRA_HOME")]
     ghidra_home: Option<PathBuf>,
+    #[arg(long, env = "AEGIS_PYTHON_HOME")]
+    python_home: Option<PathBuf>,
+    #[arg(long, default_value = "tools/runtime/rules.yml")]
+    semgrep_rules: PathBuf,
     #[arg(long, default_value = "tools/ghidra")]
     script_dir: PathBuf,
     #[arg(long)]
@@ -55,6 +62,19 @@ struct Identity {
 struct Active {
     lease: p::WorkLease,
     completion: Option<p::CompleteWorkRequest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    process_job: Option<aegis_application::windows_job::DesktopJob>,
+}
+
+fn recoverable_owner(active: &Active) -> Result<&aegis_application::windows_job::DesktopJob> {
+    ensure!(
+        ["IMPORT", "ANALYZE"].contains(&active.lease.kind.as_str()),
+        "旧动态任务没有隔离环境回收确认，拒绝自动恢复"
+    );
+    active
+        .process_job
+        .as_ref()
+        .context("旧任务没有进程回收确认，执行器拒绝领取新任务；请先核实旧工具进程或重置测试环境")
 }
 
 fn private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
@@ -113,22 +133,12 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             .and_then(|n| n.parse::<u32>().ok())
             .is_some_and(|v| v >= 21)
     });
-    let platform = match (std::env::consts::OS, std::env::consts::ARCH) {
-        ("macos", "aarch64") => "mac_arm_64",
-        ("macos", _) => "mac_x86_64",
-        ("windows", _) => "win_x86_64",
-        ("linux", "aarch64") => "linux_arm_64",
-        _ => "linux_x86_64",
-    };
+    let platform = "win_x86_64";
     let mut ghidra = None;
     let mut ghidra_detail = "未配置 Ghidra；二进制任务将等待执行器".to_owned();
     if let Some(home) = &options.ghidra_home {
         let home = absolute(home);
-        let native_name = if cfg!(windows) {
-            "decompile.exe"
-        } else {
-            "decompile"
-        };
+        let native_name = "decompile.exe";
         let native = [
             home.join(format!(
                 "Ghidra/Features/Decompiler/build/os/{platform}/{native_name}"
@@ -170,11 +180,21 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
         }
     }
     let runtime_image = aegis_application::runtime::image_id().await;
+    let semgrep = if let Some(home) = &options.python_home {
+        aegis_application::sast::Semgrep::discover(
+            &absolute(home),
+            &absolute(&options.semgrep_rules),
+        )
+        .await
+    } else {
+        None
+    };
     let tools = Tools {
         ghidra: ghidra.clone(),
         script_dir: absolute(&options.script_dir),
         git: git.is_some(),
         runtime_image: runtime_image.clone(),
+        semgrep: semgrep.clone(),
     };
     let mut caps = vec![
         p::ToolCapability {
@@ -205,16 +225,33 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             detail: ghidra_detail,
             ..Default::default()
         },
+        p::ToolCapability {
+            name: "semgrep".into(),
+            version: if semgrep.is_some() {
+                aegis_application::sast::SEMGREP_VERSION
+            } else {
+                ""
+            }
+            .into(),
+            available: semgrep.is_some(),
+            detail: if semgrep.is_some() {
+                "Windows 原生静态规则扫描；不执行目标代码，不需要 Docker/WSL；规则命中仅为审计线索"
+            } else {
+                "需要项目私有 Windows Python 与 Semgrep 1.176.1；运行 py -3 scripts/bootstrap.py"
+            }
+            .into(),
+            ..Default::default()
+        },
     ];
-    for name in ["linux-runtime", "semgrep", "upx", "afl++"] {
+    for name in ["linux-runtime", "upx", "afl++"] {
         caps.push(p::ToolCapability {
             name: name.into(),
             version: runtime_image.clone().unwrap_or_default(),
             available: runtime_image.is_some(),
             detail: if runtime_image.is_some() {
-                "固定 Linux amd64 容器镜像；网络关闭、目标只读挂载，执行后确认容器回收"
+                "遗留 Linux amd64 容器能力；不计为 Windows 原生动态执行，原生隔离运行器仍待验收"
             } else {
-                "需要 Docker 和 aegis-runtime:0.2.0 镜像；运行 python3 scripts/manage.py runtime"
+                "遗留容器能力未就绪；Windows 原生动态运行器仍待验收，静态分析不需要 Docker/WSL"
             }
             .into(),
             ..Default::default()
@@ -232,17 +269,13 @@ async fn main() -> Result<()> {
         )
         .init();
     let options = Options::parse();
+    let desktop_job = aegis_application::windows_job::current_desktop_job()?;
     let (tools, caps) = capabilities(&options).await;
     if options.doctor {
         println!("{}", serde_json::to_string_pretty(&caps)?);
         return Ok(());
     }
     tokio::fs::create_dir_all(&options.work_dir).await?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&options.work_dir, std::fs::Permissions::from_mode(0o700))?;
-    }
     let identity_path = options.work_dir.join("identity.json");
     let active_path = options.work_dir.join("active.json");
     let identity = if identity_path.is_file() {
@@ -290,23 +323,63 @@ async fn main() -> Result<()> {
         })
         .await?;
     if active_path.is_file() {
-        let active: Active = serde_json::from_slice(&tokio::fs::read(&active_path).await?)?;
-        let completion = active.completion.filter(|c| c.processes_reaped).context(
-            "旧任务没有进程回收确认，执行器拒绝领取新任务；请先核实旧工具进程或重置测试环境",
-        )?;
+        let mut active: Active = serde_json::from_slice(&tokio::fs::read(&active_path).await?)?;
+        let completion = if let Some(completion) =
+            active.completion.clone().filter(|c| c.processes_reaped)
+        {
+            completion
+        } else {
+            let owner = recoverable_owner(&active)?;
+            let mut proof = None;
+            for _ in 0..50 {
+                proof = aegis_application::windows_job::reaping_proof(owner)?;
+                if proof.is_some() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            let proof = proof.context("旧 Windows Job Object 仍有进程，拒绝自动恢复")?;
+            let recovery = serde_json::json!({
+                "kind":"WINDOWS_STATIC_WORK_RECOVERY", "observed_at": aegis_domain::now(),
+                "work_item_id":active.lease.work_item_id,"attempt_id":active.lease.attempt_id,
+                "proof":proof,"outcome":"FAILED","task_reexecuted":false,
+                "same_windows_machine_verified":true,
+            });
+            private_json(
+                &options
+                    .work_dir
+                    .join(format!("recovery-{}.json", aegis_domain::id())),
+                &recovery,
+            )?;
+            let mut result = String::new();
+            if control.heartbeat(Some(&active.lease)).await?.lease_valid {
+                result = control
+                    .upload_bytes(
+                        &active.lease,
+                        "windows-recovery.json",
+                        "application/json",
+                        serde_json::to_vec_pretty(&recovery)?,
+                    )
+                    .await?
+                    .id;
+            }
+            let completion = p::CompleteWorkRequest {
+                work_item_id: active.lease.work_item_id.clone(), attempt_id: active.lease.attempt_id.clone(),
+                lease_token: active.lease.lease_token.clone(), outcome: "FAILED".into(),
+                result_artifact_id: result, processes_reaped: true,
+                error: "Windows 启动器异常退出；已确认原生进程组回收，未完成的任务未计为成功，请重新运行".into(),
+                ..Default::default()
+            };
+            active.completion = Some(completion.clone());
+            private_json(&active_path, &active)?;
+            completion
+        };
         control.complete(completion).await?;
         tokio::fs::remove_file(&active_path).await?;
     }
     let shutdown = CancellationToken::new();
     let signal = shutdown.clone();
     tokio::spawn(async move {
-        #[cfg(unix)]
-        {
-            let mut terminate =
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                    .expect("signal handler");
-            tokio::select! {_=tokio::signal::ctrl_c()=>{},_=terminate.recv()=>{}}
-        }
         #[cfg(windows)]
         {
             let mut stop = tokio::signal::windows::ctrl_break().expect("break handler");
@@ -347,6 +420,7 @@ async fn main() -> Result<()> {
             &Active {
                 lease: lease.clone(),
                 completion: None,
+                process_job: desktop_job.clone(),
             },
         )?;
         tracing::info!(work_item_id=%lease.work_item_id,kind=%lease.kind,"work started");
@@ -457,6 +531,7 @@ async fn main() -> Result<()> {
             &Active {
                 lease,
                 completion: Some(completion.clone()),
+                process_job: desktop_job.clone(),
             },
         )?;
         let result = control.complete(completion.clone()).await;
