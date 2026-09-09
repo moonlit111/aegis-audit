@@ -1,4 +1,9 @@
 //! Disposable Docker execution. Killing the Docker client is not sufficient: always remove the owned container.
+#[path = "windows_runtime.rs"]
+pub mod windows_runtime;
+#[path = "windows_sandbox.rs"]
+pub mod windows_sandbox;
+
 use crate::process::{self, ProcessOutput, ProcessSpec};
 use anyhow::{Result, ensure};
 use std::{
