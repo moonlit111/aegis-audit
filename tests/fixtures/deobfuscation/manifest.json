@@ -1,0 +1,24 @@
+{
+  "purpose": "Benign B06 deobfuscation mechanism fixture (single-byte XOR + base64 text table)",
+  "explicitly_not": "a course acceptance case or a real obfuscated sample",
+  "source": "obfuscated.rs",
+  "source_sha256": "d935ac4892f594d34f4af81d7bc79f8da7749f06f734b26632f86a37dc476856",
+  "toolchain": {
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "expected": {
+    "xor_key": "0x5a",
+    "xor_plaintext_contains": "AegisAudit deobfuscation fixture",
+    "repeating_xor_key": "37139b42",
+    "repeating_plaintext_contains": "AegisAudit repeating key fixture",
+    "base64_plaintext_contains": "AegisAudit base64 fixture"
+  },
+  "reproducibility": "rustc embeds build paths; the committed artifact and hash are authoritative",
+  "fixtures": [
+    {
+      "file": "obfuscated.exe",
+      "sha256": "98bce40beacaf8407bd1f913135afe5f59585a6bbfe37bb8732223ebbde621b4",
+      "size": 134656
+    }
+  ]
+}

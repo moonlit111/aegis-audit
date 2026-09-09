@@ -457,7 +457,16 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
             bytes.len() <= 64 * 1024 * 1024,
             "Ghidra output exceeds limit"
         );
+        let raw: Value = serde_json::from_slice(&bytes)?;
         let mut result: d::AnalysisResult = serde_json::from_slice(&bytes)?;
+        if let Some(recovered) = raw["deobfuscation"]
+            .as_array()
+            .filter(|items| !items.is_empty())
+        {
+            // B06: instruction/P-code recovery is additive evidence; the typed
+            // analysis result keeps it in metadata so no shared struct changes.
+            result.metadata["deobfuscation"] = json!(recovered);
+        }
         let original_path = &manifest
             .files
             .first()
