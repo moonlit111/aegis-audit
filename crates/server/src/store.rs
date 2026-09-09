@@ -132,6 +132,19 @@ pub(crate) async fn update_run(conn: &mut SqliteConnection, run: &d::AuditRun) -
     Ok(())
 }
 
+fn lease_timeout_seconds(kind: &str, payload: &str) -> Result<u32> {
+    if kind != "RUNTIME" {
+        return Ok(300);
+    }
+    let payload: Value = serde_json::from_str(payload)
+        .map_err(|e| AppError::Invalid(format!("RUNTIME payload is invalid: {e}")))?;
+    let budget = payload["timeout_seconds"]
+        .as_u64()
+        .ok_or_else(|| AppError::Invalid("RUNTIME payload missing timeout_seconds".into()))?;
+    u32::try_from(budget.saturating_add(180))
+        .map_err(|_| AppError::Invalid("RUNTIME lease timeout exceeds u32".into()))
+}
+
 impl Store {
     pub async fn open(root: &Path) -> Result<Self> {
         tokio::fs::create_dir_all(root.join("blobs")).await?;
@@ -616,6 +629,15 @@ impl Store {
             tx.commit().await?;
             return Ok(None);
         }
+        // Windows Sandbox allows one environment per host. A runtime lease that
+        // has not confirmed cleanup must block every executor, not just its owner.
+        let active_runtime:i64=sqlx::query_scalar(
+            "SELECT COUNT(*) FROM work_items WHERE kind='RUNTIME' AND (state='RUNNING' OR (state='EXPIRED' AND cleanup_confirmed=0))",
+        ).fetch_one(&mut *tx).await?;
+        if active_runtime > 0 {
+            tx.commit().await?;
+            return Ok(None);
+        }
         let rows=sqlx::query("SELECT * FROM work_items WHERE state='QUEUED' AND cancel_requested=0 ORDER BY created_at,id LIMIT 200").fetch_all(&mut *tx).await?;
         for row in rows {
             let capability: String = row.get("capability");
@@ -630,6 +652,10 @@ impl Store {
             let attempt = d::id();
             let token = format!("{}.{}", d::id(), d::id());
             let run_id: Option<String> = row.get("run_id");
+            let kind: String = row.get("kind");
+            let payload_text: String = row.get("payload");
+            let timeout_seconds = lease_timeout_seconds(&kind, &payload_text)?;
+            let payload: Value = serde_json::from_str(&payload_text)?;
             sqlx::query("UPDATE work_items SET state='RUNNING',executor_id=?,attempt_id=?,lease_hash=?,lease_expires=? WHERE id=?").bind(executor_id).bind(&attempt).bind(d::sha256(token.as_bytes())).bind(chrono::Utc::now().timestamp()+LEASE_SECONDS).bind(&work).execute(&mut *tx).await?;
             sqlx::query("INSERT INTO work_attempts(attempt_id,work_item_id,executor_id,lease_hash,started_at) VALUES(?,?,?,?,?)").bind(&attempt).bind(&work).bind(executor_id).bind(d::sha256(token.as_bytes())).bind(d::now()).execute(&mut *tx).await?;
             if let Some(id) = &run_id {
@@ -652,12 +678,12 @@ impl Store {
                 work_item_id: work,
                 attempt_id: attempt,
                 lease_token: token,
-                kind: row.get("kind"),
+                kind,
                 snapshot_id: row.get("snapshot_id"),
                 run_id: run_id.unwrap_or_default(),
                 input_artifact_id: row.get("input_artifact_id"),
-                payload: serde_json::from_str(&row.get::<String, _>("payload"))?,
-                timeout_seconds: 300,
+                payload,
+                timeout_seconds,
             };
             tx.commit().await?;
             self.changed.notify_waiters();
@@ -1072,12 +1098,15 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
-        sqlx::query("UPDATE work_items SET state=?,completion_hash=? WHERE id=?")
-            .bind(if reaped { effective } else { "EXPIRED" })
-            .bind(&completion)
-            .bind(work)
-            .execute(&mut *tx)
-            .await?;
+        sqlx::query(
+            "UPDATE work_items SET state=?,completion_hash=?,cleanup_confirmed=? WHERE id=?",
+        )
+        .bind(if reaped { effective } else { "EXPIRED" })
+        .bind(&completion)
+        .bind(reaped)
+        .bind(work)
+        .execute(&mut *tx)
+        .await?;
         sqlx::query("UPDATE work_attempts SET finished_at=?,outcome=?,detail=? WHERE attempt_id=?")
             .bind(d::now())
             .bind(if expired { "STALE" } else { effective })

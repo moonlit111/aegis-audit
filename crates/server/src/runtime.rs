@@ -67,6 +67,16 @@ impl Store {
             }
         };
         config.validate().map_err(AppError::Invalid)?;
+        if config.adapter == "WINDOWS_PYTHON_CALL"
+            && (!config.globals.is_empty()
+                || !config.baseline.kwargs.is_empty()
+                || !config.probe.kwargs.is_empty())
+        {
+            return Err(AppError::Invalid(
+                "Windows Python 运行配置暂不支持 globals/kwargs；拒绝创建会静默丢弃输入的任务"
+                    .into(),
+            ));
+        }
         if let Some(finding) = finding
             && (config.mode != "VERIFY" || !finding.evidence.iter().any(|e| e.path == config.path))
         {
@@ -83,15 +93,27 @@ impl Store {
         if !manifest.files.iter().any(|f| f.path == config.path) {
             return Err(AppError::Invalid("运行入口不属于当前快照".into()));
         }
-        if (snapshot.kind == "BINARY") != (config.adapter == "ELF") {
-            return Err(AppError::Invalid("运行适配器与目标类型不符".into()));
+        if !d::is_windows_runtime_adapter(&config.adapter) {
+            return Err(AppError::Invalid(
+                "旧 Linux/ELF 运行配置是历史数据；新运行必须使用 Windows Sandbox 适配器".into(),
+            ));
         }
-        if config.adapter == "ELF"
-            && (snapshot.metadata["format"] != "ELF"
-                || snapshot.metadata["architecture"] != "x86_64")
-        {
-            return Err(AppError::Precondition(
-                "当前动态适配器需要 ELF x86_64；PE 仍需匹配的 Windows 执行环境".into(),
+        let expected_pe_adapter = match snapshot.metadata["architecture"].as_str() {
+            Some("x86") => "WINDOWS_ORIGINAL_PE32",
+            Some("x86_64") => "WINDOWS_ORIGINAL_PE64",
+            _ => "",
+        };
+        let adapter_matches = if snapshot.kind == "BINARY" {
+            snapshot.metadata["format"] == "PE" && config.adapter == expected_pe_adapter
+        } else {
+            matches!(
+                config.adapter.as_str(),
+                "WINDOWS_PYTHON_CALL" | "WINDOWS_NATIVE_SOURCE"
+            )
+        };
+        if !adapter_matches {
+            return Err(AppError::Invalid(
+                "Windows 运行适配器与目标类型或架构不符".into(),
             ));
         }
         let hash = d::sha256(&serde_json::to_vec(&json!([
@@ -112,7 +134,7 @@ impl Store {
         let available = self.executors().await?.iter().any(|e| {
             e.capabilities
                 .iter()
-                .any(|c| c.name == "linux-runtime" && c.available)
+                .any(|c| c.name == "windows-sandbox" && c.available)
         });
         let run = d::AuditRun {
             id: d::id(),
@@ -128,7 +150,7 @@ impl Store {
             started_at: String::new(),
             finished_at: String::new(),
             unit_count: 0,
-            summary: json!({"source_run_id":source_run_id,"verification":"NOT_RUN","fuzzing":"NOT_RUN","exploitation":"NOT_RUN","required_capability":"linux-runtime","target_scope":config.target_scope(),"config":config}),
+            summary: json!({"source_run_id":source_run_id,"verification":"NOT_RUN","fuzzing":"NOT_RUN","exploitation":"NOT_RUN","required_capability":"windows-sandbox","target_scope":config.target_scope(),"config":config}),
             error: String::new(),
         };
         let record = d::RuntimeRecord {
@@ -148,7 +170,7 @@ impl Store {
             .bind(&record.created_at).bind(serde_json::to_string(&record)?).execute(&mut *tx).await?;
         let work = d::id();
         let payload = json!({"manifest_artifact_id":snapshot.manifest_artifact_id,"config":config,"timeout_seconds":config.deadline()});
-        sqlx::query("INSERT INTO work_items(id,snapshot_id,run_id,kind,capability,state,created_at,input_artifact_id,payload) VALUES(?,?,?,'RUNTIME','linux-runtime','QUEUED',?,?,?)")
+        sqlx::query("INSERT INTO work_items(id,snapshot_id,run_id,kind,capability,state,created_at,input_artifact_id,payload) VALUES(?,?,?,'RUNTIME','windows-sandbox','QUEUED',?,?,?)")
             .bind(&work).bind(&run.snapshot_id).bind(&run.id).bind(&run.created_at).bind(&snapshot.normalized_artifact_id).bind(payload.to_string()).execute(&mut *tx).await?;
         event(
             &mut tx,
@@ -204,8 +226,16 @@ impl Store {
             || result.tools.iter().any(|t| {
                 t.version != result.image_id
                     || t.details["processes_reaped"] != true
-                    || t.details["network"] != "none"
-                    || t.details["isolation"] != "DOCKER"
+                    || t.details["network"] != "DISABLED"
+                    || t.details["isolation"] != "WINDOWS_SANDBOX"
+                    || t.command.first().map(String::as_str) != Some("wsb.exe")
+                    || t.details["wsb_session_id"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .is_empty()
+                    || t.details["raw_log_artifact_ids"]
+                        .as_array()
+                        .is_none_or(|ids| ids.is_empty())
             })
         {
             return Err(AppError::Invalid(
@@ -216,10 +246,18 @@ impl Store {
             .observation
             .validate(&record.config)
             .map_err(AppError::Invalid)?;
-        for id in [&result.recipe_artifact_id, &result.observation_artifact_id]
-            .into_iter()
-            .chain(result.tools.iter().map(|t| &t.log_artifact_id))
-        {
+        let mut output_ids: Vec<&str> =
+            [&result.recipe_artifact_id, &result.observation_artifact_id]
+                .into_iter()
+                .map(String::as_str)
+                .chain(result.tools.iter().map(|t| t.log_artifact_id.as_str()))
+                .collect::<Vec<_>>();
+        for tool in &result.tools {
+            if let Some(ids) = tool.details["raw_log_artifact_ids"].as_array() {
+                output_ids.extend(ids.iter().filter_map(|id| id.as_str()));
+            }
+        }
+        for id in output_ids {
             Self::ensure_output(conn, id, work, attempt).await?;
         }
         let observation: d::RuntimeObservation = serde_json::from_slice(

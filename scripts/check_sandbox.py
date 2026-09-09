@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
@@ -352,156 +350,116 @@ def validate_attempt(prepared: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def sandbox_process_ids() -> set[int]:
-    result = subprocess.run(
-        ["tasklist", "/FO", "CSV", "/NH"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=True,
-    )
-    ids = set()
-    for row in csv.reader(io.StringIO(result.stdout)):
-        if row and row[0].startswith("WindowsSandbox"):
-            try:
-                ids.add(int(row[1]))
-            except (IndexError, ValueError):
-                continue
-    return ids
-
-
-def matching_remote_session_ids(config: Path) -> set[int]:
-    powershell = (
-        Path(os.environ.get("SystemRoot", r"C:\Windows"))
-        / "System32"
-        / "WindowsPowerShell"
-        / "v1.0"
-        / "powershell.exe"
-    )
-    script = (
-        "$config = $env:AEGIS_SANDBOX_CONFIG; "
-        "Get-CimInstance Win32_Process "
-        "-Filter \"Name = 'WindowsSandboxRemoteSession.exe'\" | "
-        "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($config) } | "
-        "ForEach-Object { $_.ProcessId }"
-    )
-    environment = os.environ.copy()
-    environment["AEGIS_SANDBOX_CONFIG"] = str(config)
+def run_wsb(arguments: list[str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+    executable = shutil.which("wsb")
+    if not executable:
+        raise FileNotFoundError("Windows Sandbox CLI (wsb.exe) is unavailable")
     try:
-        result = subprocess.run(
-            [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
-            env=environment,
+        return subprocess.run(
+            [executable, *arguments],
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
-            check=True,
-            timeout=10,
+            timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired as error:
-        raise SandboxExecutionError("sandbox process query timed out") from error
-    ids = set()
-    for line in result.stdout.splitlines():
-        value = line.strip()
-        if value.isdigit():
-            ids.add(int(value))
-    return ids
+        raise SandboxExecutionError(f"wsb {' '.join(arguments)} timed out") from error
+
+
+def write_cli_log(attempt: Path, name: str, result: subprocess.CompletedProcess[str]) -> None:
+    write_json_atomic(attempt / name, {
+        "returncode": result.returncode,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    })
+
+
+def wsb_session_running(session_id: str) -> bool:
+    result = run_wsb(["list", "--raw"], timeout=30)
+    if result.returncode != 0:
+        raise SandboxExecutionError("wsb list failed: " + result.stderr.strip())
+    try:
+        environments = json.loads(result.stdout).get("WindowsSandboxEnvironments", [])
+    except json.JSONDecodeError as error:
+        raise SandboxExecutionError("wsb list returned invalid JSON") from error
+    return any(item.get("Id") == session_id for item in environments)
 
 
 def run_attempt(prepared: dict[str, Any], timeout_seconds: int) -> dict[str, Any]:
     require_windows()
     if platform.machine().lower() not in ("amd64", "x86_64"):
         raise RuntimeError("Windows Sandbox check requires Windows x64")
-    sandbox = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsSandbox.exe"
-    if not sandbox.is_file():
-        raise FileNotFoundError(f"Windows Sandbox executable is missing: {sandbox}")
-
     attempt = prepared["attempt"]
-    config = prepared["config"].resolve()
-    baseline = sandbox_process_ids()
-    stdout_path = attempt / "sandbox.stdout.log"
-    stderr_path = attempt / "sandbox.stderr.log"
-    terminated = False
-    termination_output = ""
-    with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
-        launcher = subprocess.Popen(
-            [str(sandbox), str(prepared["config"])],
-            stdout=stdout,
-            stderr=stderr,
+    config_text = prepared["config"].read_text(encoding="utf-8")
+    start = run_wsb(["start", "--raw", "--config", config_text], timeout=60)
+    write_cli_log(attempt, "sandbox-start.json", start)
+    if start.returncode != 0:
+        return {
+            "start_return_code": start.returncode,
+            "guest_return_code": None,
+            "stop_return_code": None,
+            "session_id": "",
+            "remote_session_started": False,
+            "remote_session_closed": False,
+            "terminated_after_timeout": False,
+            "termination_output": start.stderr.strip(),
+            "exit_ok": False,
+        }
+    try:
+        session_id = json.loads(start.stdout)["Id"]
+    except (json.JSONDecodeError, KeyError) as error:
+        raise SandboxExecutionError("wsb start did not return a sandbox ID") from error
+
+    guest_command = (
+        f"powershell.exe -NoProfile -ExecutionPolicy Bypass -File {GUEST_TOOLS}\\probe.ps1 "
+        f"-InputPath {GUEST_INPUT} -OutputPath {GUEST_OUTPUT}"
+    )
+    try:
+        execution = run_wsb(
+            ["exec", "--raw", "--id", session_id, "-r", "System", "-c", guest_command],
+            timeout=timeout_seconds,
         )
+        timed_out = False
+    except SandboxExecutionError:
+        execution = None
+        timed_out = True
+    if execution is not None:
+        write_cli_log(attempt, "sandbox-exec.json", execution)
 
-        # WindowsSandbox.exe is a short-lived launcher. The actual remote
-        # session process owns the disposable VM and must be awaited separately.
+    stop_return_code = None
+    termination_output = ""
+    if wsb_session_running(session_id):
+        stop = run_wsb(["stop", "--raw", "--id", session_id], timeout=30)
+        write_cli_log(attempt, "sandbox-stop.json", stop)
+        stop_return_code = stop.returncode
+        termination_output = (stop.stdout + stop.stderr).strip()
+
+    remote_session_closed = not wsb_session_running(session_id)
+    guest_return_code = None
+    if execution is not None:
         try:
-            launcher.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            pass
+            guest_return_code = json.loads(execution.stdout).get("ExitCode")
+        except json.JSONDecodeError as error:
+            raise SandboxExecutionError("wsb exec returned invalid JSON") from error
 
-        deadline = time.monotonic() + timeout_seconds
-        remote_ids = set()
-        while time.monotonic() < deadline:
-            remote_ids = matching_remote_session_ids(config)
-            if remote_ids:
-                break
-            time.sleep(1)
-        if not remote_ids:
-            if launcher.poll() is None:
-                launcher.wait(timeout=10)
-            return {
-                "launcher_return_code": launcher.returncode,
-                "remote_session_started": False,
-                "remote_session_closed": False,
-                "terminated_after_timeout": False,
-                "termination_output": "",
-                "sandbox_process_baseline": sorted(baseline),
-                "sandbox_processes_after": sorted(sandbox_process_ids()),
-                "matching_remote_sessions_after": [],
-                "exit_ok": False,
-            }
-
-        while time.monotonic() < deadline:
-            time.sleep(2)
-            current = matching_remote_session_ids(config)
-            if not current:
-                break
-        else:
-            current = matching_remote_session_ids(config)
-            terminated = True
-            for pid in sorted(current):
-                kill = subprocess.run(
-                    ["taskkill", "/PID", str(pid), "/T", "/F"],
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    check=False,
-                )
-                termination_output += (kill.stdout + kill.stderr).strip() + "\n"
-            time.sleep(2)
-
-        if launcher.poll() is None:
-            try:
-                launcher.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                subprocess.run(
-                    ["taskkill", "/PID", str(launcher.pid), "/T", "/F"],
-                    capture_output=True,
-                    check=False,
-                )
-                launcher.wait(timeout=10)
-
-    remaining = matching_remote_session_ids(config)
     result = {
-        "launcher_return_code": launcher.returncode,
+        "start_return_code": start.returncode,
+        "guest_return_code": guest_return_code,
+        "stop_return_code": stop_return_code,
+        "session_id": session_id,
         "remote_session_started": True,
-        "terminated_after_timeout": terminated,
-        "termination_output": termination_output.strip(),
-        "sandbox_process_baseline": sorted(baseline),
-        "sandbox_processes_after": sorted(sandbox_process_ids()),
-        "matching_remote_sessions_after": sorted(remaining),
-        "exit_ok": launcher.returncode == 0 and not terminated and not remaining,
-        "remote_session_closed": not remaining,
+        "terminated_after_timeout": timed_out,
+        "termination_output": termination_output,
+        "exit_ok": (
+            start.returncode == 0
+            and guest_return_code == 0
+            and not timed_out
+            and remote_session_closed
+            and (stop_return_code is None or stop_return_code == 0)
+        ),
+        "remote_session_closed": remote_session_closed,
     }
     return result
 

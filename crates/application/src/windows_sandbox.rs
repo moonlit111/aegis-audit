@@ -7,14 +7,14 @@ use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
-    collections::BTreeMap,
     collections::BTreeSet,
     fs,
     path::{Path, PathBuf},
     process::Stdio,
+    sync::OnceLock,
     time::Duration,
 };
-use tokio::{process::Command, time};
+use tokio::{process::Command, sync::Mutex, time};
 use tokio_util::sync::CancellationToken;
 
 use crate::runtime::windows_runtime::{
@@ -30,6 +30,7 @@ pub const GUEST_ZIG: &str = r"C:\Users\WDAGUtilityAccount\Desktop\AegisZig";
 pub const GUEST_TINYINST: &str = r"C:\Users\WDAGUtilityAccount\Desktop\AegisTinyInst";
 pub const GUEST_LLVM: &str = r"C:\Users\WDAGUtilityAccount\Desktop\AegisLLVM";
 const RECEIPT_FILE: &str = "session.json";
+const SESSION_RECOVERY_FILE: &str = "sandbox-session.json";
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SandboxEntrypoint {
@@ -292,13 +293,54 @@ pub struct SandboxOutput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SandboxExecution {
-    pub launcher_exit_code: Option<i32>,
+    pub start_exit_code: Option<i32>,
+    pub guest_exit_code: Option<i32>,
+    pub stop_exit_code: Option<i32>,
+    pub session_id: String,
     pub remote_session_started: bool,
     pub remote_session_closed: bool,
     pub timed_out: bool,
     pub cancelled: bool,
     pub cleanup_output: String,
     pub success: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SandboxSessionRecord {
+    pub schema_version: u32,
+    pub session: SandboxSession,
+    pub wsb_session_id: String,
+    pub machine_identity: String,
+    pub closed: bool,
+}
+
+impl SandboxSessionRecord {
+    fn validate(&self) -> Result<()> {
+        ensure!(
+            self.schema_version == SANDBOX_SCHEMA_VERSION,
+            "unsupported sandbox recovery schema"
+        );
+        self.session.validate()?;
+        ensure!(
+            is_identifier(&self.wsb_session_id),
+            "invalid Windows Sandbox environment id"
+        );
+        ensure!(
+            !self.machine_identity.is_empty()
+                && self.machine_identity.bytes().all(|b| b.is_ascii_hexdigit()),
+            "invalid sandbox machine identity"
+        );
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SandboxRecoveryProof {
+    pub session_id: String,
+    pub remote_session_closed: bool,
+    pub stop_exit_code: Option<i32>,
+    pub cleanup_output: String,
+    pub machine_verified: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -815,160 +857,587 @@ async fn run_sandbox(
     timeout: Duration,
     cancel: CancellationToken,
 ) -> Result<SandboxExecution> {
-    let system_root = std::env::var_os("SystemRoot")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| r"C:\Windows".into());
-    let sandbox = system_root.join(r"System32\WindowsSandbox.exe");
-    ensure!(sandbox.is_file(), "Windows Sandbox executable is missing");
+    let _global_gate = acquire_global_sandbox_gate(cancel.clone()).await?;
+    static SANDBOX_GATE: OnceLock<Mutex<()>> = OnceLock::new();
+    let gate = SANDBOX_GATE.get_or_init(|| Mutex::new(()));
+    let _sandbox_gate = gate.lock().await;
+    run_sandbox_locked(prepared, timeout, cancel).await
+}
 
-    let stdout = fs::File::create(prepared.root.join("sandbox.stdout.log"))?;
-    let stderr = fs::File::create(prepared.root.join("sandbox.stderr.log"))?;
-    let mut launcher = Command::new(&sandbox)
-        .arg(&prepared.config)
-        .stdout(Stdio::from(stdout))
-        .stderr(Stdio::from(stderr))
-        .kill_on_drop(true)
-        .spawn()?;
-    let mut launcher_exit_code = None;
-    if let Ok(status) = time::timeout(Duration::from_secs(10), launcher.wait()).await {
-        launcher_exit_code = status?.code();
-    }
+#[cfg(windows)]
+struct GlobalSandboxGuard(usize);
 
-    let started_at = std::time::Instant::now();
-    let mut remote_ids = BTreeSet::new();
-    while started_at.elapsed() < timeout && !cancel.is_cancelled() {
-        remote_ids = matching_remote_sessions_with_retry(&prepared.config, &prepared.root).await?;
-        if !remote_ids.is_empty() {
-            break;
+#[cfg(windows)]
+impl Drop for GlobalSandboxGuard {
+    fn drop(&mut self) {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::ReleaseMutex;
+
+        let handle = self.0 as windows_sys::Win32::Foundation::HANDLE;
+        unsafe {
+            ReleaseMutex(handle);
+            CloseHandle(handle);
         }
-        time::sleep(Duration::from_secs(1)).await;
     }
-    let remote_session_started = !remote_ids.is_empty();
+}
 
-    let mut timed_out = false;
-    while remote_session_started && !remote_ids.is_empty() && !cancel.is_cancelled() {
-        if started_at.elapsed() >= timeout {
-            timed_out = true;
-            break;
-        }
-        time::sleep(Duration::from_secs(5)).await;
-        remote_ids = matching_remote_sessions_with_retry(&prepared.config, &prepared.root).await?;
-    }
-    let cancelled = cancel.is_cancelled();
-    let mut cleanup_output = String::new();
-    if !remote_ids.is_empty() && (cancelled || timed_out) {
-        cleanup_output = terminate_remote_sessions(&remote_ids, &prepared.root).await?;
-        remote_ids = matching_remote_sessions_with_retry(&prepared.config, &prepared.root).await?;
-    }
+#[cfg(windows)]
+async fn acquire_global_sandbox_gate(cancel: CancellationToken) -> Result<GlobalSandboxGuard> {
+    tokio::task::spawn_blocking(move || {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{CreateMutexW, WaitForSingleObject};
 
-    if launcher_exit_code.is_none() {
-        launcher_exit_code = match time::timeout(Duration::from_secs(30), launcher.wait()).await {
-            Ok(status) => status?.code(),
-            Err(_) => {
-                launcher.kill().await?;
-                launcher.wait().await?.code()
+        fn acquire(name: &str, cancel: &CancellationToken) -> Result<GlobalSandboxGuard> {
+            let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+            let handle = unsafe { CreateMutexW(std::ptr::null(), 0, wide.as_ptr()) };
+            ensure!(
+                !handle.is_null(),
+                "cannot create the Windows Sandbox global mutex"
+            );
+            loop {
+                let wait = unsafe { WaitForSingleObject(handle, 1_000) };
+                if wait == 0 || wait == 0x80 {
+                    return Ok(GlobalSandboxGuard(handle as usize));
+                }
+                if cancel.is_cancelled() {
+                    unsafe { CloseHandle(handle) };
+                    anyhow::bail!("cancelled while waiting for the Windows Sandbox global mutex");
+                }
+                if wait != 258 {
+                    unsafe { CloseHandle(handle) };
+                    anyhow::bail!("Windows Sandbox global mutex wait failed: {wait}");
+                }
             }
-        };
+        }
+
+        acquire("Global\\AegisAudit-Windows-Sandbox-Runner", &cancel).or_else(|error| {
+            acquire("Local\\AegisAudit-Windows-Sandbox-Runner", &cancel)
+                .map_err(|local_error| error.context(local_error))
+        })
+    })
+    .await?
+}
+
+#[cfg(not(windows))]
+async fn acquire_global_sandbox_gate(_cancel: CancellationToken) -> Result<()> {
+    Ok(())
+}
+
+async fn run_sandbox_locked(
+    prepared: &PreparedSandbox,
+    timeout: Duration,
+    cancel: CancellationToken,
+) -> Result<SandboxExecution> {
+    let wsb = locate_wsb()?;
+    let config_text = fs::read_to_string(&prepared.config)?;
+    let pre_start_ids =
+        list_environment_ids(&wsb, &prepared.root, "sandbox-list-before-start.json").await?;
+
+    let start = match start_wsb(&wsb, &config_text, cancel.clone(), &prepared.root).await {
+        Ok(start) => start,
+        Err(error) => {
+            let _ = stop_new_environments(&wsb, &prepared.root, &pre_start_ids).await;
+            return Err(error);
+        }
+    };
+    write_wsb_log(&prepared.root, "sandbox-start.json", &start)?;
+    let parsed_start = if start.exit_code == Some(0) && !start.timed_out && !start.cancelled {
+        serde_json::from_slice::<Value>(&start.stdout)
+            .context("invalid wsb start output")
+            .and_then(|value| {
+                value["Id"]
+                    .as_str()
+                    .map(str::to_owned)
+                    .context("wsb start did not return a sandbox ID")
+            })
+    } else {
+        Err(anyhow::anyhow!(
+            "wsb start failed: {}{}",
+            String::from_utf8_lossy(&start.stdout),
+            String::from_utf8_lossy(&start.stderr)
+        ))
+    };
+    let session_id = match parsed_start {
+        Ok(session_id) => session_id,
+        Err(error) => {
+            let _ = stop_new_environments(&wsb, &prepared.root, &pre_start_ids).await;
+            return Err(error);
+        }
+    };
+    let remote_session_started = !session_id.is_empty();
+    if let Err(error) =
+        write_session_recovery(&prepared.root, &prepared.session, &session_id, false)
+    {
+        let cleanup = stop_wsb_session(&wsb, &prepared.root, &session_id, "sandbox-start-cleanup")
+            .await
+            .err()
+            .map(|cleanup_error| cleanup_error.to_string())
+            .unwrap_or_else(|| "cleanup command completed".into());
+        return Err(error.context(format!(
+            "cannot persist sandbox ownership before guest execution: {cleanup}"
+        )));
     }
-    let remote_session_closed = remote_ids.is_empty()
-        && matching_remote_sessions_with_retry(&prepared.config, &prepared.root)
-            .await?
-            .is_empty();
+
+    let mut failures: Vec<anyhow::Error> = Vec::new();
+
+    let guest_command = format!(
+        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File {}\\{} -InputPath {} -OutputPath {}",
+        GUEST_TOOLS,
+        prepared.entrypoint.guest_script(),
+        GUEST_INPUT,
+        GUEST_OUTPUT
+    );
+    let mut exec_command = Command::new(&wsb);
+    exec_command
+        .arg("exec")
+        .arg("--raw")
+        .arg("--id")
+        .arg(&session_id)
+        .arg("-r")
+        .arg("System")
+        .arg("-c")
+        .arg(&guest_command);
+    let exec = match run_wsb_command(&mut exec_command, timeout, cancel.clone()).await {
+        Ok(exec) => exec,
+        Err(error) => {
+            failures.push(error);
+            WsbCommandOutput {
+                exit_code: None,
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+                timed_out: false,
+                cancelled: cancel.is_cancelled(),
+            }
+        }
+    };
+    if let Err(error) = write_wsb_log(&prepared.root, "sandbox-exec.json", &exec) {
+        failures.push(error);
+    }
+    let exec_value = if exec.stdout.is_empty() {
+        Value::Null
+    } else {
+        match serde_json::from_slice(&exec.stdout) {
+            Ok(value) => value,
+            Err(error) => {
+                failures.push(error.into());
+                Value::Null
+            }
+        }
+    };
+    let guest_exit_code = exec_value["ExitCode"].as_i64().map(|code| code as i32);
+    if !((exec.exit_code == Some(0) || guest_exit_code.is_some())
+        || exec.timed_out
+        || exec.cancelled)
+    {
+        failures.push(anyhow::anyhow!(
+            "wsb exec failed: {}{}",
+            String::from_utf8_lossy(&exec.stdout),
+            String::from_utf8_lossy(&exec.stderr)
+        ));
+    }
+
+    let mut list_command = Command::new(&wsb);
+    list_command.arg("list").arg("--raw");
+    let before_stop = match run_wsb_command(
+        &mut list_command,
+        Duration::from_secs(30),
+        CancellationToken::new(),
+    )
+    .await
+    {
+        Ok(output) => Some(output),
+        Err(error) => {
+            failures.push(error);
+            None
+        }
+    };
+    if let Some(before_stop) = &before_stop {
+        let log_result =
+            write_wsb_log(&prepared.root, "sandbox-list-before-stop.json", before_stop);
+        if let Err(error) = log_result {
+            failures.push(error);
+        }
+    }
+    let still_running = before_stop
+        .as_ref()
+        .and_then(|output| session_is_listed(&output.stdout, &session_id).ok())
+        .unwrap_or(true);
+
+    let mut stop_exit_code = None;
+    let mut cleanup_output = String::new();
+    if still_running {
+        match stop_wsb_session(&wsb, &prepared.root, &session_id, "sandbox-stop.json").await {
+            Ok((exit_code, output)) => {
+                stop_exit_code = exit_code;
+                cleanup_output = output;
+            }
+            Err(error) => failures.push(error),
+        }
+    }
+
+    let mut final_list_command = Command::new(&wsb);
+    final_list_command.arg("list").arg("--raw");
+    let after_stop = match run_wsb_command(
+        &mut final_list_command,
+        Duration::from_secs(30),
+        CancellationToken::new(),
+    )
+    .await
+    {
+        Ok(output) => Some(output),
+        Err(error) => {
+            failures.push(error);
+            None
+        }
+    };
+    let mut remote_session_closed = false;
+    if let Some(after_stop) = &after_stop {
+        if let Err(error) =
+            write_wsb_log(&prepared.root, "sandbox-list-after-stop.json", after_stop)
+        {
+            failures.push(error);
+        }
+        match session_is_listed(&after_stop.stdout, &session_id) {
+            Ok(listed) => remote_session_closed = !listed,
+            Err(error) => failures.push(error),
+        }
+    }
+
+    if let Err(error) = write_session_recovery(&prepared.root, &prepared.session, &session_id, true)
+    {
+        failures.push(error);
+    }
+
+    let timed_out = exec.timed_out;
+    let cancelled = exec.cancelled || cancel.is_cancelled();
     let success = remote_session_started
         && remote_session_closed
+        && guest_exit_code == Some(0)
         && !timed_out
         && !cancelled
-        && launcher_exit_code == Some(0);
-    Ok(SandboxExecution {
-        launcher_exit_code,
+        && (stop_exit_code.is_none() || stop_exit_code == Some(0));
+    let execution = SandboxExecution {
+        start_exit_code: start.exit_code,
+        guest_exit_code,
+        stop_exit_code,
+        session_id,
         remote_session_started,
         remote_session_closed,
         timed_out,
         cancelled,
         cleanup_output,
         success,
-    })
+    };
+    if let Some(error) = failures.into_iter().next() {
+        return Err(error.context(format!(
+            "Windows Sandbox attempt failed after cleanup: {execution:?}"
+        )));
+    }
+    Ok(execution)
 }
 
-async fn matching_remote_sessions(config: &Path, directory: &Path) -> Result<BTreeSet<u32>> {
-    let system_root = std::env::var_os("SystemRoot").unwrap_or_default();
-    let powershell =
-        Path::new(&system_root).join(r"System32\WindowsPowerShell\v1.0\powershell.exe");
-    let script = r#"$config = $env:AEGIS_SANDBOX_CONFIG; Get-CimInstance Win32_Process -Filter "Name = 'WindowsSandboxRemoteSession.exe'" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($config) } | ForEach-Object { $_.ProcessId }"#;
-    let mut env = BTreeMap::new();
-    env.insert(
-        "AEGIS_SANDBOX_CONFIG".into(),
-        config.to_string_lossy().into_owned(),
+/// Recover an attempt-specific Windows Sandbox session after its executor died.
+///
+/// The recovery record is written before guest execution and only after the host
+/// has confirmed that the WSB environment is gone. This prevents a new runtime
+/// attempt from being started while an unowned environment still exists.
+pub async fn recover_session(root: &Path) -> Result<Option<SandboxRecoveryProof>> {
+    let record_path = root.join(SESSION_RECOVERY_FILE);
+    if !record_path.is_file() {
+        return Ok(None);
+    }
+    let record: SandboxSessionRecord = serde_json::from_slice(&fs::read(&record_path)?)
+        .with_context(|| format!("invalid sandbox recovery record {record_path:?}"))?;
+    record.validate()?;
+    ensure!(
+        record.machine_identity == crate::windows_job::machine_identity()?,
+        "sandbox recovery record belongs to a different Windows machine"
     );
-    let output = crate::process::run(
-        crate::process::ProcessSpec {
-            program: powershell,
-            args: vec![
-                "-NoProfile".into(),
-                "-NonInteractive".into(),
-                "-Command".into(),
-                script.into(),
-            ],
-            directory: directory.into(),
-            env,
-            timeout: Duration::from_secs(30),
-        },
+    if record.closed {
+        return Ok(None);
+    }
+
+    let wsb = locate_wsb()?;
+    let mut list_command = Command::new(&wsb);
+    list_command.arg("list").arg("--raw");
+    let initial = run_wsb_command(
+        &mut list_command,
+        Duration::from_secs(30),
         CancellationToken::new(),
-        |_| {},
     )
     .await?;
+    write_wsb_log(root, "sandbox-recovery-list-before-stop.json", &initial)?;
+    if !session_is_listed(&initial.stdout, &record.wsb_session_id)? {
+        let mut recovered = record.clone();
+        recovered.closed = true;
+        write_recovery_record(root, &recovered)?;
+        return Ok(Some(SandboxRecoveryProof {
+            session_id: record.wsb_session_id,
+            remote_session_closed: true,
+            stop_exit_code: None,
+            cleanup_output: String::new(),
+            machine_verified: true,
+        }));
+    }
+
+    let (stop_exit_code, cleanup_output) = stop_wsb_session(
+        &wsb,
+        root,
+        &record.wsb_session_id,
+        "sandbox-recovery-stop.json",
+    )
+    .await?;
+    let mut final_list_command = Command::new(&wsb);
+    final_list_command.arg("list").arg("--raw");
+    let final_list = run_wsb_command(
+        &mut final_list_command,
+        Duration::from_secs(30),
+        CancellationToken::new(),
+    )
+    .await?;
+    write_wsb_log(root, "sandbox-recovery-list-after-stop.json", &final_list)?;
+    let remote_session_closed = !session_is_listed(&final_list.stdout, &record.wsb_session_id)?;
     ensure!(
-        output.exit_code == Some(0) && !output.cancelled && !output.timed_out,
-        "cannot query the Windows Sandbox remote session"
+        remote_session_closed,
+        "owned Windows Sandbox session did not close after executor recovery: {}{}",
+        String::from_utf8_lossy(&final_list.stdout),
+        String::from_utf8_lossy(&final_list.stderr)
     );
+    let mut recovered = record.clone();
+    recovered.closed = true;
+    write_recovery_record(root, &recovered)?;
+    Ok(Some(SandboxRecoveryProof {
+        session_id: record.wsb_session_id,
+        remote_session_closed,
+        stop_exit_code,
+        cleanup_output,
+        machine_verified: true,
+    }))
+}
+
+async fn list_environment_ids(wsb: &Path, root: &Path, log_name: &str) -> Result<BTreeSet<String>> {
+    let mut command = Command::new(wsb);
+    command.arg("list").arg("--raw");
+    let output = run_wsb_command(
+        &mut command,
+        Duration::from_secs(30),
+        CancellationToken::new(),
+    )
+    .await?;
+    write_wsb_log(root, log_name, &output)?;
+    let value: Value = serde_json::from_slice(&output.stdout).context("invalid wsb list output")?;
+    let items = value["WindowsSandboxEnvironments"]
+        .as_array()
+        .context("wsb list output is missing WindowsSandboxEnvironments")?;
     let mut ids = BTreeSet::new();
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
-        if let Ok(id) = line.trim().parse::<u32>() {
-            ids.insert(id);
-        }
+    for item in items {
+        let id = item["Id"]
+            .as_str()
+            .context("wsb list output contains an environment without an id")?;
+        ensure!(!id.is_empty(), "wsb list output contains an empty id");
+        ids.insert(id.to_owned());
     }
     Ok(ids)
 }
 
-async fn matching_remote_sessions_with_retry(
-    config: &Path,
-    directory: &Path,
-) -> Result<BTreeSet<u32>> {
-    let mut last_error = None;
-    for attempt in 0..3 {
-        match matching_remote_sessions(config, directory).await {
-            Ok(ids) => return Ok(ids),
-            Err(error) if attempt < 2 => {
-                last_error = Some(error);
-                time::sleep(Duration::from_secs(2)).await;
-            }
-            Err(error) => return Err(error),
-        }
-    }
-    Err(last_error.unwrap_or_else(|| anyhow::anyhow!("sandbox process query failed")))
-}
-
-async fn terminate_remote_sessions(ids: &BTreeSet<u32>, directory: &Path) -> Result<String> {
-    let system_root = std::env::var_os("SystemRoot").unwrap_or_default();
-    let taskkill = Path::new(&system_root).join(r"System32\taskkill.exe");
-    let mut output = String::new();
-    for id in ids {
-        let result = crate::process::run(
-            crate::process::ProcessSpec {
-                program: taskkill.clone(),
-                args: vec!["/PID".into(), id.to_string(), "/T".into(), "/F".into()],
-                directory: directory.into(),
-                env: BTreeMap::new(),
-                timeout: Duration::from_secs(20),
-            },
-            CancellationToken::new(),
-            |_| {},
+async fn stop_new_environments(
+    wsb: &Path,
+    root: &Path,
+    previous_ids: &BTreeSet<String>,
+) -> Result<Vec<String>> {
+    let current_ids =
+        list_environment_ids(wsb, root, "sandbox-start-recovery-list-before-stop.json").await?;
+    let new_ids: Vec<_> = current_ids.difference(previous_ids).cloned().collect();
+    for id in &new_ids {
+        stop_wsb_session(
+            wsb,
+            root,
+            id,
+            &format!("sandbox-start-recovery-stop-{id}.json"),
         )
         .await?;
-        output.push_str(&String::from_utf8_lossy(&result.stdout));
-        output.push_str(&String::from_utf8_lossy(&result.stderr));
     }
-    Ok(output.trim().into())
+    if !new_ids.is_empty() {
+        list_environment_ids(wsb, root, "sandbox-start-recovery-list-after-stop.json").await?;
+    }
+    Ok(new_ids)
+}
+
+fn session_is_listed(stdout: &[u8], session_id: &str) -> Result<bool> {
+    let value: Value = serde_json::from_slice(stdout).context("invalid wsb list output")?;
+    let items = value["WindowsSandboxEnvironments"]
+        .as_array()
+        .context("wsb list output is missing WindowsSandboxEnvironments")?;
+    Ok(items
+        .iter()
+        .any(|item| item["Id"].as_str() == Some(session_id)))
+}
+
+async fn stop_wsb_session(
+    wsb: &Path,
+    root: &Path,
+    session_id: &str,
+    log_name: &str,
+) -> Result<(Option<i32>, String)> {
+    let mut stop_command = Command::new(wsb);
+    stop_command
+        .arg("stop")
+        .arg("--raw")
+        .arg("--id")
+        .arg(session_id);
+    let stop = run_wsb_command(
+        &mut stop_command,
+        Duration::from_secs(30),
+        CancellationToken::new(),
+    )
+    .await?;
+    write_wsb_log(root, log_name, &stop)?;
+    let mut cleanup_output = String::new();
+    cleanup_output.push_str(&String::from_utf8_lossy(&stop.stdout));
+    cleanup_output.push_str(&String::from_utf8_lossy(&stop.stderr));
+    Ok((stop.exit_code, cleanup_output))
+}
+
+fn write_session_recovery(
+    root: &Path,
+    session: &SandboxSession,
+    wsb_session_id: &str,
+    closed: bool,
+) -> Result<()> {
+    let record = SandboxSessionRecord {
+        schema_version: SANDBOX_SCHEMA_VERSION,
+        session: session.clone(),
+        wsb_session_id: wsb_session_id.into(),
+        machine_identity: crate::windows_job::machine_identity()?,
+        closed,
+    };
+    record.validate()?;
+    write_recovery_record(root, &record)
+}
+
+fn write_recovery_record(root: &Path, record: &SandboxSessionRecord) -> Result<()> {
+    record.validate()?;
+    fs::write(
+        root.join(SESSION_RECOVERY_FILE),
+        serde_json::to_vec_pretty(record)?,
+    )?;
+    Ok(())
+}
+
+async fn start_wsb(
+    wsb: &Path,
+    config_text: &str,
+    cancel: CancellationToken,
+    root: &Path,
+) -> Result<WsbCommandOutput> {
+    let mut last_message = String::new();
+    for attempt in 1..=30 {
+        let mut command = Command::new(wsb);
+        command
+            .arg("start")
+            .arg("--raw")
+            .arg("--config")
+            .arg(config_text);
+        let output = run_wsb_command(&mut command, Duration::from_secs(60), cancel.clone()).await?;
+        write_wsb_log(
+            root,
+            &format!("sandbox-start-attempt-{attempt}.json"),
+            &output,
+        )?;
+        if output.exit_code == Some(0) && !output.timed_out && !output.cancelled {
+            return Ok(output);
+        }
+        let message = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let single_use =
+            message.contains("CO_E_APPSINGLEUSE") || message.contains("应用程序无法多次运行");
+        last_message = message;
+        if !single_use || cancel.is_cancelled() {
+            break;
+        }
+        time::sleep(Duration::from_secs(2)).await;
+    }
+    Err(anyhow::anyhow!("wsb start failed: {last_message}"))
+}
+
+#[derive(Debug)]
+struct WsbCommandOutput {
+    exit_code: Option<i32>,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    timed_out: bool,
+    cancelled: bool,
+}
+
+async fn run_wsb_command(
+    command: &mut Command,
+    timeout: Duration,
+    cancel: CancellationToken,
+) -> Result<WsbCommandOutput> {
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let child = command.spawn()?;
+    let mut timed_out = false;
+    let mut cancelled = false;
+    let output = tokio::select! {
+        output = child.wait_with_output() => Some(output?),
+        _ = time::sleep(timeout) => {
+            timed_out = true;
+            None
+        }
+        _ = cancel.cancelled() => {
+            cancelled = true;
+            None
+        }
+    };
+    let (exit_code, stdout, stderr) = match output {
+        Some(output) => (output.status.code(), output.stdout, output.stderr),
+        None => (None, Vec::new(), Vec::new()),
+    };
+    Ok(WsbCommandOutput {
+        exit_code,
+        stdout,
+        stderr,
+        timed_out,
+        cancelled,
+    })
+}
+
+fn write_wsb_log(root: &Path, name: &str, output: &WsbCommandOutput) -> Result<()> {
+    let value = json!({
+        "exit_code": output.exit_code,
+        "stdout": String::from_utf8_lossy(&output.stdout),
+        "stderr": String::from_utf8_lossy(&output.stderr),
+        "timed_out": output.timed_out,
+        "cancelled": output.cancelled,
+    });
+    let bytes = serde_json::to_vec_pretty(&value)?;
+    fs::write(root.join(name), bytes)?;
+    Ok(())
+}
+
+fn locate_wsb() -> Result<PathBuf> {
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        let candidate = Path::new(&local_app_data).join(r"Microsoft\WindowsApps\wsb.exe");
+        if candidate.is_file() {
+            return Ok(candidate);
+        }
+    }
+    if let Some(path) = std::env::var_os("PATH") {
+        for directory in std::env::split_paths(&path) {
+            let candidate = directory.join("wsb.exe");
+            if candidate.is_file() {
+                return Ok(candidate);
+            }
+        }
+    }
+    anyhow::bail!("Windows Sandbox CLI (wsb.exe) is unavailable")
 }
 
 fn import_files(

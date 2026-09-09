@@ -286,12 +286,17 @@ pub fn detect(root: &Path) -> Result<Value> {
             _ => {}
         }
     }
+    let mut invalid_package_main = None;
     if let Some(manifest) = find(&files, "package.json")
         && let Some(bin) = serde_json::from_str::<Value>(&manifest.text)
             .ok()
             .and_then(|value| value.get("main").and_then(Value::as_str).map(str::to_owned))
     {
-        entries.push(json!({"path":bin,"kind":"MAIN","evidence":"package.json main"}));
+        if relative_path(&bin).is_ok() {
+            entries.push(json!({"path":bin,"kind":"MAIN","evidence":"package.json main"}));
+        } else {
+            invalid_package_main = Some(bin);
+        }
     }
 
     let mut missing = Vec::new();
@@ -307,6 +312,11 @@ pub fn detect(root: &Path) -> Result<Value> {
     }
     if dependencies.is_empty() {
         missing.push("未识别到依赖清单：请补充依赖文件或运行环境要求".to_owned());
+    }
+    if let Some(path) = invalid_package_main {
+        missing.push(format!(
+            "package.json main 不是目标树内的安全相对路径：{path}"
+        ));
     }
     if build.len() > 1 {
         missing.push("识别到多个构建系统，需要人工确认实际使用的一个".to_owned());
@@ -482,5 +492,31 @@ mod tests {
         assert!(relative_path("..\\windows\\system32\\cmd.exe").is_err());
         assert!(relative_path("C:\\Windows\\cmd.exe").is_err());
         assert!(relative_path("app/../../etc/passwd").is_err());
+    }
+
+    #[test]
+    fn package_json_main_must_be_a_safe_relative_path() {
+        let temp = tempfile::tempdir().unwrap();
+        write(
+            temp.path(),
+            "package.json",
+            r#"{ "main": "C:\\Windows\\system32\\cmd.exe", "dependencies": { "express": "^4" } }"#,
+        );
+        write(temp.path(), "server.js", "process.argv\napp.listen(8080)\n");
+        let config = detect(temp.path()).unwrap();
+        assert!(
+            !config["entries"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item["path"] == "C:\\Windows\\system32\\cmd.exe")
+        );
+        assert!(
+            config["missing"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item.as_str().unwrap().contains("package.json main"))
+        );
     }
 }

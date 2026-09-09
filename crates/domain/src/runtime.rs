@@ -5,6 +5,12 @@ use std::collections::BTreeMap;
 
 pub const VERIFY_SCOPE: &str = "RUNTIME_VERIFICATION";
 pub const FUZZ_SCOPE: &str = "DYNAMIC_TESTING";
+pub const WINDOWS_RUNTIME_ADAPTERS: &[&str] = &[
+    "WINDOWS_PYTHON_CALL",
+    "WINDOWS_NATIVE_SOURCE",
+    "WINDOWS_ORIGINAL_PE32",
+    "WINDOWS_ORIGINAL_PE64",
+];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -90,6 +96,9 @@ pub fn target_path(path: &str) -> bool {
             .split('/')
             .all(|p| !p.is_empty() && p != "." && p != "..")
 }
+pub fn is_windows_runtime_adapter(adapter: &str) -> bool {
+    WINDOWS_RUNTIME_ADAPTERS.contains(&adapter)
+}
 fn identifier(name: &str) -> bool {
     !name.is_empty()
         && !name.starts_with("__")
@@ -109,8 +118,8 @@ impl RuntimeConfig {
     }
     pub fn target_scope(&self) -> &'static str {
         match self.adapter.as_str() {
-            "PYTHON_CALL" => "COMPONENT",
-            "NATIVE_SOURCE" => "INSTRUMENTED_BUILD",
+            "PYTHON_CALL" | "WINDOWS_PYTHON_CALL" => "COMPONENT",
+            "NATIVE_SOURCE" | "WINDOWS_NATIVE_SOURCE" => "INSTRUMENTED_BUILD",
             _ => "ORIGINAL",
         }
     }
@@ -125,8 +134,10 @@ impl RuntimeConfig {
         sha256(&serde_json::to_vec(self).expect("serializable runtime configuration"))
     }
     pub fn validate(&self) -> Result<(), String> {
+        let legacy_adapter =
+            ["PYTHON_CALL", "NATIVE_SOURCE", "ELF"].contains(&self.adapter.as_str());
         if !["VERIFY", "FUZZ"].contains(&self.mode.as_str())
-            || !["PYTHON_CALL", "NATIVE_SOURCE", "ELF"].contains(&self.adapter.as_str())
+            || !(legacy_adapter || is_windows_runtime_adapter(&self.adapter))
             || !target_path(&self.path)
             || self.fixtures.len() > 16
             || self.globals.len() > 16
@@ -150,7 +161,7 @@ impl RuntimeConfig {
                 "marker_path 必须为测试目录内的相对文件路径；仅 FILE_CREATED 要求非空".into(),
             );
         }
-        if self.adapter == "PYTHON_CALL" {
+        if self.adapter == "PYTHON_CALL" || self.adapter == "WINDOWS_PYTHON_CALL" {
             if !self.path.ends_with(".py")
                 || !identifier(&self.function)
                 || self.globals.keys().any(|k| !identifier(k))
@@ -160,17 +171,25 @@ impl RuntimeConfig {
         } else if !self.globals.is_empty() || !self.function.is_empty() {
             return Err("原生程序配置不能修改 Python 全局变量".into());
         }
-        if self.adapter == "NATIVE_SOURCE"
+        if (self.adapter == "NATIVE_SOURCE" || self.adapter == "WINDOWS_NATIVE_SOURCE")
             && ![".c", ".cc", ".cpp", ".cxx"]
                 .iter()
                 .any(|s| self.path.ends_with(s))
         {
             return Err("当前构建适配器支持单入口 C/C++ 文件及其本地头文件".into());
         }
+        if matches!(
+            self.adapter.as_str(),
+            "WINDOWS_ORIGINAL_PE32" | "WINDOWS_ORIGINAL_PE64"
+        ) && !self.path.to_ascii_lowercase().ends_with(".exe")
+        {
+            return Err("Windows 原始 PE 适配器需要目标中的 .exe 文件".into());
+        }
         let mut seen = std::collections::HashSet::new();
         for file in &self.fixtures {
             if !target_path(&file.path)
                 || file.path == self.marker_path
+                || file.path == self.path
                 || !seen.insert(&file.path)
                 || file.content.len() > 16384
             {
@@ -194,6 +213,7 @@ impl RuntimeConfig {
                 return Err("测试输入无效；观察用随机标记只能放在受控文件或测试数据中".into());
             }
             if self.adapter != "PYTHON_CALL"
+                && self.adapter != "WINDOWS_PYTHON_CALL"
                 && (!input.kwargs.is_empty()
                     || input.args.iter().any(|v| {
                         v.as_str()
@@ -203,8 +223,10 @@ impl RuntimeConfig {
                 return Err("原生程序参数必须为不含 NUL 的字符串".into());
             }
         }
+        let python_adapter = self.adapter == "PYTHON_CALL" || self.adapter == "WINDOWS_PYTHON_CALL";
         if !["RETURN_CANARY", "FILE_CREATED", "SANITIZER"].contains(&self.observer.as_str())
-            || (self.observer == "SANITIZER" && self.adapter == "PYTHON_CALL")
+            || (self.observer == "SANITIZER" && python_adapter)
+            || (is_windows_runtime_adapter(&self.adapter) && self.observer == "RETURN_CANARY")
         {
             return Err("该适配器不支持所选观察方式".into());
         }
@@ -217,6 +239,11 @@ impl RuntimeConfig {
             return Err("返回值观察需要含随机标记的受控测试文件或测试数据".into());
         }
         if self.mode == "FUZZ" {
+            if is_windows_runtime_adapter(&self.adapter) {
+                return Err(
+                    "Windows Sandbox 产品链当前只支持 VERIFY；libFuzzer 仍是引擎实验".into(),
+                );
+            }
             let fuzz = &self.fuzz;
             if self.adapter == "PYTHON_CALL"
                 || !self.globals.is_empty()
@@ -397,7 +424,7 @@ impl RuntimeObservation {
             return "INCONCLUSIVE";
         }
         if !probes.is_empty() && probes.iter().all(|t| t.observed) {
-            return if config.adapter == "PYTHON_CALL" {
+            return if config.adapter == "PYTHON_CALL" || config.adapter == "WINDOWS_PYTHON_CALL" {
                 "VERIFIED_COMPONENT"
             } else {
                 "REPRODUCED"
@@ -502,6 +529,32 @@ mod tests {
         assert!(config.validate().is_ok());
         config.probe.stdin = "{{canary}}".into();
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn windows_adapters_are_validated_without_reinterpreting_legacy_configs() {
+        let mut config = RuntimeConfig {
+            mode: "VERIFY".into(),
+            adapter: "WINDOWS_NATIVE_SOURCE".into(),
+            path: "main.c".into(),
+            observer: "SANITIZER".into(),
+            ..Default::default()
+        };
+        config.validate().unwrap();
+        assert_eq!(config.target_scope(), "INSTRUMENTED_BUILD");
+
+        config.adapter = "WINDOWS_ORIGINAL_PE64".into();
+        config.path = "target.exe".into();
+        config.validate().unwrap();
+        assert_eq!(config.target_scope(), "ORIGINAL");
+
+        config.observer = "RETURN_CANARY".into();
+        assert!(config.validate().is_err());
+        config.observer = "SANITIZER".into();
+        config.mode = "FUZZ".into();
+        assert!(config.validate().is_err());
+        assert!(is_windows_runtime_adapter("WINDOWS_ORIGINAL_PE64"));
+        assert!(!is_windows_runtime_adapter("ELF"));
     }
 
     #[test]

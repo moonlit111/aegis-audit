@@ -34,13 +34,28 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
         .await
         .unwrap();
     let mut config = d::RuntimeConfig {
-        adapter: "PYTHON_CALL".into(),
+        adapter: "WINDOWS_PYTHON_CALL".into(),
         path: "中文.py".into(),
         function: "helper".into(),
-        observer: "RETURN_CANARY".into(),
-        globals: [("value".into(), json!("{{canary}}"))].into(),
+        observer: "FILE_CREATED".into(),
+        marker_path: "marker.txt".into(),
+        globals: Default::default(),
         ..Default::default()
     };
+    let unsupported = {
+        let mut config = config.clone();
+        config
+            .baseline
+            .kwargs
+            .insert("name".into(), json!("baseline"));
+        config
+    };
+    assert!(
+        store
+            .create_runtime(&d::id(), &run.id, "", Some(unsupported))
+            .await
+            .is_err()
+    );
     let request = d::id();
     let record = store
         .create_runtime(&request, &run.id, "", Some(config.clone()))
@@ -75,7 +90,7 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
             "linux",
             "x86_64",
             vec![d::ToolCapability {
-                name: "linux-runtime".into(),
+                name: "windows-sandbox".into(),
                 available: true,
                 ..Default::default()
             }],
@@ -83,10 +98,13 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
         .await
         .unwrap();
     let lease = store.claim_work(&executor.id).await.unwrap().unwrap();
+    // Default VERIFY deadline is 180s; the lease adds host sandbox
+    // startup/cleanup/evidence time instead of cutting it to 300s.
+    assert_eq!(lease.timeout_seconds, 360);
     // A guessed verdict cannot replace the supervisor recipe, raw observations and owned tool logs.
     let fabricated = json!({"target_sha256":fixture.snapshot.target_sha256,"config_hash":record.config.fingerprint(),
         "image_id":format!("sha256:{}", "a".repeat(64)),"target_scope":"COMPONENT","recipe_artifact_id":"","observation_artifact_id":"",
-        "observation":{"schema_version":1,"mode":"VERIFY","adapter":"PYTHON_CALL","path":"中文.py"},"tools":[]});
+        "observation":{"schema_version":1,"mode":"VERIFY","adapter":"WINDOWS_PYTHON_CALL","path":"中文.py"},"tools":[]});
     let artifact = put(
         &store,
         &serde_json::to_vec(&fabricated).unwrap(),

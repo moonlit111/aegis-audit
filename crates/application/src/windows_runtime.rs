@@ -91,6 +91,8 @@ pub enum WindowsRuntimeInput {
 pub struct WindowsRuntimeEnvironment {
     pub python_version: Option<String>,
     pub compiler: Option<String>,
+    pub observer: Option<String>,
+    pub marker_path: Option<String>,
     #[serde(default)]
     pub runtime_libraries: BTreeMap<String, String>,
 }
@@ -146,6 +148,19 @@ impl WindowsRuntimeConfig {
             (2..=5).contains(&self.repeats),
             "repeats must be between 2 and 5"
         );
+        if let Some(observer) = self.environment.observer.as_deref() {
+            ensure!(
+                ["SANITIZER", "FILE_CREATED"].contains(&observer),
+                "Windows runtime observer must be SANITIZER or FILE_CREATED"
+            );
+            if observer == "FILE_CREATED" {
+                let marker = self.environment.marker_path.as_deref().unwrap_or_default();
+                ensure!(
+                    !marker.is_empty() && relative_path(marker),
+                    "FILE_CREATED requires a safe marker path"
+                );
+            }
+        }
         ensure!(
             (1..=900).contains(&self.timeout_seconds),
             "timeout_seconds must be between 1 and 900"

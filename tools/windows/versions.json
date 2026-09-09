@@ -22,5 +22,10 @@
   "tinyinst": {
     "version": "9b564702c01481825e4a1629d1701cf49d3d091f",
     "url": "https://github.com/googleprojectzero/tinyinst.git"
+  },
+  "upx": {
+    "version": "5.2.1",
+    "url": "https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-win64.zip",
+    "sha256": "eabc6792a347d45e945be7748423e7868fd01b0d2bcaa2f4b1031fd71ff69bda"
   }
 }

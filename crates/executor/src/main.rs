@@ -11,6 +11,7 @@ use clap::Parser;
 use client::Control;
 use jobs::{JobContext, Tools};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::{
     path::{Path, PathBuf},
     process::Stdio,
@@ -64,6 +65,10 @@ struct Active {
     completion: Option<p::CompleteWorkRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     process_job: Option<aegis_application::windows_job::DesktopJob>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sandbox_root: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    sandbox_session_id: Option<String>,
 }
 
 fn recoverable_owner(active: &Active) -> Result<&aegis_application::windows_job::DesktopJob> {
@@ -75,6 +80,139 @@ fn recoverable_owner(active: &Active) -> Result<&aegis_application::windows_job:
         .process_job
         .as_ref()
         .context("旧任务没有进程回收确认，执行器拒绝领取新任务；请先核实旧工具进程或重置测试环境")
+}
+
+fn read_sandbox_session_id(root: &Path) -> Option<String> {
+    let record = std::fs::read(root.join("sandbox-session.json"))
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())?;
+    record["wsb_session_id"].as_str().map(str::to_owned)
+}
+
+fn read_started_sandbox_session_id(root: &Path) -> Option<String> {
+    let mut names = std::fs::read_dir(root)
+        .ok()?
+        .filter_map(|entry| {
+            let name = entry.ok()?.file_name().into_string().ok()?;
+            (name.starts_with("sandbox-start") && name.ends_with(".json")).then_some(name)
+        })
+        .collect::<Vec<_>>();
+    names.sort();
+    for name in names.iter().rev() {
+        let Some(value) = std::fs::read(root.join(name))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        else {
+            continue;
+        };
+        let id = value["stdout"]
+            .as_str()
+            .and_then(|stdout| serde_json::from_str::<serde_json::Value>(stdout).ok())
+            .and_then(|start| start["Id"].as_str().map(str::to_owned));
+        if id.is_some() {
+            return id;
+        }
+    }
+    None
+}
+
+async fn runtime_recovery_completion(
+    active: &mut Active,
+    control: &Control,
+) -> Result<p::CompleteWorkRequest> {
+    use aegis_application::runtime::windows_sandbox::{
+        SANDBOX_SCHEMA_VERSION, SandboxRecoveryProof, SandboxSession, SandboxSessionRecord,
+        recover_session,
+    };
+
+    let root = active
+        .sandbox_root
+        .clone()
+        .context("旧 RUNTIME 任务缺少 Sandbox 证据目录，拒绝自动恢复")?;
+    let record_path = root.join("sandbox-session.json");
+    let mut record = if record_path.is_file() {
+        let record: SandboxSessionRecord =
+            serde_json::from_slice(&tokio::fs::read(&record_path).await?)?;
+        Some(record)
+    } else {
+        None
+    };
+    if record.is_none()
+        && let Some(session_id) = read_started_sandbox_session_id(&root)
+    {
+        let manifest: serde_json::Value =
+            serde_json::from_slice(&tokio::fs::read(root.join("host-manifest.json")).await?)?;
+        let session: SandboxSession = serde_json::from_value(manifest["session"].clone())?;
+        let recovered = SandboxSessionRecord {
+            schema_version: SANDBOX_SCHEMA_VERSION,
+            session,
+            wsb_session_id: session_id,
+            machine_identity: aegis_application::windows_job::machine_identity()?,
+            closed: false,
+        };
+        tokio::fs::write(&record_path, serde_json::to_vec_pretty(&recovered)?).await?;
+        record = Some(recovered);
+    }
+    let proof = if record.as_ref().is_some_and(|record| !record.closed) {
+        recover_session(&root)
+            .await?
+            .context("Windows Sandbox 恢复流程没有返回回收证明")?
+    } else if let Some(record) = record.as_ref() {
+        SandboxRecoveryProof {
+            session_id: record.wsb_session_id.clone(),
+            remote_session_closed: true,
+            stop_exit_code: None,
+            cleanup_output: String::new(),
+            machine_verified: true,
+        }
+    } else {
+        SandboxRecoveryProof {
+            session_id: String::new(),
+            remote_session_closed: true,
+            stop_exit_code: None,
+            cleanup_output: String::new(),
+            machine_verified: true,
+        }
+    };
+    ensure!(
+        proof.remote_session_closed,
+        "重启后未能确认 Windows Sandbox 会话已关闭"
+    );
+    active.sandbox_session_id = (!proof.session_id.is_empty()).then_some(proof.session_id.clone());
+    let recovery = json!({
+        "kind": "WINDOWS_SANDBOX_RECOVERY",
+        "observed_at": aegis_domain::now(),
+        "work_item_id": active.lease.work_item_id,
+        "attempt_id": active.lease.attempt_id,
+        "session_id": proof.session_id,
+        "remote_session_closed": proof.remote_session_closed,
+        "stop_exit_code": proof.stop_exit_code,
+        "machine_verified": proof.machine_verified,
+        "outcome": "FAILED",
+        "task_reexecuted": false,
+    });
+    let mut result = String::new();
+    if control.heartbeat(Some(&active.lease)).await?.lease_valid {
+        result = control
+            .upload_bytes(
+                &active.lease,
+                "windows-sandbox-recovery.json",
+                "application/json",
+                serde_json::to_vec_pretty(&recovery)?,
+            )
+            .await?
+            .id;
+    }
+    Ok(p::CompleteWorkRequest {
+        work_item_id: active.lease.work_item_id.clone(),
+        attempt_id: active.lease.attempt_id.clone(),
+        lease_token: active.lease.lease_token.clone(),
+        outcome: "FAILED".into(),
+        result_artifact_id: result,
+        processes_reaped: true,
+        error: "执行器在 RUNTIME 期间异常退出；已确认 Windows Sandbox 会话回收，未完成任务未计为成功，请重新运行".into(),
+        ..Default::default()
+    })
 }
 
 fn private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
@@ -179,7 +317,6 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             );
         }
     }
-    let runtime_image = aegis_application::runtime::image_id().await;
     let semgrep = if let Some(home) = &options.python_home {
         aegis_application::sast::Semgrep::discover(
             &absolute(home),
@@ -193,7 +330,6 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
         ghidra: ghidra.clone(),
         script_dir: absolute(&options.script_dir),
         git: git.is_some(),
-        runtime_image: runtime_image.clone(),
         semgrep: semgrep.clone(),
     };
     let mut caps = vec![
@@ -243,21 +379,72 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             ..Default::default()
         },
     ];
-    for name in ["linux-runtime", "upx", "afl++"] {
-        caps.push(p::ToolCapability {
-            name: name.into(),
-            version: runtime_image.clone().unwrap_or_default(),
-            available: runtime_image.is_some(),
-            detail: if runtime_image.is_some() {
-                "遗留 Linux amd64 容器能力；不计为 Windows 原生动态执行，原生隔离运行器仍待验收"
-            } else {
-                "遗留容器能力未就绪；Windows 原生动态运行器仍待验收，静态分析不需要 Docker/WSL"
-            }
-            .into(),
-            ..Default::default()
-        });
-    }
+    let root = absolute(&options.script_dir)
+        .parent()
+        .and_then(Path::parent)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let sandbox_exe = locate_wsb_cli();
+    let python_program = root.join(".tools/windows-python/python.exe");
+    let zig_program = root.join(".tools/zig/zig.exe");
+    let python_version = if python_program.is_file() {
+        runtime::command_text(&python_program, &["--version"])
+            .await
+            .ok()
+    } else {
+        None
+    };
+    let zig_version = if zig_program.is_file() {
+        runtime::command_text(&zig_program, &["version"]).await.ok()
+    } else {
+        None
+    };
+    let python_runtime = python_version
+        .as_deref()
+        .is_some_and(|version| runtime::tool_version_matches(version, "3.13.13"));
+    let zig_runtime = zig_version
+        .as_deref()
+        .is_some_and(|version| runtime::tool_version_matches(version, "0.15.2"));
+    let windows_sandbox = sandbox_exe.is_some() && python_runtime && zig_runtime;
+    caps.push(p::ToolCapability {
+        name: "windows-sandbox".into(),
+        version: "1".into(),
+        available: windows_sandbox,
+        detail: format!(
+            "VERIFY：Windows Sandbox x64，断网/只读输入/受限输出；Python={}，Zig={}，原始 PE 支持",
+            python_runtime, zig_runtime
+        ),
+        ..Default::default()
+    });
+    let upx = aegis_application::protection::adapter_by_name("upx")
+        .and_then(aegis_application::protection::locate_tool);
+    caps.push(p::ToolCapability {
+        name: "upx".into(),
+        version: if upx.is_some() { "5.2.1" } else { "" }.into(),
+        available: upx.is_some(),
+        detail: if upx.is_some() {
+            "固定 UPX 5.2.1；仅处理允许清单内的自制/支持样本，不执行目标"
+        } else {
+            "运行 py -3 tools/windows/install-upx.py 安装固定 UPX 5.2.1"
+        }
+        .into(),
+        ..Default::default()
+    });
     (tools, caps)
+}
+
+fn locate_wsb_cli() -> Option<PathBuf> {
+    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+        let candidate = Path::new(&local_app_data).join(r"Microsoft\WindowsApps\wsb.exe");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|directory| directory.join("wsb.exe"))
+            .find(|candidate| candidate.is_file())
+    })
 }
 
 #[tokio::main]
@@ -328,6 +515,8 @@ async fn main() -> Result<()> {
             active.completion.clone().filter(|c| c.processes_reaped)
         {
             completion
+        } else if active.lease.kind == "RUNTIME" {
+            runtime_recovery_completion(&mut active, &control).await?
         } else {
             let owner = recoverable_owner(&active)?;
             let mut proof = None;
@@ -415,18 +604,62 @@ async fn main() -> Result<()> {
         let temp = tempfile::Builder::new()
             .prefix("work-")
             .tempdir_in(&options.work_dir)?;
+        let work_path = absolute(temp.path());
+        if lease.kind == "RUNTIME" {
+            // Keep WSB recovery records and raw logs even when the executor
+            // returns an error or dies before TempDir's normal cleanup.
+            let _persistent_runtime_work = temp.keep();
+        }
+        let sandbox_root = (lease.kind == "RUNTIME").then(|| work_path.join("sandbox"));
         private_json(
             &active_path,
             &Active {
                 lease: lease.clone(),
                 completion: None,
                 process_job: desktop_job.clone(),
+                sandbox_root: sandbox_root.clone(),
+                sandbox_session_id: None,
             },
         )?;
         tracing::info!(work_item_id=%lease.work_item_id,kind=%lease.kind,"work started");
         let cancel = shutdown.child_token();
         let done = CancellationToken::new();
-        let reaped = Arc::new(AtomicBool::new(true));
+        let reaped = Arc::new(AtomicBool::new(false));
+        let session_monitor_cancel = CancellationToken::new();
+        let session_monitor_token = session_monitor_cancel.clone();
+        let session_monitor = sandbox_root.clone().map(|root| {
+            let active_path = active_path.clone();
+            let lease = lease.clone();
+            let process_job = desktop_job.clone();
+            let cancel = session_monitor_token.clone();
+            tokio::spawn(async move {
+                let mut seen: Option<String> = None;
+                loop {
+                    tokio::select! {
+                        _ = cancel.cancelled() => break,
+                        _ = tokio::time::sleep(Duration::from_millis(250)) => {}
+                    }
+                    let Some(session_id) = read_sandbox_session_id(&root) else {
+                        continue;
+                    };
+                    if seen.as_deref() != Some(session_id.as_str()) {
+                        if let Err(error) = private_json(
+                            &active_path,
+                            &Active {
+                                lease: lease.clone(),
+                                completion: None,
+                                process_job: process_job.clone(),
+                                sandbox_root: Some(root.clone()),
+                                sandbox_session_id: Some(session_id.clone()),
+                            },
+                        ) {
+                            tracing::warn!(error=%error,"cannot persist sandbox session ownership");
+                        }
+                        seen = Some(session_id);
+                    }
+                }
+            })
+        });
         let heartbeat_control = control.clone();
         let heartbeat_lease = lease.clone();
         let heartbeat_cancel = cancel.clone();
@@ -478,11 +711,14 @@ async fn main() -> Result<()> {
             progress: sender,
             reaped: reaped.clone(),
         };
-        let work_path = absolute(temp.path());
         let execution = jobs::execute(context, &work_path);
         tokio::pin!(execution);
         let mut deadline_reached = false;
         let outcome = tokio::select! {result=&mut execution=>result,_=tokio::time::sleep(Duration::from_secs(lease.timeout_seconds as u64))=>{deadline_reached=true;cancel.cancel();execution.await}};
+        session_monitor_cancel.cancel();
+        if let Some(monitor) = session_monitor {
+            let _ = monitor.await;
+        }
         if tokio::time::timeout(Duration::from_secs(5), &mut reporter)
             .await
             .is_err()
@@ -526,12 +762,17 @@ async fn main() -> Result<()> {
             processes_reaped: reaped.load(Ordering::SeqCst),
             ..Default::default()
         };
+        let sandbox_session_id = sandbox_root
+            .as_ref()
+            .and_then(|root| read_sandbox_session_id(root));
         private_json(
             &active_path,
             &Active {
                 lease,
                 completion: Some(completion.clone()),
                 process_job: desktop_job.clone(),
+                sandbox_root,
+                sandbox_session_id,
             },
         )?;
         let result = control.complete(completion.clone()).await;

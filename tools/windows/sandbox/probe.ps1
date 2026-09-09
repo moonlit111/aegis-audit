@@ -130,7 +130,3 @@ $receipt = [ordered]@{
     status = 'COMPLETED'
 }
 $receipt | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $OutputPath 'session.json') -Encoding UTF8
-
-# The guest is disposable. Shut it down after the observation is flushed; this
-# command runs inside Windows Sandbox and never restarts or shuts down the host.
-& "$env:SystemRoot\System32\shutdown.exe" /s /t 3

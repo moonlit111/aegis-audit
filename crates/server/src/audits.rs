@@ -202,7 +202,17 @@ impl Store {
                     if !corpus.units.values().any(|u| u.unit.path == config.path) {
                         return Err(AppError::Invalid("验证入口必须来自当前分析目标".into()));
                     }
-                    if (corpus.target["kind"] == "BINARY") != (config.adapter == "ELF") {
+                    if !d::is_windows_runtime_adapter(&config.adapter) {
+                        return Err(AppError::Invalid(
+                            "新验证方案必须使用 Windows Sandbox 适配器".into(),
+                        ));
+                    }
+                    let binary = corpus.target["kind"] == "BINARY";
+                    let source_adapter = matches!(
+                        config.adapter.as_str(),
+                        "WINDOWS_PYTHON_CALL" | "WINDOWS_NATIVE_SOURCE"
+                    );
+                    if binary == source_adapter {
                         return Err(AppError::Invalid("验证适配器与目标类型不符".into()));
                     }
                 }

@@ -345,7 +345,7 @@ pub async fn process(
     let original = run_dir.join("original.bin");
     let derived = run_dir.join("derived.bin");
     ensure!(
-        !derived.exists(),
+        !original.exists() && !derived.exists(),
         "派生产物路径已存在；每次处理使用新的工作目录"
     );
     tokio::fs::write(&original, bytes).await?;
@@ -404,6 +404,7 @@ pub async fn process(
             let ok = output.exit_code == Some(0)
                 && !output.timed_out
                 && !output.cancelled
+                && output.processes_reaped
                 && derived.is_file();
             if !ok {
                 json!({"state":"FAILED","kind":kind,"adapter":adapter.name,

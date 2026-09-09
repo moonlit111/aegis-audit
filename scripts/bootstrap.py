@@ -93,6 +93,7 @@ def install_python_tools():
     python = TOOLS / 'windows-python/python.exe'
     command([python, '-I', '-m', 'pip', 'install', '--disable-pip-version-check',
              '-r', ROOT / 'tools/windows/semgrep-requirements.txt'])
+    command([sys.executable, ROOT / 'tools/windows/install-upx.py'])
     return python
 
 

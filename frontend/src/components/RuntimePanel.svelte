@@ -102,7 +102,7 @@
     try {
       await runsApi.cancelRun({ runId: record.runId });
       await refresh();
-      notify('取消请求已记录，正在等待容器回收。');
+      notify('取消请求已记录，正在等待 Windows Sandbox 回收。');
     } catch (failure) {
       error = errorMessage(failure);
     }
@@ -110,7 +110,11 @@
   onMount(() => {
     selectedFinding = findingId;
     adapter =
-      unit?.language === 'python' ? 'PYTHON_CALL' : unit?.language === 'binary' ? 'ELF' : 'NATIVE_SOURCE';
+      unit?.language === 'python'
+        ? 'WINDOWS_PYTHON_CALL'
+        : unit?.language === 'binary'
+          ? 'WINDOWS_ORIGINAL_PE64'
+          : 'WINDOWS_NATIVE_SOURCE';
     template();
     void refresh();
     const timer = setInterval(() => {
@@ -181,13 +185,17 @@
         <div class="runtime-config-row">
           <label class="field"
             >配置模板<select bind:value={adapter}
-              ><option value="NATIVE_SOURCE">C / C++</option><option value="PYTHON_CALL">Python 函数</option
-              ><option value="ELF">ELF x86_64</option></select
+              ><option value="WINDOWS_NATIVE_SOURCE">C / C++</option><option value="WINDOWS_PYTHON_CALL"
+                >Python 函数</option
+              ><option value="WINDOWS_ORIGINAL_PE32">原始 PE32</option><option value="WINDOWS_ORIGINAL_PE64"
+                >原始 PE64</option
+              ></select
             ></label
           >
           <label class="field"
             >测试方式<select bind:value={mode}
-              ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ">输入变异 / AFL++</option
+              ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ" disabled
+                >动态测试（产品链未接入）</option
               ></select
             ></label
           >
@@ -294,7 +302,7 @@
           <p class="runtime-hash">
             <span>目标 SHA-256</span><code>{result.target_sha256}</code><span>配置 SHA-256</span><code
               >{result.config_hash}</code
-            ><span>镜像</span><code>{result.image_id}</code>
+            ><span>执行环境</span><code>{result.image_id}</code>
           </p>
         {/if}
         <details>

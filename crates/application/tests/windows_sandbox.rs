@@ -756,10 +756,13 @@ async fn native_windows_sandbox_original_pe_lifecycle() {
             },
             root: attempt.clone(),
             inputs: vec![transfer(&target, target_name)],
-            tools: vec![transfer(
-                &root.join("tools/windows/sandbox/run-pe.ps1"),
-                "run-pe.ps1",
-            )],
+            tools: vec![
+                transfer(&root.join("tools/windows/sandbox/run-pe.ps1"), "run-pe.ps1"),
+                transfer(
+                    &root.join("tools/windows/sandbox/run-windows-trials.ps1"),
+                    "run-windows-trials.ps1",
+                ),
+            ],
             mappings: Vec::new(),
             runtime_config: Some(config),
         })
@@ -868,10 +871,16 @@ async fn native_windows_sandbox_python_lifecycle() {
         },
         root: attempt.clone(),
         inputs: vec![transfer(&target, "target.py")],
-        tools: vec![transfer(
-            &root.join("tools/windows/sandbox/run-python.ps1"),
-            "run-python.ps1",
-        )],
+        tools: vec![
+            transfer(
+                &root.join("tools/windows/sandbox/run-python.ps1"),
+                "run-python.ps1",
+            ),
+            transfer(
+                &root.join("tools/windows/sandbox/run-windows-trials.ps1"),
+                "run-windows-trials.ps1",
+            ),
+        ],
         mappings: vec![SandboxMapping {
             host: root.join(".tools/windows-python"),
             guest: GUEST_PYTHON.into(),
@@ -919,6 +928,133 @@ async fn native_windows_sandbox_python_lifecycle() {
                 "observation": observation,
                 "stdout": stdout,
                 "target": "benign development fixture",
+                "formal_target": false
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires Windows Sandbox, the pinned Windows Python runtime, and the benign tamper fixture"]
+async fn native_windows_sandbox_rejects_target_evidence_tampering() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let target = root.join("tests/fixtures/runtime/observer_tamper.py");
+    let target_bytes = fs::read(&target).unwrap();
+    let unique = id();
+    let temporary = tempfile::tempdir().unwrap();
+    let config = WindowsRuntimeConfig {
+        schema_version: 1,
+        config_version: "1".into(),
+        mode: WindowsRuntimeMode::Verify,
+        adapter: WindowsRuntimeAdapter::PythonCall,
+        target_path: "observer_tamper.py".into(),
+        target_sha256: sha256(&target_bytes),
+        entry: WindowsRuntimeEntry::Function {
+            module: "observer_tamper.py".into(),
+            function: "main".into(),
+        },
+        baseline_inputs: vec![WindowsRuntimeInput::Stdin {
+            value: String::new(),
+        }],
+        probe_inputs: vec![WindowsRuntimeInput::Stdin {
+            value: String::new(),
+        }],
+        repeats: 2,
+        timeout_seconds: 5,
+        fuzz: None,
+        environment: WindowsRuntimeEnvironment {
+            python_version: Some("3.13.13".into()),
+            ..Default::default()
+        },
+    };
+    let fingerprint = config.fingerprint().unwrap();
+    let session_id = format!("attempt-001-session-{unique}");
+    let evidence_root = std::env::var_os("AEGIS_SANDBOX_EVIDENCE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| temporary.path().to_path_buf());
+    fs::create_dir_all(&evidence_root).unwrap();
+    let attempt = evidence_root.join(format!("attempt-{unique}"));
+    let prepared = prepare(&SandboxSpec {
+        entrypoint: SandboxEntrypoint::WindowsPython,
+        session: SandboxSession {
+            run_id: format!("run-{unique}"),
+            attempt_id: "attempt-001".into(),
+            session_id: session_id.clone(),
+            target_sha256: sha256(&target_bytes),
+            config_sha256: fingerprint,
+            memory_mb: 4096,
+        },
+        root: attempt,
+        inputs: vec![transfer(&target, "observer_tamper.py")],
+        tools: vec![
+            transfer(
+                &root.join("tools/windows/sandbox/run-python.ps1"),
+                "run-python.ps1",
+            ),
+            transfer(
+                &root.join("tools/windows/sandbox/run-windows-trials.ps1"),
+                "run-windows-trials.ps1",
+            ),
+        ],
+        mappings: vec![SandboxMapping {
+            host: root.join(".tools/windows-python"),
+            guest: GUEST_PYTHON.into(),
+            read_only: true,
+        }],
+        runtime_config: Some(config),
+    })
+    .unwrap();
+
+    let execution = run_windows_python(
+        &prepared,
+        Duration::from_secs(240),
+        CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    verify_inputs(&prepared).unwrap();
+    let output = collect_output(&prepared, &SandboxOutputPolicy::windows_python()).unwrap();
+    assert!(execution.success, "{execution:?}");
+    assert!(execution.remote_session_started && execution.remote_session_closed);
+    assert_eq!(output.receipt.status, "COMPLETED");
+    assert_eq!(output.receipt.session_id, session_id);
+
+    let stdout = fs::read_to_string(prepared.output.join("target.stdout.log")).unwrap();
+    assert!(
+        stdout.contains("guest-observation.json:write-rejected"),
+        "{stdout:?}"
+    );
+    assert!(stdout.contains("session.json:write-rejected"), "{stdout:?}");
+    let observation_text =
+        fs::read_to_string(prepared.output.join("guest-observation.json")).unwrap();
+    let receipt_text = fs::read_to_string(prepared.output.join("session.json")).unwrap();
+    assert!(!observation_text.contains("FORGED BY TARGET"));
+    assert!(!receipt_text.contains("FORGED BY TARGET"));
+    let observation: serde_json::Value =
+        serde_json::from_str(observation_text.trim_start_matches('\u{feff}')).unwrap();
+    assert_eq!(observation["session_id"], session_id);
+    assert_eq!(observation["exit_code"], 0);
+
+    if let Some(evidence) = std::env::var_os("AEGIS_SANDBOX_EVIDENCE") {
+        let evidence = Path::new(&evidence);
+        fs::create_dir_all(evidence).unwrap();
+        fs::write(
+            evidence.join("observer-tamper-summary.json"),
+            serde_json::to_vec_pretty(&json!({
+                "observed_at": aegis_domain::now(),
+                "platform": "windows/x86_64",
+                "execution": execution,
+                "receipt": output.receipt,
+                "artifacts": output.artifacts,
+                "observation": observation,
+                "stdout": stdout,
+                "target": "benign observer-tamper development fixture",
                 "formal_target": false
             }))
             .unwrap(),
@@ -996,10 +1132,16 @@ async fn native_windows_sandbox_native_source_lifecycle() {
             },
             root: attempt.clone(),
             inputs: vec![transfer(&target, target_name)],
-            tools: vec![transfer(
-                &root.join("tools/windows/sandbox/run-native-source.ps1"),
-                "run-native-source.ps1",
-            )],
+            tools: vec![
+                transfer(
+                    &root.join("tools/windows/sandbox/run-native-source.ps1"),
+                    "run-native-source.ps1",
+                ),
+                transfer(
+                    &root.join("tools/windows/sandbox/run-windows-trials.ps1"),
+                    "run-windows-trials.ps1",
+                ),
+            ],
             mappings: vec![SandboxMapping {
                 host: root.join(".tools/zig"),
                 guest: GUEST_ZIG.into(),

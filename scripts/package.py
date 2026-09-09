@@ -38,8 +38,12 @@ def main():
             shutil.copy2(ROOT / 'target/release' / (binary + suffix), target)
         shutil.copytree(ROOT / 'frontend/dist', stage / 'frontend/dist')
         shutil.copytree(ROOT / 'Docs', stage / 'Docs')
-        shutil.copytree(ROOT / 'tools/runtime', stage / 'tools/runtime', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-        for source in ['README.md', 'tools/versions.json', 'tools/windows/versions.json', 'tools/windows/semgrep-requirements.txt', 'tools/ghidra/ExportProgram.java', 'scripts/aegis.py', 'scripts/bootstrap.py', 'scripts/manage.py', 'scripts/configure_model.py', 'scripts/windows_secrets.py']:
+        shutil.copytree(
+            ROOT / 'tools/windows/sandbox',
+            stage / 'tools/windows/sandbox',
+            ignore=shutil.ignore_patterns('__pycache__', '*.pyc'),
+        )
+        for source in ['README.md', 'tools/versions.json', 'tools/windows/versions.json', 'tools/windows/semgrep-requirements.txt', 'tools/windows/install-upx.py', 'tools/ghidra/ExportProgram.java', 'scripts/aegis.py', 'scripts/bootstrap.py', 'scripts/manage.py', 'scripts/configure_model.py', 'scripts/windows_secrets.py']:
             target = stage / source
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / source, target)
@@ -56,7 +60,7 @@ def main():
         (stage / 'PACKAGE-MANIFEST.json').write_text(json.dumps({
             'version': version, 'platform': platform.platform(),
             'scopes': ['STRUCTURE_ANALYSIS', 'SECURITY_AUDIT', 'RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'],
-            'pending_windows_native_scopes': ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'],
+            'pending_windows_native_scopes': ['DYNAMIC_TESTING'],
             'source_at_packaging': source_state, 'files': files,
         }, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         archive = options.output / (name + '.zip')

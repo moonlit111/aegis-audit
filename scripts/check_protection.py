@@ -20,7 +20,8 @@ parser.add_argument('--batch', default='first-round-20260909')
 options = parser.parse_args()
 
 env = environment()
-upx = os.environ.get('AEGIS_UPX') or shutil.which('upx', path=env.get('PATH', ''))
+local_upx = ROOT / '.tools' / 'upx' / 'upx.exe'
+upx = os.environ.get('AEGIS_UPX') or (str(local_upx) if local_upx.is_file() else None) or shutil.which('upx', path=env.get('PATH', ''))
 if not upx:
     raise SystemExit('UPX not found: set AEGIS_UPX or add upx to PATH; no records written')
 upx_version = subprocess.check_output([upx, '--version'], text=True).splitlines()[0].strip()

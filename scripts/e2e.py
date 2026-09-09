@@ -27,7 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--no-build', action='store_true')
     parser.add_argument('--skip-ghidra', action='store_true')
-    parser.add_argument('--runtime', action='store_true', help='Also test the Docker runtime browser workflow')
+    parser.add_argument('--runtime', action='store_true', help='Also test the Windows Sandbox runtime browser workflow')
     options = parser.parse_args()
     env = environment()
     pnpm = 'pnpm.cmd' if os.name == 'nt' else 'pnpm'

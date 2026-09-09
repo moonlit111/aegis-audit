@@ -24,6 +24,10 @@ export const runtimeLabels: Record<string, string> = {
   FUZZ: '动态测试',
   MUTATION: '输入变异',
   AFLPP: 'AFL++ 覆盖引导',
+  WINDOWS_PYTHON_CALL: 'Windows Python 组件',
+  WINDOWS_NATIVE_SOURCE: 'Windows 插桩构建',
+  WINDOWS_ORIGINAL_PE32: '原始 PE32',
+  WINDOWS_ORIGINAL_PE64: '原始 PE64',
 };
 export const runtimeLabel = (value: string) => runtimeLabels[value] || value;
 export const runtimePending = (value: string) =>
@@ -78,21 +82,21 @@ export type VerificationPlan = {
 };
 
 export function runtimeTemplate(adapter: string, mode: string, unit?: ProgramUnit): string {
-  const native = adapter !== 'PYTHON_CALL';
+  const native = adapter !== 'WINDOWS_PYTHON_CALL';
   const config: Record<string, unknown> = {
     mode,
     adapter,
     path: unit?.path || '',
     baseline: { args: [], kwargs: {}, stdin: '' },
     probe: { args: [], kwargs: {}, stdin: '' },
-    observer: native ? 'SANITIZER' : 'RETURN_CANARY',
+    observer: native ? 'SANITIZER' : 'FILE_CREATED',
+    marker_path: native ? '' : 'marker.txt',
     repeats: 2,
     timeout_seconds: 5,
   };
   if (!native) {
     config.function = unit?.language === 'python' ? unit.name : '';
     config.globals = {};
-    config.fixtures = [{ path: 'controlled.txt', content: '{{canary}}' }];
   }
   if (mode === 'FUZZ') {
     config.fuzz = {

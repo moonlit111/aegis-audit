@@ -25,7 +25,7 @@ def environment():
         if scheme in ('http', 'https', 'all', 'no') and value:
             env.setdefault(scheme.upper() + '_PROXY', value)
     tools = ROOT / '.tools'
-    candidates = [tools / 'node', tools / 'pnpm', tools / 'bin', tools / 'cargo/bin', tools / 'git/cmd']
+    candidates = [tools / 'node', tools / 'pnpm', tools / 'bin', tools / 'cargo/bin', tools / 'git/cmd', tools / 'upx']
     env['PATH'] = os.pathsep.join(str(p) for p in candidates if p.is_dir()) + os.pathsep + env.get('PATH', '')
     if (tools / 'rustup').is_dir():
         env['RUSTUP_HOME'] = str(tools / 'rustup')

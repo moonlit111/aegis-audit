@@ -43,7 +43,8 @@ entries = {
 shutil.copyfile(plain, output_dir / 'packable-plain.exe')
 print('packable-plain.exe: ' + entries['plain']['sha256'])
 
-upx = os.environ.get('AEGIS_UPX') or shutil.which('upx', path=env.get('PATH', ''))
+local_upx = ROOT / '.tools' / 'upx' / 'upx.exe'
+upx = os.environ.get('AEGIS_UPX') or (str(local_upx) if local_upx.is_file() else None) or shutil.which('upx', path=env.get('PATH', ''))
 if not upx:
     print('UPX not found (set AEGIS_UPX or add upx to PATH); packed fixture not rebuilt')
 else:

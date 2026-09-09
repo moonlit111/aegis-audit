@@ -172,5 +172,3 @@ try {
 } catch {
     Write-Failure $_.Exception.Message
 }
-
-& "$env:SystemRoot\System32\shutdown.exe" /s /t 3

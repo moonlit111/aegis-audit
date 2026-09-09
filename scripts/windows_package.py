@@ -38,6 +38,10 @@ def prepare():
         [sys.executable, str(ROOT / 'tools/windows/sandbox/install-tinyinst.py')],
         check=True,
     )
+    subprocess.run(
+        [sys.executable, str(ROOT / 'tools/windows/install-upx.py')],
+        check=True,
+    )
     zig = TOOLS / 'zig/zig.exe'
     if not zig.is_file():
         raise RuntimeError('The pinned standalone Zig installation is incomplete.')
@@ -118,7 +122,8 @@ def bundle(stage, version):
                            (TOOLS / 'git', stage / '.tools/git'),
                            (TOOLS / 'zig', stage / '.tools/zig'),
                            (TOOLS / 'llvm-min', stage / '.tools/llvm-min'),
-                           (TOOLS / 'tinyinst', stage / '.tools/tinyinst')]:
+                           (TOOLS / 'tinyinst', stage / '.tools/tinyinst'),
+                           (TOOLS / 'upx', stage / '.tools/upx')]:
         shutil.copytree(source, target)
     shutil.copytree(TOOLS / 'windows-python', stage / '.tools/windows-python',
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'Scripts'))
@@ -146,7 +151,9 @@ def bundle(stage, version):
         'bundled_zig': SPECS['zig']['version'], 'api_credentials_included': False,
         'bundled_llvm': SPECS['llvm']['version'],
         'bundled_tinyinst': SPECS['tinyinst']['version'],
-        'dynamic_runtime': 'WINDOWS_SANDBOX_PROTOTYPE_NOT_INTEGRATED',
+        'bundled_upx': SPECS['upx']['version'],
+        'dynamic_runtime': 'WINDOWS_SANDBOX_VERIFY_INTEGRATED',
+        'pending_dynamic_runtime': 'DYNAMIC_TESTING/libFuzzer product integration',
     }, indent=2) + '\n', encoding='utf-8')
 
 

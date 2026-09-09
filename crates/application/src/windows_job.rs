@@ -70,7 +70,7 @@ fn verify_current_membership(name: &str) -> Result<()> {
     Ok(())
 }
 
-fn machine_identity() -> Result<String> {
+pub fn machine_identity() -> Result<String> {
     let key: Vec<_> = "SOFTWARE\\Microsoft\\Cryptography"
         .encode_utf16()
         .chain(Some(0))

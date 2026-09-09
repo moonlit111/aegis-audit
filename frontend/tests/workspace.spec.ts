@@ -8,11 +8,16 @@ const root = path.resolve(import.meta.dirname, '../..');
 test('runtime configuration → repeated component observations → reload → factual report', async ({
   page,
 }) => {
+  test.setTimeout(240_000);
   test.skip(
     process.env.AEGIS_TEST_RUNTIME !== '1',
-    'Run scripts/e2e.py --runtime with the runtime image installed',
+    'Run scripts/e2e.py --runtime with Windows Sandbox and pinned runtime tools installed',
   );
-  const data = zipSync({ 'store.py': strToU8('DATA = {}\n\ndef fetch(name):\n    return DATA[name]\n') });
+  const data = zipSync({
+    'store.py': strToU8(
+      'from pathlib import Path\n\ndef fetch(name):\n    if name == "private":\n        Path("marker.txt").write_text("created", encoding="ascii")\n    return name\n',
+    ),
+  });
   const card = await importFile(page, '运行证据浏览器验证', 'runtime-ui.zip', Buffer.from(data));
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: '开始结构分析', exact: true }).click();
@@ -20,21 +25,23 @@ test('runtime configuration → repeated component observations → reload → f
   await page.getByRole('tab', { name: '运行验证', exact: true }).click();
   const config = {
     mode: 'VERIFY',
-    adapter: 'PYTHON_CALL',
+    adapter: 'WINDOWS_PYTHON_CALL',
     path: 'store.py',
     function: 'fetch',
-    globals: { DATA: { public: 'hello', private: '{{canary}}' } },
+    globals: {},
     fixtures: [],
     baseline: { args: ['public'], kwargs: {}, stdin: '' },
     probe: { args: ['private'], kwargs: {}, stdin: '' },
-    observer: 'RETURN_CANARY',
-    marker_path: '',
+    observer: 'FILE_CREATED',
+    marker_path: 'marker.txt',
     repeats: 2,
     timeout_seconds: 5,
   };
   await page.getByLabel('运行配置 JSON').fill(JSON.stringify(config));
   await page.getByRole('button', { name: '开始本地测试', exact: true }).click();
-  await expect(page.locator('.runtime-record')).toContainText('组件内验证成立');
+  await expect(page.locator('.runtime-record')).toContainText('组件内验证成立', {
+    timeout: 180_000,
+  });
   await expect(page.locator('.runtime-record tbody tr')).toHaveCount(3);
   await page.reload();
   await page.getByRole('tab', { name: '运行验证', exact: true }).click();

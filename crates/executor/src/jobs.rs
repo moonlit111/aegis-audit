@@ -25,7 +25,6 @@ pub struct Tools {
     pub ghidra: Option<PathBuf>,
     pub script_dir: PathBuf,
     pub git: bool,
-    pub runtime_image: Option<String>,
     pub semgrep: Option<aegis_application::sast::Semgrep>,
 }
 #[derive(Clone)]
@@ -613,74 +612,6 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
         )
         .await?
         .id)
-}
-
-pub(crate) async fn container_tool(
-    ctx: &JobContext,
-    work: &Path,
-    target: &Path,
-    args: Vec<String>,
-    name: &str,
-    seconds: u64,
-) -> Result<(process::ProcessOutput, d::ToolExecution)> {
-    let image = ctx
-        .tools
-        .runtime_image
-        .as_ref()
-        .context("Linux runtime image is unavailable")?;
-    let started = d::now();
-    let command = args.clone();
-    let sender = ctx.progress.clone();
-    ctx.reaped.store(false, Ordering::SeqCst);
-    let output = aegis_application::runtime::run(
-        aegis_application::runtime::ContainerSpec {
-            image: image.clone(),
-            work: work.into(),
-            target: target.into(),
-            runner: ctx
-                .tools
-                .script_dir
-                .parent()
-                .context("tool root missing")?
-                .join("runtime"),
-            args,
-            timeout: Duration::from_secs(seconds),
-        },
-        ctx.cancel.clone(),
-        move |message| {
-            let _ = sender.try_send((message.into(), 0, 0));
-        },
-    )
-    .await?;
-    ctx.reaped.store(output.processes_reaped, Ordering::SeqCst);
-    let mut bytes = output.stdout.clone();
-    bytes.extend_from_slice(b"\n--- stderr ---\n");
-    bytes.extend_from_slice(&output.stderr);
-    let artifact = ctx
-        .control
-        .upload_bytes(
-            &ctx.lease,
-            &format!("{name}-{}.log", d::id()),
-            "text/plain; charset=utf-8",
-            bytes,
-        )
-        .await?;
-    let record = d::ToolExecution {
-        name: name.into(),
-        version: image.clone(),
-        command,
-        started_at: started,
-        finished_at: d::now(),
-        exit_code: output.exit_code,
-        terminated: output.cancelled || output.timed_out,
-        log_artifact_id: artifact.id,
-        details: json!({"isolation":"DOCKER","platform":"linux/amd64","network":"none","processes_reaped":output.processes_reaped,"timed_out":output.timed_out,"cancelled":output.cancelled,"log_truncated":output.truncated}),
-    };
-    ensure!(
-        output.processes_reaped,
-        "Container removal was not confirmed"
-    );
-    Ok((output, record))
 }
 
 #[cfg(test)]

@@ -146,7 +146,13 @@ def main():
             STATE.unlink()
             print('Application stopped. Projects, artifacts and task history remain in .data/.')
     elif options.action == 'runtime':
-        run(['docker', 'build', '--platform', 'linux/amd64', '-t', 'aegis-runtime:0.2.0', ROOT / 'tools/runtime'])
+        run([sys.executable, ROOT / 'tools/windows/install-upx.py'])
+        run([sys.executable, ROOT / 'tools/windows/sandbox/install-zig.py'])
+        run([sys.executable, ROOT / 'tools/windows/sandbox/install-llvm.py'])
+        run([sys.executable, ROOT / 'tools/windows/sandbox/install-tinyinst.py'])
+        sandbox = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32' / 'WindowsSandbox.exe'
+        if not sandbox.is_file():
+            raise RuntimeError('Windows Sandbox is not installed or enabled; enable it in Windows Features and restart.')
     elif options.action == 'doctor':
         run([executable('aegis-executor'), '--doctor'])
     elif options.action == 'codegen':

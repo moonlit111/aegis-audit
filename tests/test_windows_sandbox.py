@@ -180,6 +180,65 @@ class WindowsSandboxProbeTests(unittest.TestCase):
             'https://github.com/googleprojectzero/tinyinst.git',
         )
 
+    def test_upx_runtime_is_pinned_and_installable(self):
+        root = Path(__file__).resolve().parents[1]
+        versions = json.loads(
+            (root / 'tools/windows/versions.json').read_text(encoding='utf-8')
+        )
+        self.assertEqual(versions['upx']['version'], '5.2.1')
+        self.assertEqual(len(versions['upx']['sha256']), 64)
+        self.assertIn('upx-5.2.1-win64.zip', versions['upx']['url'])
+        self.assertTrue(
+            (root / 'tools/windows/install-upx.py').is_file(),
+            'the pinned UPX installer must ship with the analysis tools',
+        )
+
+    def test_product_runtime_guest_scripts_are_complete(self):
+        root = Path(__file__).resolve().parents[1]
+        scripts = root / 'tools/windows/sandbox'
+        for name in (
+            'run-pe.ps1',
+            'run-python.ps1',
+            'run-native-source.ps1',
+            'run-windows-trials.ps1',
+        ):
+            self.assertTrue((scripts / name).is_file(), f'missing product runtime script: {name}')
+
+    def test_product_runtime_guest_scripts_do_not_shutdown_guest(self):
+        root = Path(__file__).resolve().parents[1]
+        sandbox = root / 'tools/windows/sandbox'
+        for path in sandbox.glob('*.ps1'):
+            text = path.read_text(encoding='utf-8-sig')
+            self.assertNotIn('shutdown.exe', text, f'{path.name} must let wsb stop own cleanup')
+            self.assertNotIn('/s /t', text, f'{path.name} must not initiate guest shutdown')
+
+    def test_runtime_observer_runs_target_as_isolated_low_privilege_user(self):
+        root = Path(__file__).resolve().parents[1]
+        script = (
+            root / 'tools/windows/sandbox/run-windows-trials.ps1'
+        ).read_text(encoding='utf-8-sig')
+        self.assertIn('function Protect-WindowsRuntimeOutput', script)
+        self.assertIn('SetAccessRuleProtection($true, $false)', script)
+        self.assertIn('function New-WindowsRuntimeTargetIdentity', script)
+        self.assertIn('RandomNumberGenerator', script)
+        self.assertIn('New-LocalUser', script)
+        self.assertIn('Remove-LocalUser', script)
+        self.assertIn("$startInfo.UserName = $TargetUser", script)
+        self.assertIn('$startInfo.Password = $TargetPassword', script)
+        self.assertIn("UserId 'NT AUTHORITY\\SYSTEM'", script)
+        self.assertIn('-ObserverMode', script)
+        self.assertIn("if ($MyInvocation.InvocationName -ne '.')", script)
+
+    def test_malicious_observer_tamper_fixture_targets_both_evidence_files(self):
+        root = Path(__file__).resolve().parents[1]
+        fixture = (
+            root / 'tests/fixtures/runtime/observer_tamper.py'
+        ).read_text(encoding='utf-8')
+        self.assertIn('guest-observation.json', fixture)
+        self.assertIn('session.json', fixture)
+        self.assertIn('FORGED BY TARGET', fixture)
+        self.assertIn("except OSError", fixture)
+
     def test_runtime_installers_are_available(self):
         root = Path(__file__).resolve().parents[1]
         for name in ('install-zig.py', 'install-llvm.py', 'install-tinyinst.py'):
@@ -187,6 +246,10 @@ class WindowsSandboxProbeTests(unittest.TestCase):
                 (root / 'tools/windows/sandbox' / name).is_file(),
                 f'the pinned runtime installer must ship with the tools: {name}',
             )
+        self.assertTrue(
+            (root / 'tools/windows/install-upx.py').is_file(),
+            'the pinned UPX installer must ship with the tools',
+        )
 
 
 if __name__ == '__main__':
