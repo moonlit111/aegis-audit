@@ -227,7 +227,7 @@
     <details class="runtime-config" open={!plans.length}>
       <summary>配置本地测试</summary>
       <p class="muted">
-        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口插桩构建，原始二进制支持 PE
+        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口本地构建，原始二进制支持 PE
         x86/x64，预构建 libFuzzer 支持动态测试。
       </p>
       {#if !runtimeAdapterSupported}<div class="error-banner" role="alert">
