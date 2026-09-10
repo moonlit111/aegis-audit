@@ -67,6 +67,27 @@
     UNKNOWN: '待定',
   };
   const label = (value: string) => labels[value] || value;
+  const runtimeStatus = $derived.by(() => {
+    const records = data?.runtime || [];
+    if (records.some((record) => runtimePending(record.status))) return '执行中';
+    const statuses = records
+      .filter((record) => !runtimePending(record.status))
+      .map((record) => record.status);
+    if (!statuses.length) return '未执行';
+    if (statuses.includes('REPRODUCED')) return '已复现异常';
+    if (statuses.includes('VERIFIED_COMPONENT')) return '组件验证成立';
+    if (statuses.includes('INCONCLUSIVE')) return '结果不确定';
+    if (statuses.includes('NOT_REPRODUCED')) return '本次未复现';
+    if (statuses.includes('NO_CRASH_OBSERVED')) return '未观察到崩溃';
+    return label(statuses[statuses.length - 1] || '');
+  });
+  const exploitationStatus = $derived.by(() => {
+    if (summary.exploitation === 'COMPLETED') return '利用证据已完成';
+    if (summary.exploitation && summary.exploitation !== 'NOT_RUN') {
+      return label(summary.exploitation);
+    }
+    return '';
+  });
   async function refresh() {
     if (loading) return;
     loading = true;
@@ -168,7 +189,11 @@
         <small>token{unknownUsage ? ` · ${unknownUsage} 次用量未知` : ''}</small></strong
       >
     </div>
-    <div><span>动态与利用验证</span><strong>未执行</strong></div>
+    <div>
+      <span>动态与利用验证</span><strong
+        >{runtimeStatus}{exploitationStatus ? ` / ${exploitationStatus}` : ''}</strong
+      >
+    </div>
   </div>
   {#if summary.audit_config}<dl class="audit-budget-summary">
       <div>

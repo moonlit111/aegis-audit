@@ -78,6 +78,11 @@ export type Summary = {
   result_artifact_id?: string;
   recovery?: RecoverySummary;
   vulnerability_audit?: string;
+  verification?: string;
+  fuzzing?: string;
+  exploitation?: string;
+  exploitation_artifact_id?: string;
+  exploitation_input_artifact_id?: string;
   audited_unit_count?: number;
   eligible_unit_count?: number;
   finding_count?: number;

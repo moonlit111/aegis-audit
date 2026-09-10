@@ -622,8 +622,8 @@ impl p::SystemService for Api {
                 .map(c::executor)
                 .collect(),
             pending_features: vec![
-                "去壳与解混淆".into(),
-                "动态模糊测试与自动利用".into(),
+                "复杂保护与通用解混淆".into(),
+                "更广泛目标构建与通用自动利用".into(),
                 "六项正式软件验收".into(),
             ],
             model_connection: self.store.model_connection().await?.into(),

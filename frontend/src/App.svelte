@@ -482,12 +482,12 @@
             <Server size={32} strokeWidth={1.2} />
             <h2>还没有在线执行器</h2>
             <p>按运行文档启动执行器，等待中的任务会自动领取。</p>
-            <code>python scripts/manage.py start</code>
+            <code>py -3 scripts/manage.py start</code>
           </section>{/if}
         <section class="scope-panel">
           <div class="eyebrow">CAPABILITY BOUNDARY</div>
-          <h2>后续阶段</h2>
-          <p>以下能力尚未进入本轮实现，分析报告会明确标记未执行。</p>
+          <h2>能力边界</h2>
+          <p>以下能力仍有限制或尚未通过正式验收，报告会保留实际执行状态。</p>
           <div class="pending-features">
             {#each capabilities?.pendingFeatures || [] as feature}<span
                 ><span class="dot"></span>{feature}</span

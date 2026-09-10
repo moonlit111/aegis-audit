@@ -84,15 +84,12 @@ impl Store {
             }
         };
         config.validate().map_err(AppError::Invalid)?;
-        if let Some(finding) = finding {
-            let evidence_matches = finding.evidence.iter().any(|e| e.path == config.path);
+        if finding.is_some() {
             let fuzz_reuse =
                 config.mode == "FUZZ" && config.adapter == "WINDOWS_LIBFUZZER_PREBUILT";
-            if (config.mode == "VERIFY" && !evidence_matches)
-                || (config.mode == "FUZZ" && !fuzz_reuse)
-            {
+            if config.mode == "FUZZ" && !fuzz_reuse {
                 return Err(AppError::Invalid(
-                    "关联发现的验证必须运行其证据文件；FUZZ 智能复用必须使用预构建 libFuzzer"
+                    "FUZZ 智能复用必须使用预构建 libFuzzer；VERIFY 入口只需属于同一快照"
                         .into(),
                 ));
             }
