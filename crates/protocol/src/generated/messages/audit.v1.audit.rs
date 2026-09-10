@@ -2526,6 +2526,30 @@ pub struct RunEvent {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub total: u64,
+    /// Field 9: `phase_id`
+    #[serde(
+        rename = "phaseId",
+        alias = "phase_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub phase_id: ::buffa::alloc::string::String,
+    /// Field 10: `phase_order`
+    #[serde(
+        rename = "phaseOrder",
+        alias = "phase_order",
+        with = "::buffa::json_helpers::uint32",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u32"
+    )]
+    pub phase_order: u32,
+    /// Field 11: `phase_count`
+    #[serde(
+        rename = "phaseCount",
+        alias = "phase_count",
+        with = "::buffa::json_helpers::uint32",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u32"
+    )]
+    pub phase_count: u32,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -2541,6 +2565,9 @@ impl ::core::fmt::Debug for RunEvent {
             .field("work_item_id", &self.work_item_id)
             .field("current", &self.current)
             .field("total", &self.total)
+            .field("phase_id", &self.phase_id)
+            .field("phase_order", &self.phase_order)
+            .field("phase_count", &self.phase_count)
             .finish()
     }
 }
@@ -2595,6 +2622,15 @@ impl ::buffa::Message for RunEvent {
         if self.total != 0u64 {
             size += 1u64 + ::buffa::types::uint64_encoded_len(self.total) as u64;
         }
+        if !self.phase_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.phase_id) as u64;
+        }
+        if self.phase_order != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.phase_order) as u64;
+        }
+        if self.phase_count != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.phase_count) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -2628,6 +2664,15 @@ impl ::buffa::Message for RunEvent {
         }
         if self.total != 0u64 {
             ::buffa::types::put_uint64_field(8u32, self.total, buf);
+        }
+        if !self.phase_id.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.phase_id, buf);
+        }
+        if self.phase_order != 0u32 {
+            ::buffa::types::put_uint32_field(10u32, self.phase_order, buf);
+        }
+        if self.phase_count != 0u32 {
+            ::buffa::types::put_uint32_field(11u32, self.phase_count, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -2698,6 +2743,27 @@ impl ::buffa::Message for RunEvent {
                 )?;
                 self.total = ::buffa::types::decode_uint64(buf)?;
             }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.phase_id, buf)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.phase_order = ::buffa::types::decode_uint32(buf)?;
+            }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.phase_count = ::buffa::types::decode_uint32(buf)?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -2714,6 +2780,9 @@ impl ::buffa::Message for RunEvent {
         self.work_item_id.clear();
         self.current = 0u64;
         self.total = 0u64;
+        self.phase_id.clear();
+        self.phase_order = 0u32;
+        self.phase_count = 0u32;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -2744,6 +2813,310 @@ pub const __RUN_EVENT_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::
     type_url: "type.googleapis.com/audit.v1.RunEvent",
     to_json: ::buffa::type_registry::any_to_json::<RunEvent>,
     from_json: ::buffa::type_registry::any_from_json::<RunEvent>,
+    is_wkt: false,
+};
+/// Ordered workflow stages. Counts are observed work, never model-budget percentages.
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct RunPhase {
+    /// Field 1: `id`
+    #[serde(
+        rename = "id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub id: ::buffa::alloc::string::String,
+    /// Field 2: `title`
+    #[serde(
+        rename = "title",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub title: ::buffa::alloc::string::String,
+    /// Field 3: `order`
+    #[serde(
+        rename = "order",
+        with = "::buffa::json_helpers::uint32",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u32"
+    )]
+    pub order: u32,
+    /// Field 4: `status`
+    #[serde(
+        rename = "status",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub status: ::buffa::alloc::string::String,
+    /// Field 5: `current`
+    #[serde(
+        rename = "current",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub current: u64,
+    /// Field 6: `total`
+    #[serde(
+        rename = "total",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub total: u64,
+    /// Field 7: `detail`
+    #[serde(
+        rename = "detail",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub detail: ::buffa::alloc::string::String,
+    /// Field 8: `role`
+    #[serde(
+        rename = "role",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub role: ::buffa::alloc::string::String,
+    /// Field 9: `unit_id`
+    #[serde(
+        rename = "unitId",
+        alias = "unit_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub unit_id: ::buffa::alloc::string::String,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for RunPhase {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("RunPhase")
+            .field("id", &self.id)
+            .field("title", &self.title)
+            .field("order", &self.order)
+            .field("status", &self.status)
+            .field("current", &self.current)
+            .field("total", &self.total)
+            .field("detail", &self.detail)
+            .field("role", &self.role)
+            .field("unit_id", &self.unit_id)
+            .finish()
+    }
+}
+impl RunPhase {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.RunPhase";
+}
+::buffa::impl_default_instance!(RunPhase);
+impl ::buffa::MessageName for RunPhase {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "RunPhase";
+    const FULL_NAME: &'static str = "audit.v1.RunPhase";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.RunPhase";
+}
+impl ::buffa::Message for RunPhase {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.id) as u64;
+        }
+        if !self.title.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.title) as u64;
+        }
+        if self.order != 0u32 {
+            size += 1u64 + ::buffa::types::uint32_encoded_len(self.order) as u64;
+        }
+        if !self.status.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.status) as u64;
+        }
+        if self.current != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.current) as u64;
+        }
+        if self.total != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.total) as u64;
+        }
+        if !self.detail.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.detail) as u64;
+        }
+        if !self.role.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.role) as u64;
+        }
+        if !self.unit_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.unit_id) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.id, buf);
+        }
+        if !self.title.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.title, buf);
+        }
+        if self.order != 0u32 {
+            ::buffa::types::put_uint32_field(3u32, self.order, buf);
+        }
+        if !self.status.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.status, buf);
+        }
+        if self.current != 0u64 {
+            ::buffa::types::put_uint64_field(5u32, self.current, buf);
+        }
+        if self.total != 0u64 {
+            ::buffa::types::put_uint64_field(6u32, self.total, buf);
+        }
+        if !self.detail.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.detail, buf);
+        }
+        if !self.role.is_empty() {
+            ::buffa::types::put_string_field(8u32, &self.role, buf);
+        }
+        if !self.unit_id.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.unit_id, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.id, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.title, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.order = ::buffa::types::decode_uint32(buf)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.status, buf)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.current = ::buffa::types::decode_uint64(buf)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.total = ::buffa::types::decode_uint64(buf)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.detail, buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.role, buf)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.unit_id, buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.id.clear();
+        self.title.clear();
+        self.order = 0u32;
+        self.status.clear();
+        self.current = 0u64;
+        self.total = 0u64;
+        self.detail.clear();
+        self.role.clear();
+        self.unit_id.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for RunPhase {
+    const PROTO_FQN: &'static str = "audit.v1.RunPhase";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for RunPhase {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __RUN_PHASE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.RunPhase",
+    to_json: ::buffa::type_registry::any_to_json::<RunPhase>,
+    from_json: ::buffa::type_registry::any_from_json::<RunPhase>,
     is_wkt: false,
 };
 #[derive(Clone, PartialEq, Default)]
@@ -6113,6 +6486,13 @@ pub struct GetRunResponse {
         deserialize_with = "::buffa::json_helpers::null_as_default"
     )]
     pub artifacts: ::buffa::alloc::vec::Vec<Artifact>,
+    /// Field 3: `phases`
+    #[serde(
+        rename = "phases",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub phases: ::buffa::alloc::vec::Vec<RunPhase>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -6122,6 +6502,7 @@ impl ::core::fmt::Debug for GetRunResponse {
         f.debug_struct("GetRunResponse")
             .field("run", &self.run)
             .field("artifacts", &self.artifacts)
+            .field("phases", &self.phases)
             .finish()
     }
 }
@@ -6168,6 +6549,14 @@ impl ::buffa::Message for GetRunResponse {
                 += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                     + inner_size as u64;
         }
+        for v in &self.phases {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -6189,6 +6578,14 @@ impl ::buffa::Message for GetRunResponse {
         for v in &self.artifacts {
             ::buffa::types::put_len_delimited_header(
                 2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.phases {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
                 u64::from(__cache.consume_next()),
                 buf,
             );
@@ -6230,6 +6627,18 @@ impl ::buffa::Message for GetRunResponse {
                 ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
                 self.artifacts.push(elem);
             }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.phases.push(elem);
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -6240,6 +6649,7 @@ impl ::buffa::Message for GetRunResponse {
     fn clear(&mut self) {
         self.run = ::buffa::MessageField::none();
         self.artifacts.clear();
+        self.phases.clear();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -13247,6 +13657,12 @@ pub struct AgentTask {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
     )]
     pub result_json: ::buffa::alloc::string::String,
+    /// Field 11: `plan`
+    #[serde(
+        rename = "plan",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub plan: ::buffa::MessageField<AuditPlan, ::buffa::Inline<AuditPlan>>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -13264,6 +13680,7 @@ impl ::core::fmt::Debug for AgentTask {
             .field("result_artifact_id", &self.result_artifact_id)
             .field("error", &self.error)
             .field("result_json", &self.result_json)
+            .field("plan", &self.plan)
             .finish()
     }
 }
@@ -13290,7 +13707,7 @@ impl ::buffa::Message for AgentTask {
     /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
     /// points reject, never a silently wrapped size.
     #[allow(clippy::let_and_return)]
-    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
         #[allow(unused_imports)]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
@@ -13327,12 +13744,20 @@ impl ::buffa::Message for AgentTask {
         if !self.result_json.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.result_json) as u64;
         }
+        if self.plan.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.plan.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
     fn write_to(
         &self,
-        _cache: &mut ::buffa::SizeCache,
+        __cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
         #[allow(unused_imports)]
@@ -13366,6 +13791,14 @@ impl ::buffa::Message for AgentTask {
         }
         if !self.result_json.is_empty() {
             ::buffa::types::put_string_field(10u32, &self.result_json, buf);
+        }
+        if self.plan.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                11u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.plan.write_to(__cache, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -13450,6 +13883,17 @@ impl ::buffa::Message for AgentTask {
                 )?;
                 ::buffa::types::merge_string(&mut self.result_json, buf)?;
             }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.plan.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -13468,6 +13912,7 @@ impl ::buffa::Message for AgentTask {
         self.result_artifact_id.clear();
         self.error.clear();
         self.result_json.clear();
+        self.plan = ::buffa::MessageField::none();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -13498,6 +13943,344 @@ pub const __AGENT_TASK_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa:
     type_url: "type.googleapis.com/audit.v1.AgentTask",
     to_json: ::buffa::type_registry::any_to_json::<AgentTask>,
     from_json: ::buffa::type_registry::any_from_json::<AgentTask>,
+    is_wkt: false,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct AuditPlan {
+    /// Field 1: `approach`
+    #[serde(
+        rename = "approach",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub approach: ::buffa::alloc::string::String,
+    /// Field 2: `priorities`
+    #[serde(
+        rename = "priorities",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub priorities: ::buffa::alloc::vec::Vec<AuditPriority>,
+    /// Field 3: `limitations`
+    #[serde(
+        rename = "limitations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub limitations: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for AuditPlan {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("AuditPlan")
+            .field("approach", &self.approach)
+            .field("priorities", &self.priorities)
+            .field("limitations", &self.limitations)
+            .finish()
+    }
+}
+impl AuditPlan {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.AuditPlan";
+}
+::buffa::impl_default_instance!(AuditPlan);
+impl ::buffa::MessageName for AuditPlan {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "AuditPlan";
+    const FULL_NAME: &'static str = "audit.v1.AuditPlan";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.AuditPlan";
+}
+impl ::buffa::Message for AuditPlan {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.approach.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.approach) as u64;
+        }
+        for v in &self.priorities {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.limitations {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.approach.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.approach, buf);
+        }
+        for v in &self.priorities {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.limitations {
+            ::buffa::types::put_string_field(3u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.approach, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.priorities.push(elem);
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.limitations.push(__elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.approach.clear();
+        self.priorities.clear();
+        self.limitations.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for AuditPlan {
+    const PROTO_FQN: &'static str = "audit.v1.AuditPlan";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for AuditPlan {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __AUDIT_PLAN_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.AuditPlan",
+    to_json: ::buffa::type_registry::any_to_json::<AuditPlan>,
+    from_json: ::buffa::type_registry::any_from_json::<AuditPlan>,
+    is_wkt: false,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct AuditPriority {
+    /// Field 1: `unit_id`
+    #[serde(
+        rename = "unitId",
+        alias = "unit_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub unit_id: ::buffa::alloc::string::String,
+    /// Field 2: `reason`
+    #[serde(
+        rename = "reason",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub reason: ::buffa::alloc::string::String,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for AuditPriority {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("AuditPriority")
+            .field("unit_id", &self.unit_id)
+            .field("reason", &self.reason)
+            .finish()
+    }
+}
+impl AuditPriority {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.AuditPriority";
+}
+::buffa::impl_default_instance!(AuditPriority);
+impl ::buffa::MessageName for AuditPriority {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "AuditPriority";
+    const FULL_NAME: &'static str = "audit.v1.AuditPriority";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.AuditPriority";
+}
+impl ::buffa::Message for AuditPriority {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.unit_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.unit_id) as u64;
+        }
+        if !self.reason.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.reason) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.unit_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.unit_id, buf);
+        }
+        if !self.reason.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.reason, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.unit_id, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.reason, buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.unit_id.clear();
+        self.reason.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for AuditPriority {
+    const PROTO_FQN: &'static str = "audit.v1.AuditPriority";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for AuditPriority {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __AUDIT_PRIORITY_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.AuditPriority",
+    to_json: ::buffa::type_registry::any_to_json::<AuditPriority>,
+    from_json: ::buffa::type_registry::any_from_json::<AuditPriority>,
     is_wkt: false,
 };
 #[derive(Clone, PartialEq, Default)]

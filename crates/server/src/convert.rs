@@ -72,7 +72,28 @@ pub fn annotation(v: d::LogicAnnotation) -> p::LogicAnnotation {
     }
 }
 pub fn agent_task(v: d::AgentTask) -> p::AgentTask {
+    let plan = if v.role == "PLANNER" && v.status == "SUCCEEDED" {
+        serde_json::from_value::<aegis_application::audit::Plan>(v.result.clone())
+            .ok()
+            .map(|plan| p::AuditPlan {
+                approach: plan.approach,
+                priorities: plan
+                    .priorities
+                    .into_iter()
+                    .map(|priority| p::AuditPriority {
+                        unit_id: priority.unit_id,
+                        reason: priority.reason,
+                        ..Default::default()
+                    })
+                    .collect(),
+                limitations: plan.limitations,
+                ..Default::default()
+            })
+    } else {
+        None
+    };
     p::AgentTask {
+        plan: plan.into(),
         id: v.id,
         run_id: v.run_id,
         role: v.role,
@@ -250,6 +271,23 @@ pub fn event(v: d::RunEvent) -> p::RunEvent {
         work_item_id: v.work_item_id,
         current: v.current,
         total: v.total,
+        phase_id: v.phase_id,
+        phase_order: v.phase_order,
+        phase_count: v.phase_count,
+        ..Default::default()
+    }
+}
+pub fn phase(v: d::RunPhase) -> p::RunPhase {
+    p::RunPhase {
+        id: v.id,
+        title: v.title,
+        order: v.order,
+        status: v.status,
+        current: v.current,
+        total: v.total,
+        detail: v.detail,
+        role: v.role,
+        unit_id: v.unit_id,
         ..Default::default()
     }
 }

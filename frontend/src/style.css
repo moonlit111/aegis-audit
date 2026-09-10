@@ -2482,7 +2482,8 @@ progress::-webkit-progress-value {
     gap: 5px;
   }
   .unit-location {
-    display: none;
+    display: block;
+    overflow-wrap: anywhere;
   }
   .code-tabs {
     gap: 16px;

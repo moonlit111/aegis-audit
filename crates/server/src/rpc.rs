@@ -199,6 +199,13 @@ impl p::RunService for Api {
         req: ServiceRequest<'_, p::GetRunRequest>,
     ) -> ServiceResult<p::GetRunResponse> {
         Response::ok(p::GetRunResponse {
+            phases: self
+                .store
+                .run_phases(req.run_id)
+                .await?
+                .into_iter()
+                .map(c::phase)
+                .collect(),
             run: c::run(self.store.get("audit_runs", req.run_id).await?).into(),
             artifacts: self
                 .store

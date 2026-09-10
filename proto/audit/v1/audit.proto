@@ -105,6 +105,21 @@ message RunEvent {
   string work_item_id = 6;
   uint64 current = 7;
   uint64 total = 8;
+  string phase_id = 9;
+  uint32 phase_order = 10;
+  uint32 phase_count = 11;
+}
+// Ordered workflow stages. Counts are observed work, never model-budget percentages.
+message RunPhase {
+  string id = 1;
+  string title = 2;
+  uint32 order = 3;
+  string status = 4;
+  uint64 current = 5;
+  uint64 total = 6;
+  string detail = 7;
+  string role = 8;
+  string unit_id = 9;
 }
 message Report {
   string id = 1;
@@ -188,7 +203,7 @@ message CreateRunResponse { AuditRun run = 1; }
 message ListRunsRequest { string project_id = 1; }
 message ListRunsResponse { repeated AuditRun runs = 1; }
 message GetRunRequest { string run_id = 1; }
-message GetRunResponse { AuditRun run = 1; repeated Artifact artifacts = 2; }
+message GetRunResponse { AuditRun run = 1; repeated Artifact artifacts = 2; repeated RunPhase phases = 3; }
 message WatchRunRequest { string run_id = 1; uint64 after_seq = 2; }
 message WatchRunResponse { RunEvent event = 1; }
 message CancelRunRequest { string run_id = 1; }
@@ -348,6 +363,16 @@ message AgentTask {
   string result_artifact_id = 8;
   string error = 9;
   string result_json = 10;
+  AuditPlan plan = 11;
+}
+message AuditPlan {
+  string approach = 1;
+  repeated AuditPriority priorities = 2;
+  repeated string limitations = 3;
+}
+message AuditPriority {
+  string unit_id = 1;
+  string reason = 2;
 }
 message GetAuditRequest { string run_id = 1; }
 message GetAuditResponse {

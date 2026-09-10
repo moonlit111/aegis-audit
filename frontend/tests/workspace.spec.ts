@@ -95,11 +95,20 @@ test('ZIP → source positions → inferred graph → reports → event replay a
   await expect(page.locator('.unit-row')).toHaveCount(1);
   await page.locator('.unit-row').click();
   await expect(page.locator('.unit-meta')).toContainText('原文件 L5–L6');
+  await expect(page.locator('.unit-row .unit-location')).toHaveText('L5–L6');
+  await expect(page.getByRole('region', { name: '任务阶段', exact: true })).toContainText('程序结构解析');
   await expect(page.locator('.monaco-editor .view-lines')).toContainText('helper(7)');
   await page.screenshot({ path: testInfo.outputPath('source-view.png'), fullPage: true });
   await page.getByRole('tab', { name: '调用图', exact: true }).click();
   await expect(page.locator('.relation-list')).toContainText('推断');
   await expect(page.locator('.relation-list')).toContainText('helper');
+  await expect(page.getByRole('region', { name: '图节点代码预览' })).toContainText('helper(7)');
+  const helperOption = page
+    .getByLabel('预览图节点')
+    .locator('option')
+    .filter({ hasText: /^helper ·/ });
+  await page.getByLabel('预览图节点').selectOption((await helperOption.getAttribute('value')) || '');
+  await expect(page.getByRole('region', { name: '图节点代码预览' })).toContainText('return value + 1');
   await page.getByRole('tab', { name: '覆盖与产物' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'future.ts' })).toContainText('不支持');
   await page.getByText('导入时排除的文件或目录', { exact: false }).click();

@@ -122,7 +122,18 @@ impl Store {
                 .bind(&task.id)
                 .execute(&mut *tx)
                 .await?;
+            event(
+                &mut tx,
+                run_id,
+                "AGENT_STARTED",
+                &format!("{role} 恢复未完成子任务"),
+                &task.id,
+                0,
+                0,
+            )
+            .await?;
             tx.commit().await?;
+            self.changed.notify_waiters();
             return Ok(task);
         }
         let task = d::AgentTask {

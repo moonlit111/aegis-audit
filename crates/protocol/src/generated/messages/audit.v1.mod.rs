@@ -29,6 +29,7 @@ pub mod __buffa {
         reg.register_json_any(super::__PROGRAM_UNIT_JSON_ANY);
         reg.register_json_any(super::__PROGRAM_EDGE_JSON_ANY);
         reg.register_json_any(super::__RUN_EVENT_JSON_ANY);
+        reg.register_json_any(super::__RUN_PHASE_JSON_ANY);
         reg.register_json_any(super::__REPORT_JSON_ANY);
         reg.register_json_any(super::__TOOL_CAPABILITY_JSON_ANY);
         reg.register_json_any(super::__EXECUTOR_JSON_ANY);
@@ -84,6 +85,8 @@ pub mod __buffa {
         reg.register_json_any(super::__REVIEW_JSON_ANY);
         reg.register_json_any(super::__LOGIC_ANNOTATION_JSON_ANY);
         reg.register_json_any(super::__AGENT_TASK_JSON_ANY);
+        reg.register_json_any(super::__AUDIT_PLAN_JSON_ANY);
+        reg.register_json_any(super::__AUDIT_PRIORITY_JSON_ANY);
         reg.register_json_any(super::__GET_AUDIT_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_AUDIT_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__LIST_FINDINGS_REQUEST_JSON_ANY);
@@ -133,6 +136,10 @@ pub use self::__buffa::view::ProgramEdgeOwnedView;
 pub use self::__buffa::view::RunEventView;
 #[doc(inline)]
 pub use self::__buffa::view::RunEventOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::RunPhaseView;
+#[doc(inline)]
+pub use self::__buffa::view::RunPhaseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::ReportView;
 #[doc(inline)]
@@ -353,6 +360,14 @@ pub use self::__buffa::view::LogicAnnotationOwnedView;
 pub use self::__buffa::view::AgentTaskView;
 #[doc(inline)]
 pub use self::__buffa::view::AgentTaskOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPlanView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPlanOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPriorityView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPriorityOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::GetAuditRequestView;
 #[doc(inline)]

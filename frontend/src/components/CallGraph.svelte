@@ -2,19 +2,59 @@
   import { onMount } from 'svelte';
   import cytoscape from 'cytoscape';
   import type { ProgramUnit, ProgramEdge } from '../gen/audit/v1/audit_pb';
+  import { programsApi, errorMessage } from '../lib/api';
   let {
     units,
     edges,
     focus,
+    focusUnit,
     onselect,
-  }: { units: ProgramUnit[]; edges: ProgramEdge[]; focus: string; onselect: (id: string) => void } = $props();
+  }: {
+    units: ProgramUnit[];
+    edges: ProgramEdge[];
+    focus: string;
+    focusUnit: ProgramUnit;
+    onselect: (id: string) => void;
+  } = $props();
   let container: HTMLDivElement;
   let cy: cytoscape.Core | undefined;
   let mounted = $state(false);
+  let previewUnit = $state<ProgramUnit>();
+  let previewId = $state('');
+  let previewError = $state('');
+  let previewLoading = $state(false);
+  let previewRequest = 0;
+  let hoverTimer: ReturnType<typeof setTimeout>;
+  const controller = new AbortController();
+  const cache = new Map<string, ProgramUnit>();
+  const location = (unit: ProgramUnit) =>
+    `${unit.path} · ${unit.address || `L${unit.startLine}–L${unit.endLine}`}`;
+  async function preview(id: string) {
+    const generation = ++previewRequest;
+    previewId = id;
+    previewError = '';
+    previewLoading = true;
+    try {
+      const result =
+        id === focus
+          ? focusUnit
+          : cache.get(id) || (await programsApi.getUnit({ unitId: id }, { signal: controller.signal })).unit;
+      if (generation !== previewRequest || controller.signal.aborted) return;
+      previewUnit = result;
+      if (result) cache.set(id, result);
+    } catch (error) {
+      if (generation === previewRequest && !controller.signal.aborted) previewError = errorMessage(error);
+    } finally {
+      if (generation === previewRequest) previewLoading = false;
+    }
+  }
   function render() {
     if (!cy) return;
     const nodes: cytoscape.ElementDefinition[] = units.map((unit) => ({
-      data: { id: unit.id, label: unit.name.length > 34 ? unit.name.slice(0, 32) + '…' : unit.name },
+      data: {
+        id: unit.id,
+        label: `${unit.name.length > 34 ? unit.name.slice(0, 32) + '…' : unit.name}\n${unit.path.split('/').pop()} · ${unit.address || `L${unit.startLine}–L${unit.endLine}`}`,
+      },
       classes: unit.id === focus ? 'focus' : '',
     }));
     const links: cytoscape.ElementDefinition[] = [];
@@ -53,6 +93,10 @@
     focus;
     if (mounted) render();
   });
+  $effect(() => {
+    focusUnit;
+    void preview(focus);
+  });
   onMount(() => {
     cy = cytoscape({
       container,
@@ -74,10 +118,10 @@
             color: '#334155',
             'text-valign': 'center',
             'text-halign': 'center',
-            'text-wrap': 'ellipsis',
-            'text-max-width': '156px',
-            width: 180,
-            height: 48,
+            'text-wrap': 'wrap',
+            'text-max-width': '206px',
+            width: 230,
+            height: 66,
           },
         },
         {
@@ -117,6 +161,12 @@
       const id: string = event.target.id();
       if (!id.startsWith('unknown-')) onselect(id);
     });
+    cy.on('mouseover', 'node', (event) => {
+      clearTimeout(hoverTimer);
+      const id: string = event.target.id();
+      if (!id.startsWith('unknown-')) hoverTimer = setTimeout(() => void preview(id), 180);
+    });
+    cy.on('mouseout', 'node', () => clearTimeout(hoverTimer));
     const observer = new ResizeObserver(() => {
       cy?.resize();
       cy?.fit(undefined, 45);
@@ -125,6 +175,8 @@
     mounted = true;
     return () => {
       observer.disconnect();
+      clearTimeout(hoverTimer);
+      controller.abort();
       cy?.destroy();
     };
   });
@@ -139,6 +191,58 @@
 <div class="graph-canvas" bind:this={container} role="img" aria-label="当前函数的局部调用图"></div>
 <div class="graph-legend">
   <span><i class="dot accent"></i>当前函数</span><span><i class="dash"></i>推断 / 未解析调用</span><span
-    >点击节点查看代码 · 滚轮缩放</span
+    >悬停预览 · 点击定位 · 滚轮缩放</span
   >
 </div>
+<section class="graph-preview" aria-label="图节点代码预览">
+  <label class="field"
+    >预览图节点<select bind:value={previewId} onchange={() => preview(previewId)}>
+      {#each units as item}<option value={item.id}>{item.name} · {location(item)}</option>{/each}
+    </select></label
+  >
+  {#if previewLoading}<p class="muted">正在读取原始代码…</p>
+  {:else if previewError}<p role="alert">{previewError}</p>
+  {:else if previewUnit}<div class="preview-title">
+      <strong>{previewUnit.name}</strong><span>{location(previewUnit)}</span>
+      <button class="text-button" onclick={() => onselect(previewUnit!.id)}>定位完整代码</button>
+    </div>
+    <pre>{previewUnit.code
+        .split('\n')
+        .slice(0, 16)
+        .map((line, i) => `${(previewUnit!.language === 'binary' ? 1 : previewUnit!.startLine) + i}  ${line}`)
+        .join('\n')}</pre>
+    {#if previewUnit.code.split('\n').length > 16}<p class="muted">
+        预览前 16 行，完整内容可通过“定位完整代码”查看。
+      </p>{/if}
+  {/if}
+</section>
+
+<style>
+  .graph-preview {
+    padding: var(--space-4);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .preview-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin: var(--space-3) 0;
+  }
+  .preview-title span {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+  pre {
+    max-height: 320px;
+    overflow: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.65;
+    background: var(--surface-subtle);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+  }
+</style>

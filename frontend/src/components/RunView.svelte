@@ -27,6 +27,7 @@
     ProgramEdge,
     Artifact,
     RunEvent,
+    RunPhase,
   } from '../gen/audit/v1/audit_pb';
   import { RunState } from '../gen/audit/v1/audit_pb';
   import {
@@ -54,6 +55,7 @@
   import AuditPanel from './AuditPanel.svelte';
   import RuntimePanel from './RuntimePanel.svelte';
   import RecoveryPanel from './RecoveryPanel.svelte';
+  import RunProgress from './RunProgress.svelte';
 
   let {
     runId,
@@ -73,6 +75,7 @@
   let runtimeFinding = $state('');
   let viewer = $state('code');
   let events = $state<RunEvent[]>([]);
+  let phases = $state<RunPhase[]>([]);
   let streamStatus = $state('连接中');
   let error = $state('');
   let loadingUnits = $state(false);
@@ -102,6 +105,7 @@
       const previousCount = run?.unitCount;
       const previousResult = parseJson<Summary>(run?.summaryJson || '', {}).result_artifact_id;
       run = response.run;
+      phases = response.phases;
       if (initial && run?.scope === 'SECURITY_AUDIT') tab = 'audit';
       if (initial && run && ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope)) tab = 'runtime';
       artifacts = response.artifacts;
@@ -326,6 +330,18 @@
     </div>
   </div>
   {#if run.error}<div class="error-banner"><AlertCircle size={18} /><span>{run.error}</span></div>{/if}
+  <RunProgress
+    {phases}
+    onselect={(phase) => {
+      if (phase.unitId) {
+        tab = 'program';
+        void selectUnit(phase.unitId);
+      } else if (phase.id === 'RECOVERY') tab = 'recovery';
+      else if (phase.id === 'RUNTIME') tab = 'runtime';
+      else if (phase.id === 'STRUCTURE') tab = 'program';
+      else tab = 'audit';
+    }}
+  />
   {#if !isTerminal(run.state)}<div class="running-banner">
       <span class="pulse-dot"></span><span
         >{run.state === RunState.WAITING_EXECUTOR
@@ -389,6 +405,7 @@
     <AuditPanel
       {run}
       {notify}
+      knownUnits={units}
       onverify={(id) => {
         runtimeFinding = id;
         tab = 'runtime';
@@ -432,7 +449,7 @@
                     size={15}
                   />{:else}<Code2 size={15} />{/if}</span
               ><span><strong>{item.name}</strong><small>{item.path}</small></span><span class="unit-location"
-                >{item.address ? 'ƒ' : `L${item.startLine}`}</span
+                >{item.address || `L${item.startLine}–L${item.endLine}`}</span
               ></button
             >{/each}{#if !units.length}<div class="explorer-empty">
               {loadingUnits
@@ -517,6 +534,7 @@
               units={graph.units}
               edges={graph.edges}
               focus={unit.id}
+              focusUnit={unit}
               onselect={selectUnit}
             />
             <div class="relation-list">
@@ -703,6 +721,10 @@
             >
             <div>
               <span class="event-kind">{event.kind}</span>
+              {#if event.phaseId}<span class="subtle">
+                  · 阶段 {event.phaseOrder}/{event.phaseCount}
+                  {phases.find((p) => p.id === event.phaseId)?.title || event.phaseId}</span
+                >{/if}
               <pre>{event.message}</pre>
               {#if event.total > 0n && event.kind === 'TOOL_PROGRESS'}<div class="event-progress">
                   <progress max={Number(event.total)} value={Number(event.current)}></progress><span

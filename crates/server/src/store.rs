@@ -104,6 +104,8 @@ pub async fn event(
             .bind(run)
             .fetch_one(&mut *conn)
             .await?;
+    let (phase_id, phase_order, phase_count) =
+        crate::progress::event_phase(conn, run, kind, work).await?;
     let data = d::RunEvent {
         run_id: run.into(),
         seq: seq as u64,
@@ -113,6 +115,9 @@ pub async fn event(
         work_item_id: work.into(),
         current,
         total,
+        phase_id,
+        phase_order,
+        phase_count,
     };
     sqlx::query("INSERT INTO run_events(run_id,seq,data) VALUES(?,?,?)")
         .bind(run)

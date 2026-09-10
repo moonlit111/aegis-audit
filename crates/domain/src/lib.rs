@@ -10,6 +10,8 @@ pub use runtime::*;
 
 pub mod recovery;
 pub use recovery::*;
+pub mod progress;
+pub use progress::*;
 
 pub const SCOPE: &str = "STRUCTURE_ANALYSIS";
 pub const SCHEMA_VERSION: u32 = 1;
@@ -378,6 +380,12 @@ pub struct RunEvent {
     pub work_item_id: String,
     pub current: u64,
     pub total: u64,
+    #[serde(default)]
+    pub phase_id: String,
+    #[serde(default)]
+    pub phase_order: u32,
+    #[serde(default)]
+    pub phase_count: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

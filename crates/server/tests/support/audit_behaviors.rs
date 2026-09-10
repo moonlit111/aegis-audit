@@ -179,6 +179,40 @@ async fn audit_review_revision_and_report_use_real_persisted_code() {
     assert_eq!(data.findings.len(), 1);
     assert_eq!(data.reviews.len(), 1);
     assert_eq!(data.annotations.len(), 1);
+    let phases = store.run_phases(&run.id).await.unwrap();
+    assert_eq!(phases.len(), 5);
+    assert!(phases.iter().all(|phase| phase.status == "COMPLETED"));
+    let planner = data
+        .tasks
+        .iter()
+        .find(|task| task.role == "PLANNER")
+        .unwrap();
+    let typed = aegis_server::convert::agent_task(planner.clone());
+    assert_eq!(
+        typed.plan.approach,
+        "fixture workflow behavior, not model efficacy"
+    );
+    let events = store.events(&run.id, 0).await.unwrap();
+    assert!(
+        events
+            .iter()
+            .all(|event| !event.phase_id.is_empty() && event.phase_count == 5)
+    );
+    assert!(
+        events
+            .iter()
+            .any(|event| event.kind == "MODEL_STARTED" && event.phase_id == "AUDIT_REVIEW")
+    );
+    let reopened_phases = Store::open(directory.path())
+        .await
+        .unwrap()
+        .run_phases(&run.id)
+        .await
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(&phases).unwrap(),
+        serde_json::to_value(&reopened_phases).unwrap()
+    );
     let finding = &data.findings[0];
     assert_eq!(finding.review_status, "VALIDATED");
     assert_eq!(finding.verification_status, "NOT_RUN");

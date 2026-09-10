@@ -1,7 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { ArrowUpRight, ShieldCheck, FileSearch, RefreshCw, Save, Code2 } from '@lucide/svelte';
-  import type { AuditRun, Finding, GetAuditResponse, LogicAnnotation } from '../gen/audit/v1/audit_pb';
+  import type {
+    AuditRun,
+    Finding,
+    GetAuditResponse,
+    LogicAnnotation,
+    ProgramUnit,
+  } from '../gen/audit/v1/audit_pb';
+  import AuditPlan from './AuditPlan.svelte';
   import { artifactUrl, errorMessage, findingsApi, programsApi, requestId } from '../lib/api';
   import { dateTime, isTerminal, parseJson, type Summary } from '../lib/format';
   import { runtimeLabels, runtimePending } from '../lib/runtime';
@@ -11,11 +18,13 @@
     onselectunit,
     onverify,
     notify,
+    knownUnits,
   }: {
     run: AuditRun;
     onselectunit: (id: string) => void;
     onverify: (id: string) => void;
     notify: (message: string) => void;
+    knownUnits: ProgramUnit[];
   } = $props();
   let data = $state<GetAuditResponse>();
   let error = $state('');
@@ -176,6 +185,7 @@
 </script>
 
 <section class="audit-workspace">
+  <AuditPlan task={data?.tasks.find((t) => t.role === 'PLANNER')} units={knownUnits} {onselectunit} />
   <div class="audit-metrics">
     <div>
       <span>语义审计覆盖</span><strong
