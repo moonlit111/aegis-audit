@@ -24,7 +24,7 @@ impl Store {
             edges,
             json!({"kind":snapshot.kind,"sha256":snapshot.target_sha256,
             "metadata":snapshot.metadata,"structure_coverage":run.summary["files"],"structure_warnings":run.summary["warnings"],
-            "analysis_metadata":run.summary["metadata"]}),
+            "analysis_metadata":run.summary["metadata"],"recovery":run.summary["recovery"]}),
         ))
     }
     async fn audit_rows<T: DeserializeOwned>(&self, query: &str, id: &str) -> Result<Vec<T>> {
@@ -157,7 +157,18 @@ impl Store {
     ) -> Result<()> {
         let invalid = |e: serde_json::Error| AppError::Invalid(format!("智能体结果结构无效：{e}"));
         match task.role.as_str() {
-            "PLANNER" | "REVERSE" => {
+            "REVERSE" => {
+                serde_json::from_value::<d::RecoveryConclusion>(result.clone())
+                    .map_err(invalid)?
+                    .validate()
+                    .map_err(AppError::Invalid)?;
+                if !corpus.target["recovery"]["plan"].is_object() {
+                    return Err(AppError::Invalid(
+                        "逆向智能体必须先保存有特征依据的计划".into(),
+                    ));
+                }
+            }
+            "PLANNER" => {
                 let plan: Plan = serde_json::from_value(result.clone()).map_err(invalid)?;
                 if plan.priorities.len() > 30 || plan.approach.trim().is_empty() {
                     return Err(AppError::Invalid("计划为空或优先项过多".into()));
@@ -306,6 +317,32 @@ impl Store {
             }
             let draft: d::ReviewDraft = serde_json::from_value(result.clone())?;
             Self::apply_review(&mut tx, finding, draft, "MODEL", call_id, corpus).await?;
+        } else if task.role == "REVERSE" {
+            let state = &mut run.summary["recovery"];
+            if state["running_work_id"]
+                .as_str()
+                .is_some_and(|id| !id.is_empty())
+            {
+                return Err(AppError::Invalid(
+                    "逆向工具尚未结束，不能提前提交完成结论".into(),
+                ));
+            }
+            let remaining = state["plan"]["steps"].as_array().map_or(0, Vec::len)
+                > state["next_step"].as_u64().unwrap_or(0) as usize;
+            let failed = state["history"].as_array().is_some_and(|h| {
+                h.iter().any(|item| {
+                    !["PROCESSED", "RECOVERED", "COMPLETED", "NOT_FOUND"]
+                        .contains(&item["status"].as_str().unwrap_or(""))
+                })
+            });
+            state["status"] = json!(if remaining || failed {
+                "PARTIAL"
+            } else if state["history"].as_array().is_none_or(Vec::is_empty) {
+                "NO_TRANSFORMATIONS"
+            } else {
+                "PLAN_COMPLETED"
+            });
+            state["conclusion"] = result.clone();
         } else if task.role == "REPORTER" {
             run.summary["audit_narrative"] = result.clone();
         }

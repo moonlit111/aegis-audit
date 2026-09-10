@@ -1,7 +1,12 @@
 mod client;
 mod jobs;
+mod recovery;
 mod runtime;
 
+#[cfg(test)]
+mod live_recovery_tests;
+#[cfg(test)]
+mod native_recovery_tests;
 #[cfg(test)]
 mod native_sast_tests;
 
@@ -68,7 +73,7 @@ struct Active {
 
 fn recoverable_owner(active: &Active) -> Result<&aegis_application::windows_job::DesktopJob> {
     ensure!(
-        ["IMPORT", "ANALYZE"].contains(&active.lease.kind.as_str()),
+        ["IMPORT", "ANALYZE", "RECOVER"].contains(&active.lease.kind.as_str()),
         "旧动态任务没有隔离环境回收确认，拒绝自动恢复"
     );
     active
@@ -243,7 +248,48 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
             ..Default::default()
         },
     ];
-    for name in ["linux-runtime", "upx", "afl++"] {
+    let upx = aegis_application::protection::adapter_by_name("upx")
+        .and_then(aegis_application::protection::locate_tool);
+    let floss = aegis_application::recovery::floss_path();
+    for (name, path, expected) in [
+        ("upx", upx, "5.2.1"),
+        ("floss", floss, aegis_application::recovery::FLOSS_VERSION),
+    ] {
+        let detected = if let Some(path) = path {
+            version(&path.to_string_lossy(), "--version").await
+        } else {
+            None
+        };
+        let available = detected.as_ref().is_some_and(|v| v.contains(expected));
+        caps.push(p::ToolCapability {name:name.into(),version:detected.unwrap_or_default(),available,
+            detail:format!("Windows 原生逆向工具；固定版本 {expected}；由智能体规划后调用。安装：py -3 scripts/install_reverse_tools.py"),..Default::default()});
+    }
+    caps.push(p::ToolCapability {
+        name: "string-recovery".into(),
+        version: env!("CARGO_PKG_VERSION").into(),
+        available: true,
+        detail: "内建 XOR/Base64 启发式字符串候选；仅由逆向智能体选择，不证明代码级解混淆".into(),
+        ..Default::default()
+    });
+    let bridge = options
+        .script_dir
+        .parent()
+        .unwrap_or(Path::new("tools"))
+        .join("ida/d810_export.py");
+    let ida = aegis_application::ida_d810::D810::discover(&bridge);
+    caps.push(p::ToolCapability {
+        name: "ida-d810".into(),
+        available: ida.is_ok(),
+        version: ida
+            .as_ref()
+            .map(|i| format!("IDA {}; Hex-Rays {}", i.ida_version, i.hexrays_version))
+            .unwrap_or_default(),
+        detail: ida.err().map(|e| e.to_string()).unwrap_or_else(|| {
+            "本机批处理探测已通过；实际解混淆效果仍按各步规则命中与前后伪代码记录".into()
+        }),
+        ..Default::default()
+    });
+    for name in ["linux-runtime", "afl++"] {
         caps.push(p::ToolCapability {
             name: name.into(),
             version: runtime_image.clone().unwrap_or_default(),

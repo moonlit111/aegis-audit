@@ -39,7 +39,7 @@ def main():
         shutil.copytree(ROOT / 'frontend/dist', stage / 'frontend/dist')
         shutil.copytree(ROOT / 'Docs', stage / 'Docs')
         shutil.copytree(ROOT / 'tools/runtime', stage / 'tools/runtime', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
-        for source in ['README.md', 'tools/versions.json', 'tools/windows/versions.json', 'tools/windows/semgrep-requirements.txt', 'tools/ghidra/ExportProgram.java', 'scripts/aegis.py', 'scripts/bootstrap.py', 'scripts/manage.py', 'scripts/configure_model.py', 'scripts/windows_secrets.py']:
+        for source in ['README.md', 'tools/versions.json', 'tools/windows/versions.json', 'tools/windows/semgrep-requirements.txt', 'tools/ghidra/ExportProgram.java', 'tools/ida/d810_export.py', 'tools/reverse/versions.json', 'tools/reverse/requirements.txt', 'scripts/aegis.py', 'scripts/bootstrap.py', 'scripts/manage.py', 'scripts/configure_model.py', 'scripts/windows_secrets.py', 'scripts/install_reverse_tools.py', 'scripts/configure_d810.py']:
             target = stage / source
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / source, target)

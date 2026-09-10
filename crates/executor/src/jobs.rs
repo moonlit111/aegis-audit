@@ -60,20 +60,15 @@ pub(crate) async fn process_tool(
     logs.extend_from_slice(&output.stdout);
     logs.extend_from_slice(b"\n--- stderr ---\n");
     logs.extend_from_slice(&output.stderr);
-    let log = if logs.len() > 32 {
-        Some(
-            ctx.control
-                .upload_bytes(
-                    &ctx.lease,
-                    &format!("{name}-{}.log", d::id()),
-                    "text/plain; charset=utf-8",
-                    logs,
-                )
-                .await?,
+    let log = ctx
+        .control
+        .upload_bytes(
+            &ctx.lease,
+            &format!("{name}-{}.log", d::id()),
+            "text/plain; charset=utf-8",
+            logs,
         )
-    } else {
-        None
-    };
+        .await?;
     let record = d::ToolExecution {
         name: name.into(),
         version: version.into(),
@@ -82,7 +77,7 @@ pub(crate) async fn process_tool(
         finished_at: d::now(),
         exit_code: output.exit_code,
         terminated: output.cancelled || output.timed_out,
-        log_artifact_id: log.map(|a| a.id).unwrap_or_default(),
+        log_artifact_id: log.id,
         details: json!({"log_truncated":output.truncated,"processes_reaped":output.processes_reaped,"timed_out":output.timed_out,"cancelled":output.cancelled}),
     };
     ensure!(
@@ -172,6 +167,7 @@ pub async fn execute(ctx: JobContext, workdir: &Path) -> Result<String> {
     match ctx.lease.kind.as_str() {
         "IMPORT" => import_target(&ctx, workdir, &payload).await,
         "ANALYZE" => analyze(&ctx, workdir, &payload).await,
+        "RECOVER" => crate::recovery::execute(&ctx, workdir, &payload).await,
         "RUNTIME" => crate::runtime::execute(&ctx, workdir, &payload).await,
         _ => anyhow::bail!("Unknown work kind"),
     }
@@ -194,73 +190,12 @@ async fn import_target(ctx: &JobContext, workdir: &Path, payload: &Value) -> Res
             )
             .await?;
         let data = tokio::fs::read(&input).await?;
-        let mut metadata = import::inspect_binary(&data)?;
+        let metadata = import::inspect_binary(&data)?;
         let name = payload["name"]
             .as_str()
             .filter(|n| !n.is_empty())
             .unwrap_or("target.bin");
         import::relative_path(name)?;
-        if metadata["protection"]["kind"] != "NONE" {
-            let outcome = aegis_application::protection::process(
-                &data,
-                workdir,
-                None,
-                aegis_application::protection::ProcessLimits::default(),
-                ctx.cancel.clone(),
-            )
-            .await?;
-            if outcome["state"] == "PROCESSED" {
-                let derived = workdir.join("protection-upx").join("derived.bin");
-                let artifact = ctx
-                    .control
-                    .upload_file(
-                        &ctx.lease,
-                        &derived,
-                        &format!("{name}.unpacked"),
-                        "application/octet-stream",
-                    )
-                    .await?;
-                metadata["protection"]["derived_artifact_id"] = json!(artifact.id);
-                let mut logs = Vec::new();
-                logs.extend_from_slice(b"--- stdout ---\n");
-                logs.extend_from_slice(outcome["stdout"].as_str().unwrap_or("").as_bytes());
-                logs.extend_from_slice(b"\n--- stderr ---\n");
-                logs.extend_from_slice(outcome["stderr"].as_str().unwrap_or("").as_bytes());
-                let log = ctx
-                    .control
-                    .upload_bytes(
-                        &ctx.lease,
-                        &format!("upx-{}.log", d::id()),
-                        "text/plain; charset=utf-8",
-                        logs,
-                    )
-                    .await?;
-                tools.push(d::ToolExecution {
-                    name: "upx".into(),
-                    version: outcome["tool_version"].as_str().unwrap_or_default().into(),
-                    command: vec![
-                        "upx".into(),
-                        "-d".into(),
-                        "-o".into(),
-                        "derived.bin".into(),
-                        "original.bin".into(),
-                    ],
-                    started_at: outcome["started_at"].as_str().unwrap_or_default().into(),
-                    finished_at: outcome["finished_at"].as_str().unwrap_or_default().into(),
-                    exit_code: outcome["exit_code"].as_i64().map(|code| code as i32),
-                    terminated: false,
-                    log_artifact_id: log.id,
-                    details: json!({
-                        "state":outcome["state"],
-                        "original_sha256":outcome["original_sha256"],
-                        "derived_sha256":outcome["derived_sha256"],
-                        "processes_reaped":outcome.get("processes_reaped"),
-                        "target_executed":false,
-                    }),
-                });
-            }
-            metadata["protection"]["processing"] = outcome;
-        }
         let file = d::FileRecord {
             path: name.into(),
             sha256: d::sha256(&data),
@@ -388,6 +323,75 @@ async fn import_target(ctx: &JobContext, workdir: &Path, payload: &Value) -> Res
         .id)
 }
 
+pub(crate) async fn decompile(
+    ctx: &JobContext,
+    workdir: &Path,
+    input: &Path,
+    snapshot_path: &str,
+) -> Result<d::AnalysisResult> {
+    let ghidra = ctx.tools.ghidra.as_ref().context("Ghidra is unavailable")?;
+    // Ghidra project paths cannot contain dot-prefixed components; use a dedicated native temp directory.
+    let project = tempfile::Builder::new().prefix("aegis-ghidra-").tempdir()?;
+    let output = workdir.join("ghidra-result.json");
+    let headless = ghidra.join(if cfg!(windows) {
+        "support/analyzeHeadless.bat"
+    } else {
+        "support/analyzeHeadless"
+    });
+    let args = vec![
+        project.path().to_string_lossy().into_owned(),
+        "analysis".into(),
+        "-import".into(),
+        input.to_string_lossy().into_owned(),
+        "-scriptPath".into(),
+        ctx.tools.script_dir.to_string_lossy().into_owned(),
+        "-postScript".into(),
+        "ExportProgram.java".into(),
+        output.to_string_lossy().into_owned(),
+        "target.bin".into(),
+        "-deleteProject".into(),
+        "-analysisTimeoutPerFile".into(),
+        "120".into(),
+        "-max-cpu".into(),
+        "2".into(),
+    ];
+    let (output_status, record) = process_tool(
+        ctx,
+        ProcessSpec {
+            program: headless,
+            args,
+            directory: workdir.into(),
+            env: BTreeMap::from([("MAXMEM".into(), "2G".into())]),
+            timeout: Duration::from_secs(ctx.lease.timeout_seconds as u64),
+        },
+        "ghidra",
+        "12.1.3",
+    )
+    .await?;
+    ensure!(!output_status.cancelled, "Ghidra analysis cancelled");
+    ensure!(!output_status.timed_out, "Ghidra analysis timed out");
+    ensure!(
+        output_status.exit_code == Some(0) && output.is_file(),
+        "Ghidra did not produce its required result artifact; inspect the retained tool log"
+    );
+    let bytes = tokio::fs::read(output).await?;
+    ensure!(
+        bytes.len() <= 64 * 1024 * 1024,
+        "Ghidra output exceeds limit"
+    );
+    let mut result: d::AnalysisResult = serde_json::from_slice(&bytes)?;
+    for unit in &mut result.units {
+        unit.path = snapshot_path.into();
+    }
+    for file in &mut result.files {
+        file.path = snapshot_path.into();
+    }
+    result.metadata["input_mapping"] =
+        json!({"staged_name":"target.bin","snapshot_path":snapshot_path});
+    result.tools.push(record);
+    Ok(result)
+}
+
 async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<String> {
     let manifest_path = workdir.join("manifest.json");
     ctx.control
@@ -403,90 +407,36 @@ async fn analyze(ctx: &JobContext, workdir: &Path, payload: &Value) -> Result<St
     let manifest: d::SnapshotManifest =
         serde_json::from_slice(&tokio::fs::read(manifest_path).await?)?;
     let mut result = if manifest.kind == "BINARY" {
-        let ghidra = ctx.tools.ghidra.as_ref().context("Ghidra is unavailable")?;
-        let input = workdir.join("target.bin");
-        ctx.control
-            .download(
-                &ctx.lease,
-                &ctx.lease.input_artifact_id,
-                &input,
-                &ctx.cancel,
-            )
-            .await?;
-        // Ghidra project paths cannot contain dot-prefixed components; use a dedicated native temp directory.
-        let project = tempfile::Builder::new().prefix("aegis-ghidra-").tempdir()?;
-        let output = workdir.join("ghidra-result.json");
-        let headless = ghidra.join(if cfg!(windows) {
-            "support/analyzeHeadless.bat"
-        } else {
-            "support/analyzeHeadless"
-        });
-        let args = vec![
-            project.path().to_string_lossy().into_owned(),
-            "analysis".into(),
-            "-import".into(),
-            input.to_string_lossy().into_owned(),
-            "-scriptPath".into(),
-            ctx.tools.script_dir.to_string_lossy().into_owned(),
-            "-postScript".into(),
-            "ExportProgram.java".into(),
-            output.to_string_lossy().into_owned(),
-            "target.bin".into(),
-            "-deleteProject".into(),
-            "-analysisTimeoutPerFile".into(),
-            "120".into(),
-            "-max-cpu".into(),
-            "2".into(),
-        ];
-        let (output_status, record) = process_tool(
-            ctx,
-            ProcessSpec {
-                program: headless,
-                args,
-                directory: workdir.into(),
-                env: BTreeMap::from([("MAXMEM".into(), "2G".into())]),
-                timeout: Duration::from_secs(ctx.lease.timeout_seconds as u64),
-            },
-            "ghidra",
-            "12.1.3",
-        )
-        .await?;
-        ensure!(!output_status.cancelled, "Ghidra analysis cancelled");
-        ensure!(!output_status.timed_out, "Ghidra analysis timed out");
-        ensure!(
-            output_status.exit_code == Some(0) && output.is_file(),
-            "Ghidra did not produce its required result artifact; inspect the retained tool log"
-        );
-        let bytes = tokio::fs::read(output).await?;
-        ensure!(
-            bytes.len() <= 64 * 1024 * 1024,
-            "Ghidra output exceeds limit"
-        );
-        let raw: Value = serde_json::from_slice(&bytes)?;
-        let mut result: d::AnalysisResult = serde_json::from_slice(&bytes)?;
-        if let Some(recovered) = raw["deobfuscation"]
-            .as_array()
-            .filter(|items| !items.is_empty())
-        {
-            // B06: instruction/P-code recovery is additive evidence; the typed
-            // analysis result keeps it in metadata so no shared struct changes.
-            result.metadata["deobfuscation"] = json!(recovered);
-        }
         let original_path = &manifest
             .files
             .first()
             .context("binary manifest has no file")?
             .path;
-        for unit in &mut result.units {
-            unit.path = original_path.clone();
+        if payload["scope"] == d::AUDIT_SCOPE {
+            // Only prepare observations. The agent chooses whether/when to unpack, decode and decompile.
+            d::AnalysisResult {
+                files: vec![d::FileResult {
+                    path: original_path.clone(),
+                    language: "binary".into(),
+                    status: "PARTIAL".into(),
+                    reason: "等待逆向智能体识别特征并规划工具步骤".into(),
+                    unit_count: 0,
+                }],
+                metadata: json!({"recovery_preparation":"WAITING_AGENT","target_sha256":manifest.target_sha256}),
+                ..Default::default()
+            }
+        } else {
+            let input = workdir.join("target.bin");
+            ctx.control
+                .download(
+                    &ctx.lease,
+                    &ctx.lease.input_artifact_id,
+                    &input,
+                    &ctx.cancel,
+                )
+                .await?;
+            decompile(ctx, workdir, &input, original_path).await?
         }
-        for file in &mut result.files {
-            file.path = original_path.clone();
-        }
-        result.metadata["input_mapping"] =
-            json!({"staged_name":"target.bin","snapshot_path":original_path});
-        result.tools.push(record);
-        result
     } else {
         let archive = workdir.join("input.zip");
         let source_dir = workdir.join("source");

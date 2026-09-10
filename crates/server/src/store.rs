@@ -407,7 +407,9 @@ impl Store {
         if !["READY", "PARTIAL"].contains(&snapshot.state.as_str()) {
             return Err(AppError::Precondition("快照导入尚未完成或已失败".into()));
         }
-        let capability = if snapshot.kind == "BINARY" {
+        let capability = if snapshot.kind == "BINARY" && scope == d::AUDIT_SCOPE {
+            "import"
+        } else if snapshot.kind == "BINARY" {
             "ghidra"
         } else {
             "tree-sitter"
@@ -635,13 +637,19 @@ impl Store {
             if let Some(id) = &run_id {
                 let mut run: d::AuditRun = load(&mut tx, "audit_runs", id).await?;
                 run.state = d::RunState::Running;
-                run.started_at = d::now();
+                if run.started_at.is_empty() {
+                    run.started_at = d::now();
+                }
                 update_run(&mut tx, &run).await?;
                 event(
                     &mut tx,
                     id,
                     "RUN_STARTED",
-                    "执行器开始程序结构分析",
+                    if row.get::<String, _>("kind") == "RECOVER" {
+                        "执行器开始智能体规划的逆向步骤"
+                    } else {
+                        "执行器开始程序结构分析"
+                    },
                     &work,
                     0,
                     0,
@@ -727,10 +735,12 @@ impl Store {
         work: &str,
         attempt: &str,
     ) -> Result<bool> {
-        let row = sqlx::query("SELECT snapshot_id,input_artifact_id FROM work_items WHERE id=?")
-            .bind(work)
-            .fetch_one(&self.pool)
-            .await?;
+        let row = sqlx::query(
+            "SELECT snapshot_id,input_artifact_id,kind,payload FROM work_items WHERE id=?",
+        )
+        .bind(work)
+        .fetch_one(&self.pool)
+        .await?;
         let snapshot: d::Snapshot = self
             .get("snapshots", &row.get::<String, _>("snapshot_id"))
             .await?;
@@ -744,6 +754,12 @@ impl Store {
         .any(|id| !id.is_empty() && id == artifact)
         {
             return Ok(true);
+        }
+        if row.get::<String, _>("kind") == "RECOVER" {
+            let payload: Value = serde_json::from_str(&row.get::<String, _>("payload"))?;
+            if !artifact.is_empty() && payload["strings_artifact_id"] == artifact {
+                return Ok(true);
+            }
         }
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM artifacts WHERE id=? AND work_item_id=? AND attempt_id=?",
@@ -927,6 +943,18 @@ impl Store {
                     .bind(&snapshot.id)
                     .execute(&mut *tx)
                     .await?;
+            } else if kind == "RECOVER" {
+                self.ingest_recovery(
+                    &mut tx,
+                    run_id
+                        .as_deref()
+                        .ok_or_else(|| AppError::Invalid("逆向步骤缺少关联任务".into()))?,
+                    work,
+                    attempt,
+                    result_id,
+                    &bytes,
+                )
+                .await?;
             } else if kind == "RUNTIME" {
                 self.ingest_runtime(
                     &mut tx,
@@ -1072,6 +1100,27 @@ impl Store {
                 .execute(&mut *tx)
                 .await?;
         }
+        if kind == "RECOVER" && !accepted {
+            if let Some(run_id) = &run_id {
+                let mut run: d::AuditRun = load(&mut tx, "audit_runs", run_id).await?;
+                if run.summary["recovery"]["running_work_id"] == work {
+                    let payload: Value = serde_json::from_str(&row.get::<String, _>("payload"))?;
+                    let record = json!({"work_item_id":work,"tool":payload["step"]["tool"],"status":effective,"reason":detail,
+                        "plan_id":payload["plan_id"],"step":payload["step_index"],"input_sha256":payload["input_sha256"]});
+                    if let Some(history) = run.summary["recovery"]["history"].as_array_mut() {
+                        history.push(record);
+                    }
+                    run.summary["recovery"]["status"] = json!(effective);
+                    run.summary["recovery"]["running_work_id"] = json!("");
+                    update_run(&mut tx, &run).await?;
+                }
+                sqlx::query("UPDATE audit_workflows SET state=? WHERE run_id=?")
+                    .bind(effective)
+                    .bind(run_id)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+        }
         sqlx::query("UPDATE work_items SET state=?,completion_hash=? WHERE id=?")
             .bind(if reaped { effective } else { "EXPIRED" })
             .bind(&completion)
@@ -1107,6 +1156,15 @@ impl Store {
                 let mut run: d::AuditRun = load(&mut tx, "audit_runs", &id).await?;
                 if !run.state.terminal() {
                     run.error = "执行器租约已失效，旧工具进程回收尚未确认；不会自动重复执行".into();
+                    if run.summary["recovery"]["running_work_id"] == work {
+                        run.summary["recovery"]["status"] =
+                            json!(if run.state == d::RunState::Cancelling {
+                                "CANCELLING"
+                            } else {
+                                "FAILED"
+                            });
+                        run.summary["recovery"]["error"] = json!(run.error);
+                    }
                     if run.state != d::RunState::Cancelling {
                         run.state = d::RunState::Failed;
                         run.finished_at = d::now();

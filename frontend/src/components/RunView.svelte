@@ -53,6 +53,7 @@
   import CallGraph from './CallGraph.svelte';
   import AuditPanel from './AuditPanel.svelte';
   import RuntimePanel from './RuntimePanel.svelte';
+  import RecoveryPanel from './RecoveryPanel.svelte';
 
   let {
     runId,
@@ -99,6 +100,7 @@
       if (!alive) return;
       const initial = !run;
       const previousCount = run?.unitCount;
+      const previousResult = parseJson<Summary>(run?.summaryJson || '', {}).result_artifact_id;
       run = response.run;
       if (initial && run?.scope === 'SECURITY_AUDIT') tab = 'audit';
       if (initial && run && ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope)) tab = 'runtime';
@@ -107,7 +109,11 @@
         snapshot = (
           await projectsApi.getSnapshot({ snapshotId: run.snapshotId }, { signal: controller.signal })
         ).snapshot;
-      if (run?.unitCount !== previousCount) await loadUnits();
+      if (
+        run?.unitCount !== previousCount ||
+        parseJson<Summary>(run?.summaryJson || '', {}).result_artifact_id !== previousResult
+      )
+        await loadUnits();
     } catch (failure) {
       if (alive) error = errorMessage(failure);
     } finally {
@@ -330,6 +336,12 @@
       ><a href="#/environment">执行环境<ArrowUpRight size={13} /></a>
     </div>{/if}
   <div class="view-tabs" role="tablist" aria-label="分析内容">
+    {#if summary.recovery}<button
+        role="tab"
+        aria-selected={tab === 'recovery'}
+        class:active={tab === 'recovery'}
+        onclick={() => (tab = 'recovery')}><Code2 size={16} />逆向与解混淆</button
+      >{/if}
     <button
       role="tab"
       aria-selected={tab === 'runtime'}
@@ -371,7 +383,9 @@
       ></i>{streamStatus}</span
     >
   </div>
-  {#if tab === 'audit'}
+  {#if tab === 'recovery' && summary.recovery}
+    <RecoveryPanel recovery={summary.recovery} />
+  {:else if tab === 'audit'}
     <AuditPanel
       {run}
       {notify}
@@ -447,11 +461,18 @@
               /><strong>{unit.name}</strong>
             </div>
             <span class={`badge ${unit.quality === 'PARSED' ? 'neutral' : 'warning'}`}
-              >{unit.language === 'binary' ? 'Ghidra 伪代码' : unit.language.toUpperCase()}</span
+              >{unit.language === 'binary'
+                ? metadata.analysis_engine === 'IDA_HEXRAYS_D810'
+                  ? 'IDA / D-810 伪代码'
+                  : 'Ghidra 伪代码'
+                : unit.language.toUpperCase()}</span
             >
           </div>
           <div class="unit-meta">
-            <span>{unit.address ? `入口 ${unit.address}` : `原文件 L${unit.startLine}–L${unit.endLine}`}</span
+            <span
+              >{unit.address
+                ? `${metadata.address_space === 'UNPACKED_IMAGE' ? '解包映像入口' : '入口'} ${unit.address}`
+                : `原文件 L${unit.startLine}–L${unit.endLine}`}</span
             >{#if unit.address}<span>RVA {metadata.rva || '—'}</span>{:else}<span
                 >UTF-8 字节 [{unit.startByte.toString()}, {unit.endByte.toString()})</span
               >{/if}<a href={artifactUrl(unit.artifactId)} title="下载分析原始产物"

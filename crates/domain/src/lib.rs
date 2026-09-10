@@ -8,6 +8,9 @@ pub use audit::*;
 pub mod runtime;
 pub use runtime::*;
 
+pub mod recovery;
+pub use recovery::*;
+
 pub const SCOPE: &str = "STRUCTURE_ANALYSIS";
 pub const SCHEMA_VERSION: u32 = 1;
 
