@@ -65,43 +65,47 @@
           selector: 'node',
           style: {
             shape: 'round-rectangle',
-            'background-color': '#f0f5ee',
+            'background-color': '#ffffff',
             'border-width': 1,
-            'border-color': '#b8cbbd',
+            'border-color': '#64748b',
             label: 'data(label)',
-            'font-size': 12,
-            color: '#283f35',
+            'font-size': 13,
+            'font-family': '"Segoe UI", "Microsoft YaHei", sans-serif',
+            color: '#334155',
             'text-valign': 'center',
             'text-halign': 'center',
-            width: 155,
-            height: 46,
+            'text-wrap': 'ellipsis',
+            'text-max-width': '156px',
+            width: 180,
+            height: 48,
           },
         },
         {
           selector: 'node.focus',
-          style: { 'background-color': '#244f40', color: '#ffffff', 'border-width': 0 },
+          style: { 'background-color': '#2563eb', color: '#ffffff', 'border-width': 0 },
         },
         {
           selector: 'node.unknown',
           style: {
-            'background-color': '#faf7f0',
-            'border-color': '#cfc6b2',
+            'background-color': '#f8fafc',
+            'border-color': '#64748b',
             'border-style': 'dashed',
-            color: '#796d54',
+            color: '#475569',
           },
         },
         {
           selector: 'edge',
           style: {
             width: 1.4,
-            'line-color': '#7b9b88',
-            'target-arrow-color': '#7b9b88',
+            'line-color': '#64748b',
+            'target-arrow-color': '#64748b',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
             label: 'data(label)',
-            'font-size': 10,
-            color: '#768478',
-            'text-background-color': '#fcfdfb',
+            'font-size': 12,
+            'font-family': '"Segoe UI", "Microsoft YaHei", sans-serif',
+            color: '#475569',
+            'text-background-color': '#ffffff',
             'text-background-opacity': 1,
             'text-background-padding': '3px',
           },
@@ -134,7 +138,7 @@
 </div>
 <div class="graph-canvas" bind:this={container} role="img" aria-label="当前函数的局部调用图"></div>
 <div class="graph-legend">
-  <span><i class="dot green"></i>当前函数</span><span><i class="dash"></i>推断 / 未解析调用</span><span
+  <span><i class="dot accent"></i>当前函数</span><span><i class="dash"></i>推断 / 未解析调用</span><span
     >点击节点查看代码 · 滚轮缩放</span
   >
 </div>

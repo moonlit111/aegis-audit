@@ -457,7 +457,7 @@
     flex-wrap: wrap;
     gap: 12px 24px;
     margin: 12px 0;
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .audit-budget-summary div {
     min-width: 0;
