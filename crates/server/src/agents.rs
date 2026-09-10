@@ -123,11 +123,7 @@ impl Store {
         shutdown: &CancellationToken,
     ) -> anyhow::Result<()> {
         config.validate().map_err(anyhow::Error::msg)?;
-        let corpus = self.audit_corpus(id).await?;
-        ensure!(
-            !corpus.order.is_empty(),
-            "没有可供语义审计的代码；解析缺口已保留"
-        );
+        let mut corpus = self.audit_corpus(id).await?;
         {
             let _guard = self.writes.lock().await;
             let mut tx = self.pool.begin().await?;
@@ -153,6 +149,30 @@ impl Store {
             tx.commit().await?;
             self.changed.notify_waiters();
         }
+        if corpus.target["kind"] == "BINARY" {
+            let reverse = AgentContext {
+                store: self,
+                run_id: id,
+                model,
+                config,
+                client,
+                shutdown,
+                corpus: &corpus,
+            };
+            let input = json!({"program":corpus.catalog(),"tool_environment":self.recovery_context(id).await?});
+            reverse.execute("REVERSE", "recovery", input).await?;
+            corpus = self.audit_corpus(id).await?;
+            let _guard = self.writes.lock().await;
+            let mut tx = self.pool.begin().await?;
+            let mut run = Self::active_audit(&mut tx, id).await?;
+            run.summary["eligible_unit_count"] = json!(corpus.order.len());
+            update_run(&mut tx, &run).await?;
+            tx.commit().await?;
+        }
+        ensure!(
+            !corpus.order.is_empty(),
+            "没有可供语义审计的代码；逆向结果和解析缺口已保留"
+        );
         let context = AgentContext {
             store: self,
             run_id: id,
@@ -164,15 +184,7 @@ impl Store {
         };
         let planner = context.execute("PLANNER", "plan", corpus.catalog()).await?;
         let plan: Plan = serde_json::from_value(planner.result)?;
-        let mut priorities = plan.priorities;
-        if corpus.target["kind"] == "BINARY" {
-            let reverse = context
-                .execute("REVERSE", "recovery", corpus.catalog())
-                .await?;
-            let reverse: Plan = serde_json::from_value(reverse.result)?;
-            priorities.extend(reverse.priorities);
-        }
-        let order = corpus.ordered(&priorities)?;
+        let order = corpus.ordered(&plan.priorities)?;
         for id in order.iter().take(config.max_units as usize) {
             let input = json!({"focus":corpus.focus(id)?,"audit_approach":plan.approach,
                 "instructions":"Audit this focus unit even if no lexical clues exist. Query relevant code when evidence is incomplete."});
@@ -276,8 +288,20 @@ impl Store {
             || incomplete_tasks > 0
             || audited < eligible
             || audited == 0
-            || run.summary["structure_partial"] == true;
+            || run.summary["structure_partial"] == true
+            || run.summary["recovery"]["status"] == "PARTIAL";
         let cancelled = run.state == d::RunState::Cancelling;
+        if cancelled {
+            let active: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM work_items WHERE run_id=? AND state IN ('RUNNING','EXPIRED')",
+            )
+            .bind(id)
+            .fetch_one(&mut *tx)
+            .await?;
+            if active > 0 {
+                return Ok(());
+            } // Explicit cancellation remains pending until process reaping.
+        }
         run.state = if cancelled {
             d::RunState::Cancelled
         } else if partial {
@@ -287,6 +311,14 @@ impl Store {
         };
         run.finished_at = d::now();
         run.error = error.unwrap_or_default();
+        if run.summary["recovery"].is_object()
+            && ["RUNNING", "PLANNED"]
+                .contains(&run.summary["recovery"]["status"].as_str().unwrap_or(""))
+        {
+            run.summary["recovery"]["status"] =
+                json!(if cancelled { "CANCELLED" } else { "PARTIAL" });
+            run.summary["recovery"]["error"] = json!(run.error);
+        }
         run.summary["vulnerability_audit"] = json!(if cancelled {
             "CANCELLED"
         } else if partial {
@@ -414,6 +446,7 @@ impl AgentContext<'_> {
         result
     }
     async fn conversation(&self, task: d::AgentTask, input: Value) -> anyhow::Result<d::AgentTask> {
+        let mut corpus = self.store.audit_corpus(self.run_id).await?;
         let input = self.corpus.references(input, true);
         let tool_budget = if task.role == "PLANNER" {
             self.config.max_tool_rounds.min(1)
@@ -421,7 +454,7 @@ impl AgentContext<'_> {
             self.config.max_tool_rounds
         };
         let mut messages = vec![
-            json!({"role":"system","content":format!("{}\nThis task permits at most {} read-only tool requests. Use the supplied context first. When no tool requests remain, finish with the available evidence and explicit limitations. A planner prioritizes from the catalog; it does not audit every function itself.", system_prompt(&task.role), tool_budget)}),
+            json!({"role":"system","content":format!("{}\nThis task permits at most {} tool requests, including plan updates and execution requests. Use the supplied context first. When no tool requests remain, finish with available evidence and explicit limitations. A planner prioritizes from the catalog; it does not audit every function itself.", system_prompt(&task.role), tool_budget)}),
             json!({"role":"user","content":input.to_string()}),
         ];
         let mut repairs = 0;
@@ -470,20 +503,51 @@ impl AgentContext<'_> {
                         "智能体查询轮数达到上限；未完成的分析保留为缺口"
                     );
                     tools += 1;
-                    let output = match self.corpus.tool(&name, &arguments) {
+                    let result = if task.role == "REVERSE" {
+                        match name.as_str() {
+                            "plan_recovery" => self
+                                .store
+                                .plan_recovery(&task, arguments.clone())
+                                .await
+                                .map_err(anyhow::Error::from),
+                            "run_recovery_step" => self
+                                .store
+                                .run_recovery_step(&task, &arguments, self.shutdown)
+                                .await
+                                .map_err(anyhow::Error::from),
+                            "recovery_status"
+                                if arguments.as_object().is_some_and(|a| a.is_empty()) =>
+                            {
+                                self.store
+                                    .recovery_context(self.run_id)
+                                    .await
+                                    .map_err(anyhow::Error::from)
+                            }
+                            _ => corpus.tool(&name, &arguments),
+                        }
+                    } else {
+                        corpus.tool(&name, &arguments)
+                    };
+                    let mut output = match result {
                         Ok(value) => value,
                         Err(error) => json!({"error":error.to_string()}),
                     };
+                    if task.role == "REVERSE" {
+                        corpus = self.store.audit_corpus(self.run_id).await?;
+                        if name == "run_recovery_step" && output.is_object() {
+                            output["current_units"] = corpus.catalog()["units"].clone();
+                        }
+                    }
                     messages.push(json!({"role":"user","content":json!({"tool":name,"arguments":arguments,"result":output,"remaining_tool_requests":tool_budget-tools,"next_action":if tools==tool_budget {"finish"}else{"tool or finish"}}).to_string()}));
                     continue;
                 }
                 Ok(AgentAction::Finish { result }) => {
-                    let result = self.corpus.references(result, false);
-                    match Store::validate_agent_result(&task, &result, self.corpus) {
+                    let result = corpus.references(result, false);
+                    match Store::validate_agent_result(&task, &result, &corpus) {
                         Ok(()) => {
                             return Ok(self
                                 .store
-                                .finish_agent_task(task, &call.id, result, self.corpus)
+                                .finish_agent_task(task, &call.id, result, &corpus)
                                 .await?);
                         }
                         Err(error) => error.to_string(),

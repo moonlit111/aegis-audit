@@ -1,0 +1,40 @@
+{
+  "floss": {
+    "version": "3.1.1",
+    "url": "https://github.com/mandiant/flare-floss/releases/download/v3.1.1/floss-v3.1.1-windows.zip",
+    "sha256": "6c71089b8c629c69424b042769f1565f71adc6cd24b2f8d3713c96fa7fdac2fb",
+    "executable": "floss.exe",
+    "license": "Apache-2.0",
+    "license_file": {
+      "url": "https://raw.githubusercontent.com/mandiant/flare-floss/v3.1.1/LICENSE.txt",
+      "sha256": "787008a875d16021fa995a81553a98e481b938ece1f2e8a1910daf8dffaf1300"
+    },
+    "source": "https://github.com/mandiant/flare-floss/tree/v3.1.1"
+  },
+  "d810_ng": {
+    "version": "2e59ab4ce18e5e82911880137d1285d95279981a",
+    "url": "https://codeload.github.com/w00tzenheimer/d810-ng/zip/2e59ab4ce18e5e82911880137d1285d95279981a",
+    "archive_name": "d810-ng-2e59ab4c.zip",
+    "sha256": "835fb802467a23321ba80acadbd302c2d2ad158c889662f6dbc972bb16c62406",
+    "source_marker": "src/d810/manager.py",
+    "license": "See bundled upstream LICENSE",
+    "source": "https://github.com/w00tzenheimer/d810-ng/tree/2e59ab4ce18e5e82911880137d1285d95279981a"
+  },
+  "d810": {
+    "version": "87fe12ca9cfbea5744c30546308898bf7199c073",
+    "url": "https://codeload.github.com/joydo/d810/zip/87fe12ca9cfbea5744c30546308898bf7199c073",
+    "archive_name": "d810-87fe12ca.zip",
+    "sha256": "a325a93acf4d6939921723ca50dbd32f2a95536b0f4cf51386744a31d1b3fb15",
+    "source_marker": "d810/manager.py",
+    "license": "AGPL-3.0 (upstream LICENSE; README incorrectly says LGPL)",
+    "source": "https://github.com/joydo/d810/tree/87fe12ca9cfbea5744c30546308898bf7199c073"
+  },
+  "upx": {
+    "version": "5.2.1",
+    "url": "https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-win64.zip",
+    "sha256": "eabc6792a347d45e945be7748423e7868fd01b0d2bcaa2f4b1031fd71ff69bda",
+    "executable": "upx.exe",
+    "license": "GPL-2.0-or-later with UPX exception",
+    "source": "https://github.com/upx/upx/tree/v5.2.1"
+  }
+}

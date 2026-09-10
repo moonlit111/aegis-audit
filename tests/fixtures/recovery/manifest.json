@@ -1,0 +1,19 @@
+{
+  "purpose": "Benign tool integration fixture; not a course acceptance target",
+  "target_executed": false,
+  "source_sha256": "34109703299820aeb6c3fc4ee8393c9e3d2bc06fcf46ad0fc0d0b60d2f458afe",
+  "expected_recovered_string": "AegisAudit recovered test string",
+  "mba_equivalence": "(a XOR b) + 2 * (a AND b) == a + b modulo 2^32",
+  "files": [
+    {
+      "name": "sample.exe",
+      "sha256": "766f2cd9dff0cb2792ee715336249b47d0a7e524c71023b27e0968e14345455f",
+      "size": 3584
+    },
+    {
+      "name": "sample-upx.exe",
+      "sha256": "d12ef6bb0798e3e9178046f29066f9ec906f04f2a41f0b6fe1e324c96bb6565e",
+      "size": 3072
+    }
+  ]
+}

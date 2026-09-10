@@ -75,6 +75,8 @@ export type ToolRecord = {
   command: string[];
 };
 export type Summary = {
+  result_artifact_id?: string;
+  recovery?: RecoverySummary;
   vulnerability_audit?: string;
   audited_unit_count?: number;
   eligible_unit_count?: number;
@@ -88,7 +90,33 @@ export type Summary = {
   warnings?: string[];
   tools?: ToolRecord[];
 };
+export type RecoverySummary = {
+  status?: string;
+  plan?: {
+    assessment: string;
+    evidence: string[];
+    steps: { tool: string; input: string; reason: string; profile?: string }[];
+    limitations: string[];
+  };
+  next_step?: number;
+  history?: {
+    tool: string;
+    status: string;
+    reason?: string;
+    input_sha256?: string;
+    output_sha256?: string;
+    result_artifact_id?: string;
+    output_artifact_id?: string;
+    strings_artifact_id?: string;
+    readable_artifact_id?: string;
+    warnings?: string[];
+  }[];
+  conclusion?: { summary: string; limitations: string[] };
+};
 export type UnitMetadata = {
+  analysis_engine?: string;
+  address_space?: string;
+  baseline_pseudocode?: string;
   kind?: string;
   rva?: string;
   image_base?: string;

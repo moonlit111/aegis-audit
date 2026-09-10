@@ -97,6 +97,14 @@ pub fn render(
                     md(&unit.unit.quality)
                 ));
             }
+            if run.summary["recovery"].is_object() {
+                text.push_str("\n## 逆向与解混淆\n\n工具完成仅表示相应步骤结束；支持范围、失败及可读产物见以下记录。\n\n");
+                text.push_str(&format!(
+                    "```json\n{}\n```\n",
+                    serde_json::to_string_pretty(&run.summary["recovery"])?
+                        .replace("```", "\\u0060\\u0060\\u0060")
+                ));
+            }
             if !audit.findings.is_empty() {
                 text.push_str("\n## 发现与复核\n\n");
                 for finding in &audit.findings {
@@ -195,6 +203,9 @@ pub fn render(
                 ));
             }
             body.push_str("</tbody></table><h2>发现、复核与关键逻辑</h2>");
+            if run.summary["recovery"].is_object() {
+                body.push_str(&format!("<h2>逆向与解混淆</h2><p>以下记录包含智能体计划、实际工具状态、输入输出哈希与产物引用。</p><pre>{}</pre>",escape(&serde_json::to_string_pretty(&run.summary["recovery"])?)));
+            }
             for finding in &audit.findings {
                 body.push_str(&format!(
                     "<p>静态结论范围：{}</p>",

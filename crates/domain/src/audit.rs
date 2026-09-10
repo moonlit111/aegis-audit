@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub const AUDIT_SCOPE: &str = "SECURITY_AUDIT";
-pub const PROMPT_VERSION: &str = "audit-8";
+pub const PROMPT_VERSION: &str = "audit-9-recovery";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -19,7 +19,7 @@ impl Default for AuditConfig {
         Self {
             max_model_calls: 80,
             max_units: 80,
-            max_tool_rounds: 4,
+            max_tool_rounds: 8,
             timeout_seconds: 3600,
         }
     }

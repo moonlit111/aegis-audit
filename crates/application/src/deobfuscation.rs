@@ -1,13 +1,13 @@
 //! B06 解混淆：静态字符串/数据混淆的检测与恢复。
 //!
 //! 分类口径参考 Mandiant FLOSS（Apache-2.0）对字符串混淆的四分法：
-//! static / stack / tight / decoded。FLOSS 用模拟执行还原解码函数；本机没有
-//! 反汇编器与模拟器，因此只实现可静态判定、可复核的部分：
+//! static / stack / tight / decoded。本模块只提供内建的启发式候选恢复；
+//! 智能体还可选择 recovery 中的原生 FLOSS、Ghidra 和 ida_d810 适配器。
 //!
 //! - decoded：单字节 XOR、重复密钥 XOR（假设空格/字母 e 频率）、base64 文本表；
-//! - stack / tight strings：需要指令级模拟执行，明确不支持；
-//! - 代码级混淆（OLLVM 控制流平坦化、MBA、不透明谓词）：需要 IDA/Ghidra 微码
-//!   （如 D-810）或符号执行（angr/Triton/Miasm），本机不具备，明确不支持。
+//! - stack / tight strings：由独立 FLOSS 工具处理，本模块不模拟执行；
+//! - 代码级混淆：由通过环境探测的 IDA/D-810 工具按规则处理，
+//!   本模块不进行控制流或表达式转换。
 //!
 //! 参考实现思路而非代码：FLOSS 的字符串分类与“解码后必须有意义”的判据。
 //! 本模块不执行目标，也不重建可执行映像。
@@ -509,8 +509,8 @@ pub fn patterns() -> Value {
         {"pattern":"DECODED_XOR_SINGLE_BYTE","state":"SUPPORTED","reason":"单字节 XOR 字符串表可静态恢复"},
         {"pattern":"DECODED_XOR_REPEATING_KEY","state":"SUPPORTED","reason":"重复密钥 XOR 按空格/字母 e 频率推导密钥并校验"},
         {"pattern":"BASE64_TEXT","state":"SUPPORTED","reason":"base64 文本表可静态解码"},
-        {"pattern":"STACK_STRINGS","state":"UNSUPPORTED","reason":"需要指令级模拟执行（FLOSS 使用模拟器）；本机无反汇编器与模拟器"},
-        {"pattern":"TIGHT_STRINGS","state":"UNSUPPORTED","reason":"栈上构造再紧循环解码，需要指令级模拟执行；本机不具备"},
+        {"pattern":"STACK_STRINGS","state":"UNSUPPORTED","reason":"本模块不模拟执行；可由智能体选择独立 FLOSS 适配器"},
+        {"pattern":"TIGHT_STRINGS","state":"UNSUPPORTED","reason":"本模块不模拟执行；可由智能体选择独立 FLOSS 适配器"},
         {"pattern":"CODE_LEVEL_CFF_MBA","state":"UNSUPPORTED","reason":"控制流平坦化/MBA/不透明谓词需要 IDA/Ghidra 微码（D-810）或符号执行（angr/Triton/Miasm）；不承诺通用解混淆"},
         {"pattern":"DYNAMIC_KEY","state":"UNSUPPORTED","reason":"运行期计算或按字节变化的密钥未观察，静态不猜测"},
     ])

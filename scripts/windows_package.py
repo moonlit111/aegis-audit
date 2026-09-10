@@ -103,6 +103,8 @@ for package in metadata.distributions():
 
 
 def bundle(stage, version):
+    from install_reverse_tools import install as install_reverse_tools
+    install_reverse_tools()
     launcher, python = build_launcher()
     shutil.copytree(launcher, stage, dirs_exist_ok=True)
     ghidra = Path(environment().get('GHIDRA_HOME', ''))
@@ -117,6 +119,7 @@ def bundle(stage, version):
         shutil.copytree(source, target)
     shutil.copytree(TOOLS / 'windows-python', stage / '.tools/windows-python',
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'Scripts'))
+    shutil.copytree(TOOLS / 'reverse', stage / '.tools/reverse', ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     icon = stage / 'tools/windows/aegis.ico'
     icon.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'tools/windows/aegis.ico', icon)

@@ -350,7 +350,7 @@ pub async fn process(
     );
     tokio::fs::write(&original, bytes).await?;
 
-    let version = process::run(
+    let version_output = process::run(
         ProcessSpec {
             program: tool.clone(),
             args: vec!["--version".into()],
@@ -361,17 +361,18 @@ pub async fn process(
         cancel.clone(),
         |_| {},
     )
-    .await
-    .ok()
-    .and_then(|output| {
-        String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .map(str::to_owned)
-    })
-    .unwrap_or_else(|| adapter.name.to_owned());
+    .await?;
+    ensure!(
+        version_output.processes_reaped,
+        "工具版本探测的进程回收未确认"
+    );
+    let version = String::from_utf8_lossy(&version_output.stdout)
+        .lines()
+        .next()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| adapter.name.to_owned());
 
     let args: Vec<String> = vec![
         "-d".into(),
@@ -396,10 +397,7 @@ pub async fn process(
     let command =
         json!({"program": adapter.binary, "args": ["-d", "-o", "<derived>", "<original>"]});
     let record = match outcome {
-        Err(error) => json!({"state":"FAILED","kind":kind,"adapter":adapter.name,
-            "tool_version":version,"original_sha256":sha256(bytes),
-            "command":command,"reason":format!("工具启动失败：{error}"),"target_executed":false,
-            "started_at":started_at,"finished_at":finished_at}),
+        Err(error) => return Err(error.context("去壳工具启动或进程回收失败")),
         Ok(output) => {
             let ok = output.exit_code == Some(0)
                 && !output.timed_out
@@ -439,7 +437,7 @@ pub async fn process(
                     "derived_sha256":sha256(&derived_bytes),
                     "command":command,"exit_code":output.exit_code,
                     "stdout":clip(&output.stdout),"stderr":clip(&output.stderr),
-                    "truncated":output.truncated,
+                    "truncated":output.truncated,"processes_reaped":output.processes_reaped,
                     "before":before,"after":after,
                     "mapping":{
                         "entry":{"before":before["entry"].clone(),"after":after["entry"].clone()},

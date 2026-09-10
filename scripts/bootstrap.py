@@ -141,6 +141,8 @@ def main():
                 command(['cargo', 'install', package, '--version', version, '--locked'], env)
     install_python_tools()
     if not options.core_only:
+        from install_reverse_tools import install as install_reverse_tools
+        install_reverse_tools()
         install_archive(host['jdk'], TOOLS / 'jdk')
         sdk_root = options.sdk_dir or Path.home() / '.cache/aegis-audit'
         ghidra = sdk_root / ('ghidra_' + VERSIONS['ghidra']['version'] + '_PUBLIC')

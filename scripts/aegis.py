@@ -49,7 +49,19 @@ def environment():
             env['GHIDRA_HOME'] = str(ghidra.resolve())
         else:
             env.setdefault('GHIDRA_HOME', str(ghidra.resolve()))
+    reverse_manifest = tools / 'reverse/installed.json'
+    if reverse_manifest.is_file():
+        installed = json.loads(reverse_manifest.read_text(encoding='utf-8'))
+        for name in ('upx', 'floss'):
+            relative = Path(installed.get(name, {}).get('path', ''))
+            candidate = (ROOT / relative).resolve()
+            if relative.is_absolute() or ROOT.resolve() not in candidate.parents:
+                raise RuntimeError('Reverse tool path escapes the application directory')
+            if candidate.is_file():
+                env.setdefault('AEGIS_' + name.upper(), str(candidate))
     env.setdefault('CARGO_BUILD_JOBS', '4')
+    if (tools / 'ida-d810.json').is_file():
+        env.setdefault('AEGIS_IDA_D810_CONFIG', str((tools / 'ida-d810.json').resolve()))
     return env
 
 
