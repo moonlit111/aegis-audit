@@ -81,6 +81,8 @@ pub mod __buffa {
         reg.register_json_any(super::__REPORT_PROGRESS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__COMPLETE_WORK_REQUEST_JSON_ANY);
         reg.register_json_any(super::__COMPLETE_WORK_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__SAVE_MODEL_SETTINGS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__SAVE_MODEL_SETTINGS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_CAPABILITIES_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_CAPABILITIES_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__MODEL_CALL_JSON_ANY);
@@ -351,6 +353,14 @@ pub use self::__buffa::view::CompleteWorkRequestOwnedView;
 pub use self::__buffa::view::CompleteWorkResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::CompleteWorkResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsResponseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::GetCapabilitiesRequestView;
 #[doc(inline)]

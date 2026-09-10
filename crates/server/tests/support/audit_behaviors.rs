@@ -156,6 +156,37 @@ async fn prepared(store: &Store, config: d::AuditConfig) -> d::AuditRun {
 }
 
 #[tokio::test]
+async fn model_settings_stay_fixed_until_audit_cancellation_completes() {
+    use aegis_server::model_settings::ModelSettingsInput;
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let run = prepared(&store, d::AuditConfig::default()).await;
+    let before = store.model_connection().await.unwrap();
+    assert!(before.settings_locked);
+    let update = || ModelSettingsInput {
+        provider_kind: "OPENAI_COMPATIBLE",
+        endpoint: "http://127.0.0.1:12345/v1",
+        model: "fixture-model",
+        api_key: "replacement-fixture-key",
+        key_action: "REPLACE",
+        expected_revision: &before.revision,
+    };
+    assert!(matches!(
+        store.save_model_settings(&d::id(), update()).await,
+        Err(AppError::Precondition(_))
+    ));
+    let unchanged = store.model_connection().await.unwrap();
+    assert_eq!(unchanged.revision, before.revision);
+    assert_eq!(unchanged.endpoint, before.endpoint);
+    let cancelled = store.cancel_run(&run.id).await.unwrap();
+    assert_eq!(cancelled.state, d::RunState::Cancelled);
+    let saved = store.save_model_settings(&d::id(), update()).await.unwrap();
+    assert!(!saved.settings_locked);
+    assert_ne!(saved.revision, before.revision);
+    assert_eq!(saved.model, "fixture-model");
+}
+
+#[tokio::test]
 async fn audit_review_revision_and_report_use_real_persisted_code() {
     let directory = tempfile::tempdir().unwrap();
     let store = Store::open(directory.path()).await.unwrap();

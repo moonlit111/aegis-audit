@@ -2,7 +2,9 @@
 use anyhow::{Result, ensure};
 use windows_sys::Win32::{
     Foundation::LocalFree,
-    Security::Cryptography::{CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptUnprotectData},
+    Security::Cryptography::{
+        CRYPT_INTEGER_BLOB, CRYPTPROTECT_UI_FORBIDDEN, CryptProtectData, CryptUnprotectData,
+    },
 };
 
 pub const PREFIX: &str = "aegis-dpapi-v1:";
@@ -17,6 +19,39 @@ impl Drop for ProtectedBuffer {
             LocalFree(self.0.pbData.cast());
         }
     }
+}
+
+pub fn encode(value: &str) -> Result<String> {
+    ensure!(
+        !value.is_empty() && value.len() <= 16384,
+        "invalid credential size"
+    );
+    let mut bytes = value.as_bytes().to_vec();
+    let input = CRYPT_INTEGER_BLOB {
+        cbData: bytes.len() as u32,
+        pbData: bytes.as_mut_ptr(),
+    };
+    let mut output = CRYPT_INTEGER_BLOB::default();
+    let succeeded = unsafe {
+        CryptProtectData(
+            &input,
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null(),
+            std::ptr::null(),
+            CRYPTPROTECT_UI_FORBIDDEN,
+            &mut output,
+        )
+    };
+    bytes.fill(0);
+    ensure!(
+        succeeded != 0,
+        "credential protection failed for this Windows account"
+    );
+    let output = ProtectedBuffer(output);
+    let protected =
+        unsafe { std::slice::from_raw_parts(output.0.pbData, output.0.cbData as usize) };
+    Ok(format!("{PREFIX}{}", hex::encode(protected)))
 }
 
 pub fn decode(value: &str) -> Result<String> {

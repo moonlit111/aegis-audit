@@ -95,7 +95,11 @@ impl Store {
                 settings.fingerprint() == row.get::<String, _>("config_hash"),
                 "模型配置已变更，请使用新配置创建审计任务；原结果保留"
             );
-            let client = DeepSeek::new(settings.key.context("审计模型密钥不可用")?)?;
+            let client = DeepSeek::configured(
+                settings.key.context("审计模型密钥不可用")?,
+                &settings.endpoint,
+                &settings.provider_kind,
+            )?;
             self.drive_audit_with_model(&id, &model, &config, &client, shutdown)
                 .await
         }
@@ -113,7 +117,7 @@ impl Store {
             .await
     }
 
-    // Also used with a local provider in behavior tests. Production constructs only the official transport above.
+    // Also used with a local provider in behavior tests; production pins the selected transport above.
     pub async fn drive_audit_with_model(
         &self,
         id: &str,

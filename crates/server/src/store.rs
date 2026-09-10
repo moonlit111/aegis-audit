@@ -394,6 +394,8 @@ impl Store {
         if ![d::SCOPE, d::AUDIT_SCOPE].contains(&scope) {
             return Err(AppError::Invalid("未知的分析范围".into()));
         }
+        let _guard = self.writes.lock().await;
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let settings = if scope == d::AUDIT_SCOPE {
             config.validate().map_err(AppError::Invalid)?;
             let settings = self.model_settings().await?;
@@ -416,8 +418,6 @@ impl Store {
         } else {
             d::sha256(snapshot_id.as_bytes())
         };
-        let _guard = self.writes.lock().await;
-        let mut tx = self.pool.begin().await?;
         if let Some(id) = duplicate(&mut tx, "CreateRun", request, &hash).await? {
             return load(&mut tx, "audit_runs", &id).await;
         }

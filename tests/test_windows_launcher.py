@@ -1,8 +1,10 @@
 """Launcher checks that do not require a frozen build or model credentials."""
+from contextlib import closing
 import json
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -16,6 +18,33 @@ from windows_launcher import choose_port, instance_names, ProcessOwner, Windows
 
 
 class LauncherTests(unittest.TestCase):
+    def test_cli_updates_shared_web_settings_and_refuses_active_model_work(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with closing(sqlite3.connect(root / 'aegis.sqlite')) as connection, connection:
+                connection.executescript('''
+                    CREATE TABLE model_settings(id INTEGER PRIMARY KEY, data TEXT);
+                    CREATE TABLE audit_runs(id TEXT PRIMARY KEY, state TEXT);
+                    CREATE TABLE audit_workflows(run_id TEXT);
+                    CREATE TABLE model_calls(status TEXT,run_id TEXT);
+                    INSERT INTO model_settings VALUES(1,'{}');
+                    INSERT INTO audit_runs VALUES('r','RUNNING');
+                    INSERT INTO audit_workflows VALUES('r');
+                ''')
+            with self.assertRaises(ValueError):
+                save_settings(root, 'new-cli-fixture', 'deepseek-v4-flash')
+            with closing(sqlite3.connect(root / 'aegis.sqlite')) as connection, connection:
+                self.assertEqual(connection.execute('SELECT data FROM model_settings').fetchone()[0], '{}')
+                connection.execute("UPDATE audit_runs SET state='COMPLETED'")
+            save_settings(root, 'new-cli-fixture', 'deepseek-v4-flash')
+            with closing(sqlite3.connect(root / 'aegis.sqlite')) as connection, connection:
+                saved = connection.execute('SELECT data FROM model_settings').fetchone()[0]
+            self.assertNotIn('new-cli-fixture', saved)
+            settings = json.loads(saved)
+            self.assertEqual(unprotect_secret(settings['protected_key']), 'new-cli-fixture')
+            self.assertEqual(settings['provider_kind'], 'DEEPSEEK')
+            self.assertFalse((root / 'deepseek.token').exists())
+
     def test_busy_port_is_not_reused(self):
         with socket.socket() as listener:
             listener.bind(('127.0.0.1', 0))

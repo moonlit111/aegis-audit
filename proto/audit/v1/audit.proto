@@ -277,7 +277,18 @@ message CompleteWorkResponse { bool accepted = 1; }
 service SystemService {
   rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc CheckModelConnection(CheckModelConnectionRequest) returns (CheckModelConnectionResponse);
+  rpc SaveModelSettings(SaveModelSettingsRequest) returns (SaveModelSettingsResponse);
 }
+message SaveModelSettingsRequest {
+  string request_id = 1;
+  string provider_kind = 2;
+  string endpoint = 3;
+  string model = 4;
+  string api_key = 5;
+  string key_action = 6;
+  string expected_revision = 7;
+}
+message SaveModelSettingsResponse { ModelConnection connection = 1; }
 message GetCapabilitiesRequest {}
 message GetCapabilitiesResponse { string version = 1; string scope = 2; repeated Executor executors = 3; repeated string pending_features = 4; ModelConnection model_connection = 5; }
 message ModelCall {
@@ -309,6 +320,10 @@ message ModelConnection {
   bool configured = 4;
   ModelCall last_call = 5;
   string status_message = 6;
+  string provider_kind = 7;
+  string key_source = 8;
+  string revision = 9;
+  bool settings_locked = 10;
 }
 message CheckModelConnectionRequest { string request_id = 1; }
 message CheckModelConnectionResponse { ModelCall call = 1; }

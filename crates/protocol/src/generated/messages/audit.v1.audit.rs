@@ -11798,6 +11798,414 @@ pub const __COMPLETE_WORK_RESPONSE_JSON_ANY: ::buffa::type_registry::JsonAnyEntr
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
+pub struct SaveModelSettingsRequest {
+    /// Field 1: `request_id`
+    #[serde(
+        rename = "requestId",
+        alias = "request_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub request_id: ::buffa::alloc::string::String,
+    /// Field 2: `provider_kind`
+    #[serde(
+        rename = "providerKind",
+        alias = "provider_kind",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub provider_kind: ::buffa::alloc::string::String,
+    /// Field 3: `endpoint`
+    #[serde(
+        rename = "endpoint",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub endpoint: ::buffa::alloc::string::String,
+    /// Field 4: `model`
+    #[serde(
+        rename = "model",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub model: ::buffa::alloc::string::String,
+    /// Field 5: `api_key`
+    #[serde(
+        rename = "apiKey",
+        alias = "api_key",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub api_key: ::buffa::alloc::string::String,
+    /// Field 6: `key_action`
+    #[serde(
+        rename = "keyAction",
+        alias = "key_action",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub key_action: ::buffa::alloc::string::String,
+    /// Field 7: `expected_revision`
+    #[serde(
+        rename = "expectedRevision",
+        alias = "expected_revision",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub expected_revision: ::buffa::alloc::string::String,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for SaveModelSettingsRequest {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("SaveModelSettingsRequest")
+            .field("request_id", &self.request_id)
+            .field("provider_kind", &self.provider_kind)
+            .field("endpoint", &self.endpoint)
+            .field("model", &self.model)
+            .field("api_key", &self.api_key)
+            .field("key_action", &self.key_action)
+            .field("expected_revision", &self.expected_revision)
+            .finish()
+    }
+}
+impl SaveModelSettingsRequest {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SaveModelSettingsRequest";
+}
+::buffa::impl_default_instance!(SaveModelSettingsRequest);
+impl ::buffa::MessageName for SaveModelSettingsRequest {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "SaveModelSettingsRequest";
+    const FULL_NAME: &'static str = "audit.v1.SaveModelSettingsRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SaveModelSettingsRequest";
+}
+impl ::buffa::Message for SaveModelSettingsRequest {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.request_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.request_id) as u64;
+        }
+        if !self.provider_kind.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.provider_kind) as u64;
+        }
+        if !self.endpoint.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.endpoint) as u64;
+        }
+        if !self.model.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.model) as u64;
+        }
+        if !self.api_key.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.api_key) as u64;
+        }
+        if !self.key_action.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.key_action) as u64;
+        }
+        if !self.expected_revision.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.expected_revision) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.request_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.request_id, buf);
+        }
+        if !self.provider_kind.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.provider_kind, buf);
+        }
+        if !self.endpoint.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.endpoint, buf);
+        }
+        if !self.model.is_empty() {
+            ::buffa::types::put_string_field(4u32, &self.model, buf);
+        }
+        if !self.api_key.is_empty() {
+            ::buffa::types::put_string_field(5u32, &self.api_key, buf);
+        }
+        if !self.key_action.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.key_action, buf);
+        }
+        if !self.expected_revision.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.expected_revision, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.request_id, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.provider_kind, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.endpoint, buf)?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.model, buf)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.api_key, buf)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.key_action, buf)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.expected_revision, buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.request_id.clear();
+        self.provider_kind.clear();
+        self.endpoint.clear();
+        self.model.clear();
+        self.api_key.clear();
+        self.key_action.clear();
+        self.expected_revision.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for SaveModelSettingsRequest {
+    const PROTO_FQN: &'static str = "audit.v1.SaveModelSettingsRequest";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for SaveModelSettingsRequest {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __SAVE_MODEL_SETTINGS_REQUEST_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.SaveModelSettingsRequest",
+    to_json: ::buffa::type_registry::any_to_json::<SaveModelSettingsRequest>,
+    from_json: ::buffa::type_registry::any_from_json::<SaveModelSettingsRequest>,
+    is_wkt: false,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct SaveModelSettingsResponse {
+    /// Field 1: `connection`
+    #[serde(
+        rename = "connection",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub connection: ::buffa::MessageField<
+        ModelConnection,
+        ::buffa::Inline<ModelConnection>,
+    >,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for SaveModelSettingsResponse {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("SaveModelSettingsResponse")
+            .field("connection", &self.connection)
+            .finish()
+    }
+}
+impl SaveModelSettingsResponse {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SaveModelSettingsResponse";
+}
+::buffa::impl_default_instance!(SaveModelSettingsResponse);
+impl ::buffa::MessageName for SaveModelSettingsResponse {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "SaveModelSettingsResponse";
+    const FULL_NAME: &'static str = "audit.v1.SaveModelSettingsResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SaveModelSettingsResponse";
+}
+impl ::buffa::Message for SaveModelSettingsResponse {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.connection.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.connection.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if self.connection.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.connection.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.connection.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.connection = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for SaveModelSettingsResponse {
+    const PROTO_FQN: &'static str = "audit.v1.SaveModelSettingsResponse";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for SaveModelSettingsResponse {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __SAVE_MODEL_SETTINGS_RESPONSE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.SaveModelSettingsResponse",
+    to_json: ::buffa::type_registry::any_to_json::<SaveModelSettingsResponse>,
+    from_json: ::buffa::type_registry::any_from_json::<SaveModelSettingsResponse>,
+    is_wkt: false,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
 pub struct GetCapabilitiesRequest {
     #[serde(skip)]
     #[doc(hidden)]
@@ -12763,6 +13171,37 @@ pub struct ModelConnection {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
     )]
     pub status_message: ::buffa::alloc::string::String,
+    /// Field 7: `provider_kind`
+    #[serde(
+        rename = "providerKind",
+        alias = "provider_kind",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub provider_kind: ::buffa::alloc::string::String,
+    /// Field 8: `key_source`
+    #[serde(
+        rename = "keySource",
+        alias = "key_source",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub key_source: ::buffa::alloc::string::String,
+    /// Field 9: `revision`
+    #[serde(
+        rename = "revision",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub revision: ::buffa::alloc::string::String,
+    /// Field 10: `settings_locked`
+    #[serde(
+        rename = "settingsLocked",
+        alias = "settings_locked",
+        with = "::buffa::json_helpers::proto_bool",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+    )]
+    pub settings_locked: bool,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -12776,6 +13215,10 @@ impl ::core::fmt::Debug for ModelConnection {
             .field("configured", &self.configured)
             .field("last_call", &self.last_call)
             .field("status_message", &self.status_message)
+            .field("provider_kind", &self.provider_kind)
+            .field("key_source", &self.key_source)
+            .field("revision", &self.revision)
+            .field("settings_locked", &self.settings_locked)
             .finish()
     }
 }
@@ -12831,6 +13274,19 @@ impl ::buffa::Message for ModelConnection {
                 += 1u64
                     + ::buffa::types::string_encoded_len(&self.status_message) as u64;
         }
+        if !self.provider_kind.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.provider_kind) as u64;
+        }
+        if !self.key_source.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.key_source) as u64;
+        }
+        if !self.revision.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.revision) as u64;
+        }
+        if self.settings_locked {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -12863,6 +13319,18 @@ impl ::buffa::Message for ModelConnection {
         }
         if !self.status_message.is_empty() {
             ::buffa::types::put_string_field(6u32, &self.status_message, buf);
+        }
+        if !self.provider_kind.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.provider_kind, buf);
+        }
+        if !self.key_source.is_empty() {
+            ::buffa::types::put_string_field(8u32, &self.key_source, buf);
+        }
+        if !self.revision.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.revision, buf);
+        }
+        if self.settings_locked {
+            ::buffa::types::put_bool_field(10u32, self.settings_locked, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -12923,6 +13391,34 @@ impl ::buffa::Message for ModelConnection {
                 )?;
                 ::buffa::types::merge_string(&mut self.status_message, buf)?;
             }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.provider_kind, buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.key_source, buf)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.revision, buf)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.settings_locked = ::buffa::types::decode_bool(buf)?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -12937,6 +13433,10 @@ impl ::buffa::Message for ModelConnection {
         self.configured = false;
         self.last_call = ::buffa::MessageField::none();
         self.status_message.clear();
+        self.provider_kind.clear();
+        self.key_source.clear();
+        self.revision.clear();
+        self.settings_locked = false;
         self.__buffa_unknown_fields.clear();
     }
 }

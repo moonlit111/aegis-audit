@@ -675,6 +675,30 @@ impl p::ExecutorService for Api {
     }
 }
 impl p::SystemService for Api {
+    async fn save_model_settings(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::SaveModelSettingsRequest>,
+    ) -> ServiceResult<p::SaveModelSettingsResponse> {
+        Response::ok(p::SaveModelSettingsResponse {
+            connection: self
+                .store
+                .save_model_settings(
+                    req.request_id,
+                    crate::model_settings::ModelSettingsInput {
+                        provider_kind: req.provider_kind,
+                        endpoint: req.endpoint,
+                        model: req.model,
+                        api_key: req.api_key,
+                        key_action: req.key_action,
+                        expected_revision: req.expected_revision,
+                    },
+                )
+                .await?
+                .into(),
+            ..Default::default()
+        })
+    }
     async fn get_capabilities(
         &self,
         _: RequestContext,

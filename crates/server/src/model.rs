@@ -1,81 +1,44 @@
 use crate::{
     convert,
     error::{AppError, Result},
-    store::{Store, duplicate, record_request, valid_text},
+    model_settings::Settings,
+    store::{Store, duplicate, record_request},
 };
 use aegis_application::model::{DEFAULT_MODEL, DeepSeek, ENDPOINT};
 use aegis_domain as d;
 use aegis_protocol as p;
-use serde::Deserialize;
 use serde_json::json;
-use std::{io::ErrorKind, time::Instant};
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Preferences {
-    model: String,
-}
-
-pub(crate) struct Settings {
-    pub model: String,
-    pub key: Option<String>,
-}
-impl Settings {
-    pub fn fingerprint(&self) -> String {
-        d::sha256(format!("{}:{}", self.model, self.key.as_deref().unwrap_or_default()).as_bytes())
-    }
-}
+use std::time::Instant;
 
 impl Store {
-    pub(crate) async fn model_settings(&self) -> Result<Settings> {
-        let model = match tokio::fs::read(self.root.join("model.json")).await {
-            Ok(bytes) => {
-                serde_json::from_slice::<Preferences>(&bytes)
-                    .map_err(|_| AppError::Precondition("model.json 配置格式无效".into()))?
-                    .model
-            }
-            Err(error) if error.kind() == ErrorKind::NotFound => DEFAULT_MODEL.into(),
-            Err(error) => return Err(error.into()),
-        };
-        let model = valid_text(&model, 100, "模型名称")?;
-        if !model.starts_with("deepseek-") {
-            return Err(AppError::Precondition(
-                "模型名称应为 DeepSeek 官方模型标识".into(),
-            ));
-        }
-        let key = match tokio::fs::read_to_string(self.root.join("deepseek.token")).await {
-            Ok(value) => {
-                let value = aegis_application::credentials::decode(&value).map_err(|_| {
-                    AppError::Precondition(
-                        "本地模型凭据无法由当前 Windows 账户解密，请重新配置".into(),
-                    )
-                })?;
-                if value.len() > 16384 || value.chars().any(char::is_whitespace) {
-                    return Err(AppError::Precondition("本地模型凭据格式无效".into()));
-                }
-                if value.is_empty() { None } else { Some(value) }
-            }
-            Err(error) if error.kind() == ErrorKind::NotFound => None,
-            Err(error) => return Err(error.into()),
-        };
-        Ok(Settings { model, key })
-    }
-
     pub async fn model_connection(&self) -> Result<p::ModelConnection> {
         let mut result = p::ModelConnection {
             provider: "DeepSeek 官方".into(),
             endpoint: ENDPOINT.into(),
             model: DEFAULT_MODEL.into(),
+            provider_kind: "DEEPSEEK".into(),
+            revision: "unavailable".into(),
+            settings_locked: self.model_settings_locked().await?,
             ..Default::default()
         };
         let settings = match self.model_settings().await {
             Ok(settings) => settings,
             Err(_) => {
-                result.status_message = "本地模型配置不可用，请检查服务端配置文件".into();
+                result.status_message = "本地模型配置不可用，可重新填写连接设置修复".into();
                 return Ok(result);
             }
         };
         result.model = settings.model.clone();
+        result.endpoint = settings.endpoint.clone();
+        result.provider_kind = settings.provider_kind.clone();
+        result.provider = if settings.provider_kind == "DEEPSEEK" {
+            "DeepSeek 官方"
+        } else {
+            "OpenAI 兼容接口"
+        }
+        .into();
+        result.key_source = settings.key_source.clone();
+        result.revision = settings.revision.clone();
         result.configured = settings.key.is_some();
         if result.configured {
             let last: Option<String> = sqlx::query_scalar("SELECT data FROM model_calls WHERE config_hash=? AND run_id IS NULL ORDER BY created_at DESC,id DESC LIMIT 1").bind(settings.fingerprint()).fetch_optional(&self.pool).await?;
@@ -87,13 +50,15 @@ impl Store {
     }
 
     pub async fn start_model_probe(&self, request: &str) -> Result<d::ModelCall> {
+        let guard = self.writes.lock().await;
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let settings = self.model_settings().await?;
         if settings.key.is_none() {
-            return Err(AppError::Precondition("尚未配置 DeepSeek 本地密钥".into()));
+            return Err(AppError::Precondition(
+                "尚未配置模型密钥，请先保存连接设置".into(),
+            ));
         }
         let fingerprint = settings.fingerprint();
-        let guard = self.writes.lock().await;
-        let mut tx = self.pool.begin().await?;
         if let Some(id) = duplicate(&mut tx, "CheckModelConnection", request, &fingerprint).await? {
             let data: String = sqlx::query_scalar("SELECT data FROM model_calls WHERE id=?")
                 .bind(id)
@@ -149,7 +114,11 @@ impl Store {
 
     async fn finish_model_probe(&self, mut call: d::ModelCall, settings: Settings) -> Result<()> {
         let started = Instant::now();
-        let result = match DeepSeek::new(settings.key.unwrap_or_default()) {
+        let result = match DeepSeek::configured(
+            settings.key.unwrap_or_default(),
+            &settings.endpoint,
+            &settings.provider_kind,
+        ) {
             Ok(client) => client.probe(&settings.model).await,
             Err(error) => Err(error),
         };
@@ -177,7 +146,7 @@ impl Store {
         let artifact = self
             .stage_bytes(
                 &bytes,
-                &format!("deepseek-connection-{}.json", call.id),
+                &format!("model-connection-{}.json", call.id),
                 "application/json",
             )
             .await?;
