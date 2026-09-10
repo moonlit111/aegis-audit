@@ -49,9 +49,32 @@
   const snapshotMetadata = $derived(
     parseJson<{ architecture?: string; format?: string }>(snapshot?.metadataJson || '', {}),
   );
-  const runtimeAdapterSupported = $derived(
-    snapshot?.kind !== TargetKind.BINARY || snapshotMetadata.format === 'PE',
-  );
+  const adapterOptions = $derived.by(() => {
+    if (mode === 'FUZZ') {
+      return snapshot?.kind === TargetKind.BINARY && snapshotMetadata.format === 'PE'
+        ? [{ value: 'WINDOWS_LIBFUZZER_PREBUILT', label: '预构建 libFuzzer' }]
+        : [];
+    }
+    if (snapshot?.kind === TargetKind.BINARY) {
+      return snapshotMetadata.format === 'PE'
+        ? [
+            { value: 'WINDOWS_ORIGINAL_PE32', label: '原始 PE32' },
+            { value: 'WINDOWS_ORIGINAL_PE64', label: '原始 PE64' },
+          ]
+        : [];
+    }
+    return [
+      { value: 'WINDOWS_PYTHON_CALL', label: 'Python 函数' },
+      { value: 'WINDOWS_NATIVE_SOURCE', label: 'C / C++' },
+    ];
+  });
+  const runtimeAdapterSupported = $derived(adapterOptions.length > 0);
+  const fuzzSupported = $derived(snapshot?.kind === TargetKind.BINARY && snapshotMetadata.format === 'PE');
+  $effect(() => {
+    if (adapterOptions.length && !adapterOptions.some((option) => option.value === adapter)) {
+      adapter = adapterOptions[0].value;
+    }
+  });
   const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope));
   const plans = $derived(
     (audit?.tasks || []).filter((t) => t.role === 'VERIFIER' && t.status === 'SUCCEEDED'),
@@ -219,17 +242,15 @@
         <div class="runtime-config-row">
           <label class="field"
             >配置模板<select bind:value={adapter}
-              ><option value="WINDOWS_NATIVE_SOURCE">C / C++</option><option value="WINDOWS_PYTHON_CALL"
-                >Python 函数</option
-              ><option value="WINDOWS_ORIGINAL_PE32">原始 PE32</option><option value="WINDOWS_ORIGINAL_PE64"
-                >原始 PE64</option
-              ><option value="WINDOWS_LIBFUZZER_PREBUILT">预构建 libFuzzer</option></select
+              >{#each adapterOptions as option}<option value={option.value}>{option.label}</option
+                >{/each}</select
             ></label
           >
           <label class="field"
             >测试方式<select bind:value={mode}
-              ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ"
-                >动态测试（libFuzzer）</option
+              ><option value="VERIFY">正常输入与重复验证</option><option
+                value="FUZZ"
+                disabled={!fuzzSupported}>动态测试（libFuzzer）</option
               ></select
             ></label
           >
