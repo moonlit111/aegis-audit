@@ -90,7 +90,7 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
             "linux",
             "x86_64",
             vec![d::ToolCapability {
-                name: "windows-sandbox".into(),
+                name: "windows-host".into(),
                 available: true,
                 ..Default::default()
             }],
@@ -98,7 +98,7 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
         .await
         .unwrap();
     let lease = store.claim_work(&executor.id).await.unwrap().unwrap();
-    // Default VERIFY deadline is 180s; the lease adds host sandbox
+    // Default VERIFY deadline is 180s; the lease adds host runtime
     // startup/cleanup/evidence time instead of cutting it to 300s.
     assert_eq!(lease.timeout_seconds, 360);
     // A guessed verdict cannot replace the supervisor recipe, raw observations and owned tool logs.

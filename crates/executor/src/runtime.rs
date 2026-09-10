@@ -1,13 +1,13 @@
 use crate::jobs::JobContext;
 use aegis_application::{
     import,
+    runtime::windows_host::{
+        self, HostRuntimeEntrypoint, HostRuntimeFileTransfer, HostRuntimeOutputPolicy,
+        HostRuntimeSession, HostRuntimeSpec,
+    },
     runtime::windows_runtime::{
         WindowsRuntimeAdapter, WindowsRuntimeConfig, WindowsRuntimeEntry,
         WindowsRuntimeEnvironment, WindowsRuntimeInput, WindowsRuntimeMode,
-    },
-    runtime::windows_sandbox::{
-        self, GUEST_INPUT, GUEST_OUTPUT, GUEST_PYTHON, GUEST_TOOLS, GUEST_ZIG, SandboxEntrypoint,
-        SandboxFileTransfer, SandboxMapping, SandboxOutputPolicy, SandboxSession, SandboxSpec,
     },
 };
 use aegis_domain as d;
@@ -93,25 +93,25 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
     let target_bytes = tokio::fs::read(&target_path).await?;
     let target_sha256 = d::sha256(&target_bytes);
 
-    let sandbox_inputs = work.join("sandbox-input");
-    tokio::fs::create_dir_all(&sandbox_inputs).await?;
+    let runtime_inputs = work.join("runtime-input");
+    tokio::fs::create_dir_all(&runtime_inputs).await?;
     let mut transfers = Vec::new();
     if manifest.kind != "BINARY" {
-        collect_source_files(&target_root, &sandbox_inputs, &mut transfers).await?;
+        collect_source_files(&target_root, &runtime_inputs, &mut transfers).await?;
     } else {
-        transfers.push(SandboxFileTransfer {
+        transfers.push(HostRuntimeFileTransfer {
             source: target_path.clone(),
             path: config.path.clone(),
         });
     }
     for fixture in &config.fixtures {
         let relative = aegis_application::runconfig::relative_path(&fixture.path)?;
-        let destination = sandbox_inputs.join(&relative);
+        let destination = runtime_inputs.join(&relative);
         if let Some(parent) = destination.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
         tokio::fs::write(&destination, fixture.content.as_bytes()).await?;
-        transfers.push(SandboxFileTransfer {
+        transfers.push(HostRuntimeFileTransfer {
             source: destination,
             path: fixture.path.clone(),
         });
@@ -179,66 +179,53 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         .to_path_buf();
     verify_pinned_runtime_versions(&root, adapter).await?;
     let entrypoint = match adapter {
-        WindowsRuntimeAdapter::PythonCall => SandboxEntrypoint::WindowsPython,
-        WindowsRuntimeAdapter::NativeSource => SandboxEntrypoint::WindowsNativeSource,
+        WindowsRuntimeAdapter::PythonCall => HostRuntimeEntrypoint::WindowsPython,
+        WindowsRuntimeAdapter::NativeSource => HostRuntimeEntrypoint::WindowsNativeSource,
         WindowsRuntimeAdapter::OriginalPe32 | WindowsRuntimeAdapter::OriginalPe64 => {
-            SandboxEntrypoint::OriginalPe
+            HostRuntimeEntrypoint::OriginalPe
         }
-        WindowsRuntimeAdapter::LibFuzzerPrebuilt => SandboxEntrypoint::LibFuzzerPrebuilt,
+        WindowsRuntimeAdapter::LibFuzzerPrebuilt => {
+            anyhow::bail!("libFuzzer is not part of the host runtime")
+        }
     };
-    let guest_script = match entrypoint {
-        SandboxEntrypoint::WindowsPython => "run-python.ps1",
-        SandboxEntrypoint::WindowsNativeSource => "run-native-source.ps1",
-        SandboxEntrypoint::OriginalPe => "run-pe.ps1",
-        _ => anyhow::bail!("unsupported product entrypoint"),
-    };
-    let mappings = match adapter {
-        WindowsRuntimeAdapter::PythonCall => vec![SandboxMapping {
-            host: root.join(".tools/windows-python"),
-            guest: GUEST_PYTHON.into(),
-            read_only: true,
-        }],
-        WindowsRuntimeAdapter::NativeSource => vec![SandboxMapping {
-            host: root.join(".tools/zig"),
-            guest: GUEST_ZIG.into(),
-            read_only: true,
-        }],
-        _ => Vec::new(),
+    let runtime_script = match entrypoint {
+        HostRuntimeEntrypoint::WindowsPython => "run-python.ps1",
+        HostRuntimeEntrypoint::WindowsNativeSource => "run-native-source.ps1",
+        HostRuntimeEntrypoint::OriginalPe => "run-pe.ps1",
     };
     let session_id = format!("{}-session-{}", ctx.lease.attempt_id, d::id());
-    let sandbox_root = work.join("sandbox");
-    let prepared = sandbox_sandbox_prepare(&SandboxSpec {
+    let runtime_root = work.join("runtime");
+    let prepared = host_runtime_prepare(&HostRuntimeSpec {
         entrypoint,
-        session: SandboxSession {
+        session: HostRuntimeSession {
             run_id: ctx.lease.work_item_id.clone(),
             attempt_id: ctx.lease.attempt_id.clone(),
             session_id,
             target_sha256: target_sha256.clone(),
             config_sha256,
-            memory_mb: 4096,
         },
-        root: sandbox_root,
+        root: runtime_root,
+        tool_root: root.join(".tools"),
         inputs: transfers,
         tools: vec![
-            SandboxFileTransfer {
-                source: root.join("tools/windows/sandbox").join(guest_script),
-                path: guest_script.into(),
+            HostRuntimeFileTransfer {
+                source: root.join("tools/windows/runtime").join(runtime_script),
+                path: runtime_script.into(),
             },
-            SandboxFileTransfer {
-                source: root.join("tools/windows/sandbox/run-windows-trials.ps1"),
+            HostRuntimeFileTransfer {
+                source: root.join("tools/windows/runtime/run-windows-trials.ps1"),
                 path: "run-windows-trials.ps1".into(),
             },
         ],
-        mappings,
         runtime_config: Some(windows_config.clone()),
     })?;
-    sandbox_sandbox_verify_inputs(&prepared)?;
+    host_runtime_verify_inputs(&prepared)?;
 
     let _ = ctx
         .progress
         .send((
             format!(
-                "开始 Windows Sandbox VERIFY：{}；范围 {}",
+                "开始 Windows 宿主机 VERIFY：{}；范围 {}",
                 config.path,
                 config.target_scope()
             ),
@@ -250,34 +237,24 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
     let timeout = Duration::from_secs(u64::from(config.deadline().saturating_add(120)));
     let execution_started_at = d::now();
     ctx.reaped.store(false, std::sync::atomic::Ordering::SeqCst);
-    let execution = match entrypoint {
-        SandboxEntrypoint::WindowsPython => {
-            sandbox_sandbox_run_python(&prepared, timeout, ctx.cancel.clone()).await?
-        }
-        SandboxEntrypoint::WindowsNativeSource => {
-            sandbox_sandbox_run_native(&prepared, timeout, ctx.cancel.clone()).await?
-        }
-        SandboxEntrypoint::OriginalPe => {
-            sandbox_sandbox_run_pe(&prepared, timeout, ctx.cancel.clone()).await?
-        }
-        _ => anyhow::bail!("unsupported product entrypoint"),
-    };
+    let execution = host_runtime_run(&prepared, timeout, ctx.cancel.clone()).await?;
     ctx.reaped.store(
-        execution.remote_session_closed,
+        execution.processes_reaped,
         std::sync::atomic::Ordering::SeqCst,
     );
     ensure!(
-        execution.success && execution.remote_session_closed,
-        "Windows Sandbox session did not complete with a confirmed cleanup: {execution:?}"
+        execution.success,
+        "Windows host runtime did not complete with a confirmed cleanup: {execution:?}"
     );
     let execution_finished_at = d::now();
     let policy = match entrypoint {
-        SandboxEntrypoint::WindowsPython => SandboxOutputPolicy::windows_python(),
-        SandboxEntrypoint::WindowsNativeSource => SandboxOutputPolicy::windows_native_source(),
-        SandboxEntrypoint::OriginalPe => SandboxOutputPolicy::original_pe(),
-        _ => anyhow::bail!("unsupported product output policy"),
+        HostRuntimeEntrypoint::WindowsPython => HostRuntimeOutputPolicy::windows_python(),
+        HostRuntimeEntrypoint::WindowsNativeSource => {
+            HostRuntimeOutputPolicy::windows_native_source()
+        }
+        HostRuntimeEntrypoint::OriginalPe => HostRuntimeOutputPolicy::original_pe(),
     };
-    let output = sandbox_sandbox_collect_output(&prepared, &policy)?;
+    let output = host_runtime_collect_output(&prepared, &policy)?;
 
     let guest_observation_text = tokio::fs::read(prepared.output.join("guest-observation.json"))
         .await
@@ -289,7 +266,7 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         Value::Null
     } else {
         serde_json::from_str(&guest_observation_text)
-            .context("invalid Windows Sandbox guest observation")?
+            .context("invalid Windows host runtime observation")?
     };
     let guest_error = tokio::fs::read_to_string(prepared.output.join("guest-error.json"))
         .await
@@ -300,7 +277,7 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         .to_string();
     let observation_error = if output.receipt.status == "ERROR" {
         if guest_error.is_empty() {
-            "Windows Sandbox guest reported an error without details".into()
+            "Windows host runtime reported an error without details".into()
         } else {
             guest_error
         }
@@ -322,7 +299,7 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
                 input_json,
                 exit_code: record["exit_code"].as_i64().map(|code| code as i32),
                 timed_out: record["timed_out"].as_bool().unwrap_or_default(),
-                processes_reaped: execution.remote_session_closed,
+                processes_reaped: execution.processes_reaped,
                 observed: record["observed"].as_bool().unwrap_or_default(),
                 exception: record["exception"].as_str().unwrap_or_default().into(),
                 stdout: record["stdout"].as_str().unwrap_or_default().into(),
@@ -335,14 +312,14 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
             });
         }
     }
-    let build = if entrypoint == SandboxEntrypoint::WindowsNativeSource {
+    let build = if entrypoint == HostRuntimeEntrypoint::WindowsNativeSource {
         json!({
             "status": if guest_observation["compile_exit_code"] == 0 { "READY" } else { "ERROR" },
             "compiler": guest_observation["compiler"],
             "compile_exit_code": guest_observation["compile_exit_code"],
         })
     } else {
-        json!({"status": if observation_error.is_empty() { "READY" } else { "ERROR" }, "environment": "Windows Sandbox x64"})
+        json!({"status": if observation_error.is_empty() { "READY" } else { "ERROR" }, "environment": "Windows host x64"})
     };
     let observation = d::RuntimeObservation {
         schema_version: 1,
@@ -361,7 +338,7 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         "schema_version": 1,
         "config": config,
         "windows_runtime_config": windows_config,
-        "sandbox_manifest": serde_json::from_slice::<Value>(&tokio::fs::read(&prepared.manifest).await?)?,
+        "host_runtime_manifest": serde_json::from_slice::<Value>(&tokio::fs::read(&prepared.manifest).await?)?,
     });
     let recipe = ctx
         .control
@@ -381,12 +358,12 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
             serde_json::to_vec_pretty(&observation)?,
         )
         .await?;
-    let raw_logs = upload_wsb_logs(ctx, &prepared, &execution).await?;
+    let raw_logs = upload_host_runtime_logs(ctx, &prepared, &execution).await?;
     let log = ctx
         .control
         .upload_bytes(
             &ctx.lease,
-            &format!("windows-sandbox-{}.json", d::id()),
+            &format!("windows-host-{}.json", d::id()),
             "application/json",
             serde_json::to_vec_pretty(&json!({
                 "execution": execution,
@@ -397,52 +374,51 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
             }))?,
         )
         .await?;
-    let image_id = format!(
+    let runtime_id = format!(
         "sha256:{}",
         d::sha256(&serde_json::to_vec(&json!({
-            "isolation": "WINDOWS_SANDBOX",
+            "execution": "WINDOWS_HOST",
             "platform": "windows-x64",
-            "network": "DISABLED",
-            "schema_version": aegis_application::runtime::windows_sandbox::SANDBOX_SCHEMA_VERSION,
+            "schema_version": aegis_application::runtime::windows_host::HOST_RUNTIME_SCHEMA_VERSION,
             "python": "3.13.13",
             "zig": "0.15.2",
         }))?)
     );
     let tool = d::ToolExecution {
-        name: "windows-sandbox".into(),
-        version: image_id.clone(),
+        name: "windows-host".into(),
+        version: runtime_id.clone(),
         command: vec![
-            "wsb.exe".into(),
-            "start".into(),
-            "--raw".into(),
-            "--config".into(),
-            prepared.config.to_string_lossy().into_owned(),
+            "powershell.exe".into(),
+            "-NoProfile".into(),
+            "-ExecutionPolicy".into(),
+            "Bypass".into(),
+            "-File".into(),
+            prepared.script.to_string_lossy().into_owned(),
         ],
         started_at: execution_started_at,
         finished_at: execution_finished_at,
-        exit_code: execution.guest_exit_code,
+        exit_code: execution.exit_code,
         terminated: execution.timed_out || execution.cancelled,
         log_artifact_id: log.id,
         details: json!({
-            "isolation": "WINDOWS_SANDBOX",
+            "execution": "WINDOWS_HOST",
             "platform": "windows/x64",
-            "network": "DISABLED",
+            "network": "HOST",
             "session_id": output.receipt.session_id,
-            "wsb_session_id": execution.session_id,
-            "processes_reaped": execution.remote_session_closed,
+            "processes_reaped": execution.processes_reaped,
             "timed_out": execution.timed_out,
             "cancelled": execution.cancelled,
             "raw_log_artifact_ids": raw_logs
                 .iter()
                 .map(|entry| entry["artifact_id"].clone())
                 .collect::<Vec<_>>(),
-            "commands": wsb_commands(&prepared.config, guest_script, &execution),
+            "commands": host_runtime_commands(&prepared),
         }),
     };
     let result = d::RuntimeResult {
         target_sha256: manifest.target_sha256.clone(),
         config_hash: config.fingerprint(),
-        image_id,
+        image_id: runtime_id,
         target_scope: config.target_scope().into(),
         recipe_artifact_id: recipe.id,
         observation_artifact_id: raw.id,
@@ -529,95 +505,48 @@ async fn verify_pinned_runtime_versions(root: &Path, adapter: WindowsRuntimeAdap
     Ok(())
 }
 
-fn wsb_commands(
-    config: &Path,
-    guest_script: &str,
-    execution: &aegis_application::runtime::windows_sandbox::SandboxExecution,
-) -> Vec<Vec<String>> {
-    let guest_command = format!(
-        "powershell.exe -NoProfile -ExecutionPolicy Bypass -File {GUEST_TOOLS}\\{guest_script} -InputPath {GUEST_INPUT} -OutputPath {GUEST_OUTPUT}"
-    );
-    let mut commands = vec![
-        vec![
-            "wsb.exe".into(),
-            "start".into(),
-            "--raw".into(),
-            "--config".into(),
-            config.to_string_lossy().into_owned(),
-        ],
-        vec![
-            "wsb.exe".into(),
-            "exec".into(),
-            "--raw".into(),
-            "--id".into(),
-            execution.session_id.clone(),
-            "-r".into(),
-            "System".into(),
-            "-c".into(),
-            guest_command,
-        ],
-        vec!["wsb.exe".into(), "list".into(), "--raw".into()],
-    ];
-    if execution.stop_exit_code.is_some() {
-        commands.push(vec![
-            "wsb.exe".into(),
-            "stop".into(),
-            "--raw".into(),
-            "--id".into(),
-            execution.session_id.clone(),
-        ]);
-    }
-    commands
+fn host_runtime_commands(prepared: &windows_host::PreparedHostRuntime) -> Vec<Vec<String>> {
+    vec![vec![
+        "powershell.exe".into(),
+        "-NoProfile".into(),
+        "-ExecutionPolicy".into(),
+        "Bypass".into(),
+        "-File".into(),
+        prepared.script.to_string_lossy().into_owned(),
+        "-InputPath".into(),
+        prepared.input.to_string_lossy().into_owned(),
+        "-OutputPath".into(),
+        prepared.output.to_string_lossy().into_owned(),
+    ]]
 }
 
-async fn upload_wsb_logs(
+async fn upload_host_runtime_logs(
     ctx: &JobContext,
-    prepared: &aegis_application::runtime::windows_sandbox::PreparedSandbox,
-    execution: &aegis_application::runtime::windows_sandbox::SandboxExecution,
+    _prepared: &windows_host::PreparedHostRuntime,
+    execution: &windows_host::HostRuntimeExecution,
 ) -> Result<Vec<Value>> {
-    let mut paths = Vec::new();
-    let mut entries = tokio::fs::read_dir(&prepared.root).await?;
-    while let Some(entry) = entries.next_entry().await? {
-        let path = entry.path();
-        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        if name.starts_with("sandbox-") && name.ends_with(".json") {
-            paths.push(path);
-        }
-    }
-    paths.sort();
-    ensure!(
-        !paths.is_empty(),
-        "Windows Sandbox raw WSB logs are missing"
-    );
-    let mut uploaded = Vec::new();
-    let mut total = 0_u64;
-    for path in paths {
-        let bytes = tokio::fs::read(&path).await?;
-        total += u64::try_from(bytes.len()).unwrap_or(u64::MAX);
-        ensure!(
-            total <= 32 * 1024 * 1024,
-            "Windows Sandbox raw logs exceed 32 MiB"
-        );
-        let name = path.file_name().unwrap().to_string_lossy().into_owned();
-        let sha256 = d::sha256(&bytes);
-        let artifact = ctx
-            .control
-            .upload_bytes(
-                &ctx.lease,
-                &format!("windows-sandbox-{}-{name}", execution.session_id),
-                "application/json",
-                bytes,
-            )
-            .await?;
-        uploaded.push(json!({
-            "name": name,
-            "artifact_id": artifact.id,
-            "sha256": sha256,
-        }));
-    }
-    Ok(uploaded)
+    let bytes = serde_json::to_vec_pretty(&json!({
+        "stdout": execution.stdout,
+        "stderr": execution.stderr,
+        "exit_code": execution.exit_code,
+        "timed_out": execution.timed_out,
+        "cancelled": execution.cancelled,
+    }))?;
+    let sha256 = d::sha256(&bytes);
+    let artifact = ctx
+        .control
+        .upload_bytes(
+            &ctx.lease,
+            &format!("windows-host-{}.json", d::id()),
+            "application/json",
+            bytes,
+        )
+        .await?;
+    Ok(vec![json!({
+        "name": "host-runtime-execution.json",
+        "artifact_id": artifact.id,
+        "sha256": sha256,
+    })])
 }
 
 fn invocation_inputs(invocation: &d::Invocation) -> Result<Vec<WindowsRuntimeInput>> {
@@ -639,7 +568,7 @@ fn invocation_inputs(invocation: &d::Invocation) -> Result<Vec<WindowsRuntimeInp
 async fn collect_source_files(
     source: &Path,
     destination: &Path,
-    transfers: &mut Vec<SandboxFileTransfer>,
+    transfers: &mut Vec<HostRuntimeFileTransfer>,
 ) -> Result<()> {
     let mut stack = vec![source.to_path_buf()];
     while let Some(directory) = stack.pop() {
@@ -659,7 +588,7 @@ async fn collect_source_files(
                 tokio::fs::create_dir_all(parent).await?;
             }
             tokio::fs::copy(&path, &target).await?;
-            transfers.push(SandboxFileTransfer {
+            transfers.push(HostRuntimeFileTransfer {
                 source: target,
                 path: relative,
             });
@@ -667,52 +596,32 @@ async fn collect_source_files(
     }
     ensure!(
         transfers.len() <= 256,
-        "Windows Sandbox source input set is too large"
+        "Windows host runtime source input set is too large"
     );
     Ok(())
 }
 
-fn sandbox_sandbox_prepare(
-    spec: &SandboxSpec,
-) -> Result<aegis_application::runtime::windows_sandbox::PreparedSandbox> {
-    tokio::task::block_in_place(|| windows_sandbox::prepare(spec))
+fn host_runtime_prepare(spec: &HostRuntimeSpec) -> Result<windows_host::PreparedHostRuntime> {
+    tokio::task::block_in_place(|| windows_host::prepare(spec))
 }
 
-fn sandbox_sandbox_verify_inputs(
-    prepared: &aegis_application::runtime::windows_sandbox::PreparedSandbox,
-) -> Result<()> {
-    tokio::task::block_in_place(|| windows_sandbox::verify_inputs(prepared))
+fn host_runtime_verify_inputs(prepared: &windows_host::PreparedHostRuntime) -> Result<()> {
+    tokio::task::block_in_place(|| windows_host::verify_inputs(prepared))
 }
 
-fn sandbox_sandbox_collect_output(
-    prepared: &aegis_application::runtime::windows_sandbox::PreparedSandbox,
-    policy: &SandboxOutputPolicy,
-) -> Result<aegis_application::runtime::windows_sandbox::SandboxOutput> {
-    tokio::task::block_in_place(|| windows_sandbox::collect_output(prepared, policy))
+fn host_runtime_collect_output(
+    prepared: &windows_host::PreparedHostRuntime,
+    policy: &HostRuntimeOutputPolicy,
+) -> Result<windows_host::HostRuntimeOutput> {
+    tokio::task::block_in_place(|| windows_host::collect_output(prepared, policy))
 }
 
-async fn sandbox_sandbox_run_python(
-    prepared: &aegis_application::runtime::windows_sandbox::PreparedSandbox,
+async fn host_runtime_run(
+    prepared: &windows_host::PreparedHostRuntime,
     timeout: Duration,
     cancel: tokio_util::sync::CancellationToken,
-) -> Result<aegis_application::runtime::windows_sandbox::SandboxExecution> {
-    windows_sandbox::run_windows_python(prepared, timeout, cancel).await
-}
-
-async fn sandbox_sandbox_run_native(
-    prepared: &aegis_application::runtime::windows_sandbox::PreparedSandbox,
-    timeout: Duration,
-    cancel: tokio_util::sync::CancellationToken,
-) -> Result<aegis_application::runtime::windows_sandbox::SandboxExecution> {
-    windows_sandbox::run_native_source(prepared, timeout, cancel).await
-}
-
-async fn sandbox_sandbox_run_pe(
-    prepared: &aegis_application::runtime::windows_sandbox::PreparedSandbox,
-    timeout: Duration,
-    cancel: tokio_util::sync::CancellationToken,
-) -> Result<aegis_application::runtime::windows_sandbox::SandboxExecution> {
-    windows_sandbox::run_original_pe(prepared, timeout, cancel).await
+) -> Result<windows_host::HostRuntimeExecution> {
+    windows_host::run(prepared, timeout, cancel).await
 }
 
 #[cfg(test)]

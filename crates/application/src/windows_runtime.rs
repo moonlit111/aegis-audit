@@ -1,6 +1,6 @@
 //! A03 configuration model for the future Windows-native runtime contract.
 //!
-//! This module is intentionally independent of the legacy Docker/ELF contract.
+//! This module is intentionally independent of the legacy Linux/ELF contract.
 //! It gives A a reviewable shape for C00 without changing shared protocol or
 //! database types before the contract is frozen.
 use anyhow::{Result, ensure};

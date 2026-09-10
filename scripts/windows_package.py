@@ -31,14 +31,6 @@ def prepare():
     install_archive(SPECS['git'], TOOLS / 'git')
     install_archive(SPECS['zig'], TOOLS / 'zig')
     subprocess.run(
-        [sys.executable, str(ROOT / 'tools/windows/sandbox/install-llvm.py')],
-        check=True,
-    )
-    subprocess.run(
-        [sys.executable, str(ROOT / 'tools/windows/sandbox/install-tinyinst.py')],
-        check=True,
-    )
-    subprocess.run(
         [sys.executable, str(ROOT / 'tools/windows/install-upx.py')],
         check=True,
     )
@@ -121,8 +113,6 @@ def bundle(stage, version):
                            (ghidra, stage / '.tools/ghidra_12.1.3_PUBLIC'),
                            (TOOLS / 'git', stage / '.tools/git'),
                            (TOOLS / 'zig', stage / '.tools/zig'),
-                           (TOOLS / 'llvm-min', stage / '.tools/llvm-min'),
-                           (TOOLS / 'tinyinst', stage / '.tools/tinyinst'),
                            (TOOLS / 'upx', stage / '.tools/upx')]:
         shutil.copytree(source, target)
     shutil.copytree(TOOLS / 'windows-python', stage / '.tools/windows-python',
@@ -131,10 +121,10 @@ def bundle(stage, version):
     icon.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / 'tools/windows/aegis.ico', icon)
     shutil.copy2(ROOT / 'tools/windows/versions.json', icon.parent / 'versions.json')
-    sandbox_tools = stage / 'tools/windows/sandbox'
-    sandbox_tools.mkdir(parents=True, exist_ok=True)
-    for file in (ROOT / 'tools/windows/sandbox').glob('*.ps1'):
-        shutil.copy2(file, sandbox_tools / file.name)
+    runtime_tools = stage / 'tools/windows/runtime'
+    runtime_tools.mkdir(parents=True, exist_ok=True)
+    for file in (ROOT / 'tools/windows/runtime').glob('*.ps1'):
+        shutil.copy2(file, runtime_tools / file.name)
     # The upstream JDK includes the redistributable required by the native Rust tools.
     runtime = jdk / 'bin/vcruntime140.dll'
     if not runtime.is_file():
@@ -149,10 +139,8 @@ def bundle(stage, version):
         'bundled_git': SPECS['git']['version'], 'bundled_java': '21.0.12.1+1',
         'bundled_ghidra': '12.1.3', 'bundled_semgrep': '1.176.1',
         'bundled_zig': SPECS['zig']['version'], 'api_credentials_included': False,
-        'bundled_llvm': SPECS['llvm']['version'],
-        'bundled_tinyinst': SPECS['tinyinst']['version'],
         'bundled_upx': SPECS['upx']['version'],
-        'dynamic_runtime': 'WINDOWS_SANDBOX_VERIFY_INTEGRATED',
+        'dynamic_runtime': 'WINDOWS_HOST_VERIFY_INTEGRATED',
         'pending_dynamic_runtime': 'DYNAMIC_TESTING/libFuzzer product integration',
     }, indent=2) + '\n', encoding='utf-8')
 

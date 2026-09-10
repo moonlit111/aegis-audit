@@ -204,7 +204,7 @@ impl Store {
                     }
                     if !d::is_windows_runtime_adapter(&config.adapter) {
                         return Err(AppError::Invalid(
-                            "新验证方案必须使用 Windows Sandbox 适配器".into(),
+                            "新验证方案必须使用 Windows 宿主机适配器".into(),
                         ));
                     }
                     let binary = corpus.target["kind"] == "BINARY";

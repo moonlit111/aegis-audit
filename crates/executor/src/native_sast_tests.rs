@@ -50,8 +50,6 @@ fn desktop_recovery_never_assumes_dynamic_or_unowned_work_was_reaped() {
             name: "Global\\AegisAudit-fixture".into(),
             machine_identity: "fixture-host".into(),
         }),
-        sandbox_root: None,
-        sandbox_session_id: None,
     };
     assert!(recoverable_owner(&active).is_err());
     for kind in ["IMPORT", "ANALYZE"] {
@@ -60,56 +58,6 @@ fn desktop_recovery_never_assumes_dynamic_or_unowned_work_was_reaped() {
     }
     active.process_job = None;
     assert!(recoverable_owner(&active).is_err());
-}
-
-#[test]
-fn sandbox_session_ownership_is_read_from_the_recovery_record() {
-    let directory = tempfile::tempdir().unwrap();
-    let root = directory.path().join("sandbox");
-    std::fs::create_dir_all(&root).unwrap();
-    assert_eq!(read_sandbox_session_id(&root), None);
-    std::fs::write(
-        root.join("sandbox-session.json"),
-        serde_json::to_vec(&json!({
-            "wsb_session_id": "wsb-session-001",
-            "closed": false
-        }))
-        .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(
-        read_sandbox_session_id(&root).as_deref(),
-        Some("wsb-session-001")
-    );
-}
-
-#[test]
-fn sandbox_start_logs_reveal_an_orphan_session_before_the_recovery_record_exists() {
-    let directory = tempfile::tempdir().unwrap();
-    let root = directory.path().join("sandbox");
-    std::fs::create_dir_all(&root).unwrap();
-    assert_eq!(read_started_sandbox_session_id(&root), None);
-    for (name, id) in [
-        ("sandbox-start-attempt-1.json", "old-session"),
-        ("sandbox-start-attempt-2.json", "orphan-session"),
-    ] {
-        std::fs::write(
-            root.join(name),
-            serde_json::to_vec(&json!({
-                "exit_code": 0,
-                "stdout": format!("{{\"Id\":\"{id}\"}}"),
-                "stderr": "",
-                "timed_out": false,
-                "cancelled": false
-            }))
-            .unwrap(),
-        )
-        .unwrap();
-    }
-    assert_eq!(
-        read_started_sandbox_session_id(&root).as_deref(),
-        Some("orphan-session")
-    );
 }
 
 async fn execute_claim(control: &Control, tools: &Tools, work: &Path) -> String {
