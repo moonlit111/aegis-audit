@@ -2,4 +2,4 @@
 
 本目录是可控的组件验证与模糊测试输入，不是课程正式软件。formatter.py 用无网络依赖的 printf 输入边界检验命令注入及修复；input.c 为标准输入越界与修复对照。它们与 tests/fixtures/audit 中的路径、权限及内存夹具共同检查实际运行器。
 
-复验命令：`python scripts/e2e.py --runtime`。需要已构建的服务/执行器和固定 Windows Python/Zig 工具。每次使用独立数据库、固定输入集、宿主机运行器和新测试目录；配置、正常输入、重复输入、日志、哈希和结果保留在 `.data/verification/`。
+当前复验入口为 `python scripts/e2e.py --runtime`，需要已构建的服务/执行器和固定 Windows Python/Zig 工具；每次使用独立数据库、固定输入集、宿主机运行器和新测试目录。夹具用于组件行为对照，不是课程正式软件，也不能把历史 Linux 容器结果当作宿主机链路已经验收。
