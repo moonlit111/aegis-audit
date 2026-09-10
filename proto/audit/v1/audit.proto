@@ -180,6 +180,9 @@ message CreateRunRequest {
   uint32 max_units = 5;
   uint32 max_tool_rounds = 6;
   uint32 timeout_seconds = 7;
+  uint32 max_output_tokens = 8;
+  string reasoning_effort = 9;
+  uint32 model_timeout_seconds = 10;
 }
 message CreateRunResponse { AuditRun run = 1; }
 message ListRunsRequest { string project_id = 1; }
@@ -380,6 +383,7 @@ message UpdateAnnotationResponse { LogicAnnotation annotation = 1; }
 
 service RuntimeService {
   rpc CreateRuntime(CreateRuntimeRequest) returns (CreateRuntimeResponse);
+  rpc SuggestRuntime(SuggestRuntimeRequest) returns (SuggestRuntimeResponse);
   rpc GetRuntime(GetRuntimeRequest) returns (GetRuntimeResponse);
   rpc ListRuntime(ListRuntimeRequest) returns (ListRuntimeResponse);
 }
@@ -401,6 +405,16 @@ message CreateRuntimeRequest {
   string config_json = 4;
 }
 message CreateRuntimeResponse { RuntimeRecord record = 1; }
+message SuggestRuntimeRequest {
+  string request_id = 1;
+  string source_run_id = 2;
+  string finding_id = 3;
+}
+message SuggestRuntimeResponse {
+  string config_json = 1;
+  string rationale = 2;
+  repeated string limitations = 3;
+}
 message GetRuntimeRequest { string record_id = 1; }
 message GetRuntimeResponse { RuntimeRecord record = 1; }
 message ListRuntimeRequest { string run_id = 1; }

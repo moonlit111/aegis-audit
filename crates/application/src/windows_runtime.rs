@@ -46,7 +46,7 @@ impl WindowsRuntimeAdapter {
     pub fn target_scope(self) -> &'static str {
         match self {
             Self::PythonCall => "COMPONENT",
-            Self::NativeSource => "INSTRUMENTED_BUILD",
+            Self::NativeSource => "REBUILT_TARGET",
             Self::OriginalPe32 | Self::OriginalPe64 => "ORIGINAL",
             Self::LibFuzzerPrebuilt => "INSTRUMENTED_BUILD",
         }
@@ -85,6 +85,7 @@ pub enum WindowsRuntimeInput {
     Stdin { value: String },
     File { path: String },
     Argument { value: String },
+    PythonCall { invocation_json: String },
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -95,6 +96,8 @@ pub struct WindowsRuntimeEnvironment {
     pub marker_path: Option<String>,
     #[serde(default)]
     pub runtime_libraries: BTreeMap<String, String>,
+    #[serde(default)]
+    pub globals_json: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -102,8 +105,10 @@ pub struct WindowsFuzzOptions {
     pub engine: String,
     pub runs: u32,
     pub timeout_seconds: u32,
+    pub budget_seconds: u32,
     pub random_seed: u64,
     pub max_input_bytes: u32,
+    pub seeds: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -166,8 +171,25 @@ impl WindowsRuntimeConfig {
             "timeout_seconds must be between 1 and 900"
         );
         ensure!(
-            self.baseline_inputs.len() <= 16 && self.probe_inputs.len() <= 16,
-            "at most 16 baseline and probe inputs are allowed"
+            self.baseline_inputs.len() <= 33 && self.probe_inputs.len() <= 33,
+            "at most 32 arguments and one stdin input are allowed"
+        );
+        let globals: BTreeMap<String, Value> = if self.environment.globals_json.is_empty() {
+            BTreeMap::new()
+        } else {
+            serde_json::from_str(&self.environment.globals_json)?
+        };
+        ensure!(
+            globals.len() <= 16
+                && globals
+                    .keys()
+                    .all(|key| identifier(key) && !key.starts_with("__"))
+                && (self.adapter == WindowsRuntimeAdapter::PythonCall || globals.is_empty()),
+            "only Python calls support bounded, ordinary JSON globals"
+        );
+        ensure!(
+            !serde_json::to_string(self)?.contains("{{"),
+            "Windows runtime does not expand template placeholders"
         );
 
         match self.adapter {
@@ -216,8 +238,8 @@ impl WindowsRuntimeConfig {
 
         match self.mode {
             WindowsRuntimeMode::Verify => ensure!(
-                self.fuzz.is_none(),
-                "VERIFY configurations cannot contain fuzz options"
+                self.fuzz.is_none() && self.adapter != WindowsRuntimeAdapter::LibFuzzerPrebuilt,
+                "VERIFY configurations cannot contain fuzz options or use the prebuilt libFuzzer adapter"
             ),
             WindowsRuntimeMode::Fuzz => {
                 let fuzz = self
@@ -237,37 +259,45 @@ impl WindowsRuntimeConfig {
                     "fuzz timeout_seconds must be between 1 and 900"
                 );
                 ensure!(
+                    (1..=900).contains(&fuzz.budget_seconds),
+                    "fuzz budget_seconds must be between 1 and 900"
+                );
+                ensure!(
                     (1..=1024 * 1024).contains(&fuzz.max_input_bytes),
                     "fuzz max_input_bytes must be between 1 and 1 MiB"
                 );
-                match self.adapter {
-                    WindowsRuntimeAdapter::NativeSource => ensure!(
-                        matches!(&self.entry, WindowsRuntimeEntry::Function { .. }),
-                        "source FUZZ mode requires a function entry"
-                    ),
-                    WindowsRuntimeAdapter::LibFuzzerPrebuilt => {
-                        ensure!(
-                            self.target_path.to_ascii_lowercase().ends_with(".exe"),
-                            "the prebuilt libFuzzer adapter requires an .exe target"
-                        );
-                        ensure!(
-                            matches!(&self.entry, WindowsRuntimeEntry::CommandLine { .. }),
-                            "prebuilt libFuzzer mode requires a command-line entry"
-                        );
-                        ensure!(
-                            self.environment
-                                .compiler
-                                .as_deref()
-                                .is_some_and(nonempty_bounded),
-                            "the prebuilt libFuzzer adapter requires a pinned LLVM version"
-                        );
-                    }
-                    _ => {
-                        return Err(anyhow::anyhow!(
-                            "the Windows FUZZ mode supports native-source or prebuilt libFuzzer only"
-                        ));
-                    }
-                }
+                ensure!(
+                    !fuzz.seeds.is_empty()
+                        && fuzz.seeds.len() <= 32
+                        && fuzz
+                            .seeds
+                            .iter()
+                            .all(|seed| !seed.is_empty() && seed.len() <= 8192),
+                    "fuzz seeds must contain 1-32 bounded non-empty values"
+                );
+                ensure!(
+                    self.adapter == WindowsRuntimeAdapter::LibFuzzerPrebuilt,
+                    "the Windows FUZZ mode supports prebuilt libFuzzer targets only"
+                );
+                ensure!(
+                    self.target_path.to_ascii_lowercase().ends_with(".exe"),
+                    "the prebuilt libFuzzer adapter requires an .exe target"
+                );
+                ensure!(
+                    matches!(&self.entry, WindowsRuntimeEntry::CommandLine { .. }),
+                    "prebuilt libFuzzer mode requires a command-line entry"
+                );
+                ensure!(
+                    self.environment
+                        .compiler
+                        .as_deref()
+                        .is_some_and(nonempty_bounded),
+                    "the prebuilt libFuzzer adapter requires a pinned LLVM version"
+                );
+                ensure!(
+                    self.baseline_inputs.is_empty() && self.probe_inputs.is_empty(),
+                    "prebuilt libFuzzer mode uses seeds instead of baseline/probe inputs"
+                );
             }
         }
 
@@ -280,11 +310,15 @@ impl WindowsRuntimeConfig {
                 self.adapter.source(),
                 "function entries are only valid for source adapters"
             );
+            ensure!(
+                self.adapter != WindowsRuntimeAdapter::PythonCall || module == &self.target_path,
+                "Python entry must refer to the hashed target module"
+            );
         }
         if let WindowsRuntimeEntry::CommandLine { path, arguments } = &self.entry {
             ensure!(
-                relative_path(path),
-                "command-line entry path must be relative to the immutable target"
+                relative_path(path) && path == &self.target_path,
+                "command-line entry must refer to the hashed target"
             );
             ensure!(arguments.len() <= 32, "at most 32 arguments are allowed");
             for argument in arguments {
@@ -303,16 +337,68 @@ impl WindowsRuntimeConfig {
                     value.len() <= 128 * 1024 && !value.contains("{{canary}}"),
                     "stdin input is too large or contains an unsafe marker"
                 ),
-                WindowsRuntimeInput::File { path } => ensure!(
-                    relative_path(path),
-                    "file input path must be bounded and relative"
-                ),
+                WindowsRuntimeInput::File { .. } => {
+                    anyhow::bail!("file inputs must be supplied as fixtures and explicit arguments")
+                }
                 WindowsRuntimeInput::Argument { value } => ensure!(
                     value.len() <= 4096
                         && !value.contains(['\0', '\r', '\n'])
                         && !value.contains("{{canary}}"),
                     "argument input is invalid"
                 ),
+                WindowsRuntimeInput::PythonCall { invocation_json } => {
+                    let invocation: aegis_domain::Invocation =
+                        serde_json::from_str(invocation_json)?;
+                    ensure!(
+                        self.adapter == WindowsRuntimeAdapter::PythonCall
+                            && invocation.args.len() <= 32
+                            && invocation.kwargs.len() <= 16
+                            && invocation.stdin.len() <= 65536
+                            && invocation
+                                .kwargs
+                                .keys()
+                                .all(|key| identifier(key) && !key.starts_with("__")),
+                        "invalid Python JSON invocation"
+                    );
+                }
+            }
+        }
+        for inputs in [&self.baseline_inputs, &self.probe_inputs] {
+            let calls = inputs
+                .iter()
+                .filter(|input| matches!(input, WindowsRuntimeInput::PythonCall { .. }))
+                .count();
+            ensure!(
+                calls <= 1
+                    && inputs
+                        .iter()
+                        .filter(|input| matches!(input, WindowsRuntimeInput::Stdin { .. }))
+                        .count()
+                        <= 1
+                    && (calls == 0
+                        || inputs.iter().all(|input| matches!(
+                            input,
+                            WindowsRuntimeInput::PythonCall { .. }
+                                | WindowsRuntimeInput::Stdin { .. }
+                        ))),
+                "ambiguous Windows runtime inputs"
+            );
+            for input in inputs {
+                if let WindowsRuntimeInput::PythonCall { invocation_json } = input {
+                    let invocation: aegis_domain::Invocation =
+                        serde_json::from_str(invocation_json)?;
+                    let stdin = inputs
+                        .iter()
+                        .find_map(|input| match input {
+                            WindowsRuntimeInput::Stdin { value } => Some(value.as_str()),
+                            _ => None,
+                        })
+                        .unwrap_or_default();
+                    ensure!(
+                        invocation.stdin == stdin,
+                        "Python stdin differs from its invocation receipt"
+                    );
+                }
             }
         }
 
@@ -326,8 +412,8 @@ impl WindowsRuntimeConfig {
             serde_json::to_vec(self)
                 .map_err(|_| anyhow::anyhow!("config is not serializable"))?
                 .len()
-                <= 256 * 1024,
-            "Windows runtime configuration exceeds 256 KiB"
+                <= 512 * 1024,
+            "encoded Windows runtime configuration exceeds 512 KiB"
         );
         Ok(())
     }
@@ -472,7 +558,6 @@ mod tests {
             WindowsRuntimeAdapter::NativeSource,
             WindowsRuntimeAdapter::OriginalPe32,
             WindowsRuntimeAdapter::OriginalPe64,
-            WindowsRuntimeAdapter::LibFuzzerPrebuilt,
         ] {
             let value = config(adapter);
             value.validate().unwrap();
@@ -527,7 +612,7 @@ mod tests {
 
     #[test]
     fn fuzz_mode_requires_a_bounded_libfuzzer_recipe() {
-        let mut config = config(WindowsRuntimeAdapter::NativeSource);
+        let mut config = config(WindowsRuntimeAdapter::LibFuzzerPrebuilt);
         config.mode = WindowsRuntimeMode::Fuzz;
         assert!(config.validate().is_err());
 
@@ -535,9 +620,13 @@ mod tests {
             engine: "LLVM_LIBFUZZER".into(),
             runs: 1000,
             timeout_seconds: 30,
+            budget_seconds: 60,
             random_seed: 71413,
             max_input_bytes: 64,
+            seeds: vec!["seed".into()],
         });
+        config.baseline_inputs.clear();
+        config.probe_inputs.clear();
         config.validate().unwrap();
         assert_eq!(config.environment_summary().unwrap()["mode"], "FUZZ");
 

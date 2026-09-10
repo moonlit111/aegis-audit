@@ -42,6 +42,7 @@
     isTerminal,
   } from './lib/format';
   import ImportDialog from './components/ImportDialog.svelte';
+  import AuditDialog from './components/AuditDialog.svelte';
   import RunView from './components/RunView.svelte';
   import ModelConnectionPanel from './components/ModelConnectionPanel.svelte';
 
@@ -57,6 +58,7 @@
   let error = $state('');
   let toast = $state('');
   let showImport = $state(false);
+  let auditSnapshot = $state<Snapshot>();
   let importProject = $state('');
   let creating = $state('');
   let refreshing = false;
@@ -378,8 +380,9 @@
                         title={capabilities?.modelConnection?.configured
                           ? '解析代码后进行语义审计与独立复核'
                           : '请先在执行环境配置模型连接'}
-                        onclick={() => analyze(snapshot, 'SECURITY_AUDIT')}
-                        >开始漏洞审计<ArrowRight size={14} /></button
+                        onclick={() => {
+                          auditSnapshot = snapshot;
+                        }}>开始漏洞审计<ArrowRight size={14} /></button
                       >
                     </div>
                   </article>{/each}
@@ -502,6 +505,17 @@
       showImport = false;
     }}
     onimported={imported}
+  />{/if}
+{#if auditSnapshot}<AuditDialog
+    snapshot={auditSnapshot}
+    onclose={() => {
+      auditSnapshot = undefined;
+    }}
+    oncreated={(id) => {
+      auditSnapshot = undefined;
+      location.hash = `/runs/${id}`;
+      void refresh();
+    }}
   />{/if}
 {#if toast}<div class="toast" role="status">
     <Check size={17} /><span>{toast}</span><button

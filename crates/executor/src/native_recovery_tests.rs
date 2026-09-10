@@ -331,6 +331,7 @@ pub(super) async fn exercise_recovery(live: bool) {
         max_tool_rounds: 12,
         max_model_calls: 24,
         timeout_seconds: 900,
+        ..Default::default()
     };
     let run = store
         .create_run_with_options(&d::id(), &snapshot.id, d::AUDIT_SCOPE, config.clone())

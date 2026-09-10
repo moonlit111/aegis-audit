@@ -82,6 +82,15 @@ export type Summary = {
   eligible_unit_count?: number;
   finding_count?: number;
   audit_coverage_gap?: string;
+  audit_config?: {
+    max_model_calls: number;
+    max_units: number;
+    max_tool_rounds: number;
+    timeout_seconds: number;
+    max_output_tokens?: number;
+    reasoning_effort?: string;
+    model_timeout_seconds?: number;
+  };
   function_count?: number;
   edge_count?: number;
   unresolved_calls?: number;

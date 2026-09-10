@@ -432,7 +432,7 @@ impl Store {
                 .iter()
                 .any(|c| c.name == capability && c.available)
         });
-        let run = d::AuditRun {
+        let mut run = d::AuditRun {
             id: d::id(),
             project_id: snapshot.project_id.clone(),
             snapshot_id: snapshot_id.into(),
@@ -449,6 +449,9 @@ impl Store {
             summary: json!({"vulnerability_audit":"NOT_RUN","verification":"NOT_RUN","required_capability":capability}),
             error: String::new(),
         };
+        if settings.is_some() {
+            run.summary["audit_config"] = serde_json::to_value(&config)?;
+        }
         sqlx::query("INSERT INTO audit_runs(id,project_id,snapshot_id,state,created_at,data) VALUES(?,?,?,?,?,?)").bind(&run.id).bind(&run.project_id).bind(snapshot_id).bind(run.state.as_str()).bind(&run.created_at).bind(serde_json::to_string(&run)?).execute(&mut *tx).await?;
         if let Some(settings) = settings {
             sqlx::query("INSERT INTO audit_workflows(run_id,state,config,model,config_hash,created_at) VALUES(?,'WAITING_STRUCTURE',?,?,?,?)")
@@ -1057,7 +1060,11 @@ impl Store {
                 };
                 run.finished_at = d::now();
                 run.unit_count = result.units.len() as u64;
+                let audit_config = run.summary.get("audit_config").cloned();
                 run.summary = json!({"metadata":result.metadata,"files":result.files,"warnings":result.warnings,"tools":result.tools,"exclusions":manifest.exclusions,"unit_count":run.unit_count,"function_count":result.units.iter().filter(|u|u.metadata["kind"]=="function").count(),"edge_count":result.edges.len(),"unresolved_calls":result.edges.iter().filter(|e|e.target_key.is_empty()).count(),"result_artifact_id":result_id,"vulnerability_audit":"NOT_RUN","verification":"NOT_RUN"});
+                if let Some(config) = audit_config {
+                    run.summary["audit_config"] = config;
+                }
                 if run.scope == d::AUDIT_SCOPE {
                     run.summary["structure_partial"] = json!(result.partial());
                     run.summary["vulnerability_audit"] = json!("QUEUED");

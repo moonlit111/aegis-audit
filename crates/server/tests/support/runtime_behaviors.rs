@@ -44,10 +44,7 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
     };
     let unsupported = {
         let mut config = config.clone();
-        config
-            .baseline
-            .kwargs
-            .insert("name".into(), json!("baseline"));
+        config.baseline.stdin = "{{work}}".into();
         config
     };
     assert!(
@@ -56,12 +53,23 @@ async fn runtime_is_idempotent_and_cannot_ingest_success_without_execution_artif
             .await
             .is_err()
     );
+    config.baseline.args = vec![json!(7), json!([true, null])];
+    config
+        .baseline
+        .kwargs
+        .insert("name".into(), json!("baseline"));
+    config
+        .globals
+        .insert("settings".into(), json!({"enabled": true}));
     let request = d::id();
     let record = store
         .create_runtime(&request, &run.id, "", Some(config.clone()))
         .await
         .unwrap();
     assert_eq!(record.status, "WAITING_EXECUTOR");
+    assert_eq!(record.config.baseline.args, config.baseline.args);
+    assert_eq!(record.config.baseline.kwargs, config.baseline.kwargs);
+    assert_eq!(record.config.globals, config.globals);
     assert_eq!(
         store
             .create_runtime(&request, &run.id, "", Some(config.clone()))

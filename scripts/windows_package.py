@@ -143,8 +143,8 @@ def bundle(stage, version):
         'bundled_ghidra': '12.1.3', 'bundled_semgrep': '1.176.1',
         'bundled_zig': SPECS['zig']['version'], 'api_credentials_included': False,
         'bundled_upx': SPECS['upx']['version'],
-        'dynamic_runtime': 'WINDOWS_HOST_VERIFY_INTEGRATED',
-        'pending_dynamic_runtime': 'DYNAMIC_TESTING/libFuzzer product integration',
+        'dynamic_runtime': 'WINDOWS_HOST_VERIFY_AND_PREBUILT_LIBFUZZER_INTEGRATED',
+        'pending_dynamic_runtime': 'REAL_CVE_REPRODUCTION_AND_CRASH_MINIMIZATION',
     }, indent=2) + '\n', encoding='utf-8')
 
 

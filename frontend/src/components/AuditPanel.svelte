@@ -170,6 +170,36 @@
     </div>
     <div><span>动态与利用验证</span><strong>未执行</strong></div>
   </div>
+  {#if summary.audit_config}<dl class="audit-budget-summary">
+      <div>
+        <dt>模型调用</dt>
+        <dd>{data?.modelCalls.length || 0} / {summary.audit_config.max_model_calls}</dd>
+      </div>
+      <div>
+        <dt>工具轮数 / 子任务</dt>
+        <dd>{summary.audit_config.max_tool_rounds}</dd>
+      </div>
+      <div>
+        <dt>单元上限</dt>
+        <dd>{summary.audit_config.max_units}</dd>
+      </div>
+      <div>
+        <dt>任务时限</dt>
+        <dd>{summary.audit_config.timeout_seconds} s</dd>
+      </div>
+      {#if summary.audit_config.max_output_tokens}<div>
+          <dt>单次输出（含思考）</dt>
+          <dd>{summary.audit_config.max_output_tokens} token</dd>
+        </div>{/if}
+      {#if summary.audit_config.reasoning_effort}<div>
+          <dt>思考强度</dt>
+          <dd>{summary.audit_config.reasoning_effort}</dd>
+        </div>{/if}
+      {#if summary.audit_config.model_timeout_seconds}<div>
+          <dt>单次时限</dt>
+          <dd>{summary.audit_config.model_timeout_seconds} s</dd>
+        </div>{/if}
+    </dl>{/if}
   {#if summary.audit_coverage_gap}<p class="audit-gap">{summary.audit_coverage_gap}</p>{/if}
   {#if error}<div class="error-banner" role="alert">
       {error}<button
@@ -395,3 +425,25 @@
     </div>
   {/if}
 </section>
+
+<style>
+  .audit-budget-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    margin: 12px 0;
+    font-size: 12px;
+  }
+  .audit-budget-summary div {
+    min-width: 0;
+  }
+  .audit-budget-summary dt {
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+  .audit-budget-summary dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+</style>

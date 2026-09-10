@@ -4,7 +4,8 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub const AUDIT_SCOPE: &str = "SECURITY_AUDIT";
-pub const PROMPT_VERSION: &str = "audit-9-recovery";
+pub const PROMPT_VERSION: &str = "audit-11-symbolic-inputs";
+pub const MAX_MODEL_TIMEOUT_SECONDS: u32 = 3_600;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
@@ -13,28 +14,44 @@ pub struct AuditConfig {
     pub max_units: u32,
     pub max_tool_rounds: u32,
     pub timeout_seconds: u32,
+    pub max_output_tokens: u32,
+    pub reasoning_effort: String,
+    pub model_timeout_seconds: u32,
 }
 impl Default for AuditConfig {
     fn default() -> Self {
         Self {
-            max_model_calls: 80,
+            max_model_calls: 240,
             max_units: 80,
-            max_tool_rounds: 8,
-            timeout_seconds: 3600,
+            max_tool_rounds: 24,
+            timeout_seconds: 10_800,
+            // Zero means omit max_tokens and let the provider apply its own limit.
+            max_output_tokens: 0,
+            reasoning_effort: "high".into(),
+            model_timeout_seconds: 900,
         }
     }
 }
 impl AuditConfig {
     pub fn validate(&self) -> Result<(), String> {
-        if !(4..=500).contains(&self.max_model_calls)
+        if !(4..=2000).contains(&self.max_model_calls)
             || !(1..=500).contains(&self.max_units)
-            || !(1..=12).contains(&self.max_tool_rounds)
-            || !(60..=14400).contains(&self.timeout_seconds)
+            || !(1..=100).contains(&self.max_tool_rounds)
+            || !(60..=86_400).contains(&self.timeout_seconds)
         {
             return Err(
-                "审计限制应为 4—500 次模型调用、1—500 个程序单元、1—12 轮工具查询、60—14400 秒"
+                "审计限制应为 4-2000 次模型调用、1-500 个程序单元、1-100 轮工具查询、60-86400 秒"
                     .into(),
             );
+        }
+        if self.max_output_tokens == u32::MAX {
+            return Err("单次输出预算无效；0 表示交由模型服务决定".into());
+        }
+        if !["low", "high", "max"].contains(&self.reasoning_effort.as_str()) {
+            return Err("模型思考强度应为 low、high 或 max".into());
+        }
+        if !(30..=MAX_MODEL_TIMEOUT_SECONDS).contains(&self.model_timeout_seconds) {
+            return Err("单次模型请求时限应为 30-3600 秒".into());
         }
         Ok(())
     }
@@ -365,6 +382,54 @@ pub struct AuditEvidence {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn audit_budgets_are_configurable_and_old_records_keep_their_limits() {
+        let default = AuditConfig::default();
+        assert!(default.validate().is_ok());
+        assert_eq!(default.max_model_calls, 240);
+        assert_eq!(default.max_output_tokens, 0);
+        let legacy: AuditConfig = serde_json::from_value(json!({
+            "max_model_calls":40,"max_units":3,"max_tool_rounds":8,"timeout_seconds":900
+        }))
+        .unwrap();
+        assert_eq!(legacy.max_model_calls, 40);
+        assert_eq!(legacy.max_units, 3);
+        assert_eq!(legacy.max_output_tokens, default.max_output_tokens);
+        assert!(legacy.validate().is_ok());
+        let extended = AuditConfig {
+            max_model_calls: 2000,
+            max_units: 500,
+            max_tool_rounds: 100,
+            timeout_seconds: 86_400,
+            max_output_tokens: 1_000_000,
+            reasoning_effort: "max".into(),
+            model_timeout_seconds: MAX_MODEL_TIMEOUT_SECONDS,
+        };
+        assert!(extended.validate().is_ok());
+        for (field, value) in [
+            ("max_model_calls", json!(2001)),
+            ("max_tool_rounds", json!(101)),
+            ("timeout_seconds", json!(86_401)),
+            ("max_output_tokens", json!(u32::MAX)),
+            ("reasoning_effort", json!("disabled")),
+            ("model_timeout_seconds", json!(29)),
+            (
+                "model_timeout_seconds",
+                json!(MAX_MODEL_TIMEOUT_SECONDS + 1),
+            ),
+        ] {
+            let mut data = serde_json::to_value(&default).unwrap();
+            data[field] = value;
+            assert!(
+                serde_json::from_value::<AuditConfig>(data)
+                    .unwrap()
+                    .validate()
+                    .is_err(),
+                "{field}"
+            );
+        }
+    }
 
     #[test]
     fn line_citations_are_resolved_from_original_code_and_explicit_fabrication_is_rejected() {

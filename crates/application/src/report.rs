@@ -168,6 +168,14 @@ pub fn render(
                     }
                 }
             }
+            if run.summary["exploitation"] == "COMPLETED" {
+                text.push_str("\n## 自动利用证据\n\n");
+                text.push_str(&format!(
+                    "利用证据：{}；利用输入：{}。该证据证明最小输入可稳定触发观察到的内存安全异常，不外推为任意代码执行。\n\n",
+                    md(run.summary["exploitation_artifact_id"].as_str().unwrap_or("")),
+                    md(run.summary["exploitation_input_artifact_id"].as_str().unwrap_or(""))
+                ));
+            }
             text.push_str("\n## 覆盖与错误\n\n");
             text.push_str(&format!(
                 "```json\n{}\n```\n\n",
@@ -257,6 +265,13 @@ pub fn render(
                     }
                     body.push_str("</section>");
                 }
+            }
+            if run.summary["exploitation"] == "COMPLETED" {
+                body.push_str(&format!(
+                    "<h2>自动利用证据</h2><p>利用证据：<code>{}</code>；利用输入：<code>{}</code>。该证据证明最小输入可稳定触发观察到的内存安全异常，不外推为任意代码执行。</p>",
+                    escape(run.summary["exploitation_artifact_id"].as_str().unwrap_or("")),
+                    escape(run.summary["exploitation_input_artifact_id"].as_str().unwrap_or(""))
+                ));
             }
             body.push_str(&format!(
                 "<h2>覆盖与错误</h2><pre>{}</pre><p>{}</p><h2>证据产物</h2><ul>",

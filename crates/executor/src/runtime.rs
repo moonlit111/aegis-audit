@@ -22,8 +22,11 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         d::is_windows_runtime_adapter(&config.adapter),
         "旧 Linux/ELF 运行配置不能在 Windows 执行器中重解释"
     );
-    ensure!(config.mode == "VERIFY", "Windows 产品链当前只支持 VERIFY");
-    reject_unsupported_python_inputs(&config)?;
+    ensure!(
+        config.mode == "VERIFY"
+            || (config.mode == "FUZZ" && config.adapter == "WINDOWS_LIBFUZZER_PREBUILT"),
+        "Windows 产品链当前只支持 VERIFY 或预构建 libFuzzer 的 FUZZ"
+    );
 
     let manifest_path = work.join("manifest.json");
     ctx.control
@@ -62,7 +65,7 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         ensure!(
             matches!(
                 config.adapter.as_str(),
-                "WINDOWS_ORIGINAL_PE32" | "WINDOWS_ORIGINAL_PE64"
+                "WINDOWS_ORIGINAL_PE32" | "WINDOWS_ORIGINAL_PE64" | "WINDOWS_LIBFUZZER_PREBUILT"
             ),
             "binary execution requires a Windows original PE adapter"
         );
@@ -122,6 +125,7 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         "WINDOWS_NATIVE_SOURCE" => WindowsRuntimeAdapter::NativeSource,
         "WINDOWS_ORIGINAL_PE32" => WindowsRuntimeAdapter::OriginalPe32,
         "WINDOWS_ORIGINAL_PE64" => WindowsRuntimeAdapter::OriginalPe64,
+        "WINDOWS_LIBFUZZER_PREBUILT" => WindowsRuntimeAdapter::LibFuzzerPrebuilt,
         _ => anyhow::bail!("unsupported Windows runtime adapter"),
     };
     let entry = match adapter {
@@ -137,13 +141,25 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
     let windows_config = WindowsRuntimeConfig {
         schema_version: aegis_application::runtime::windows_runtime::WINDOWS_RUNTIME_SCHEMA_VERSION,
         config_version: "1.0.0".into(),
-        mode: WindowsRuntimeMode::Verify,
+        mode: if config.mode == "FUZZ" {
+            WindowsRuntimeMode::Fuzz
+        } else {
+            WindowsRuntimeMode::Verify
+        },
         adapter,
         target_path: config.path.clone(),
         target_sha256: target_sha256.clone(),
         entry,
-        baseline_inputs: invocation_inputs(&config.baseline)?,
-        probe_inputs: invocation_inputs(&config.probe)?,
+        baseline_inputs: if config.mode == "FUZZ" {
+            Vec::new()
+        } else {
+            invocation_inputs(&config.baseline, adapter)?
+        },
+        probe_inputs: if config.mode == "FUZZ" {
+            Vec::new()
+        } else {
+            invocation_inputs(&config.probe, adapter)?
+        },
         repeats: config.repeats,
         timeout_seconds: config.timeout_seconds,
         environment: WindowsRuntimeEnvironment {
@@ -152,10 +168,10 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
             } else {
                 None
             },
-            compiler: if adapter == WindowsRuntimeAdapter::NativeSource {
-                Some("zig 0.15.2".into())
-            } else {
-                None
+            compiler: match adapter {
+                WindowsRuntimeAdapter::NativeSource => Some("zig 0.15.2".into()),
+                WindowsRuntimeAdapter::LibFuzzerPrebuilt => Some("LLVM 23.1.1".into()),
+                _ => None,
             },
             observer: Some(config.observer.clone()),
             marker_path: if config.marker_path.is_empty() {
@@ -164,8 +180,30 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
                 Some(config.marker_path.clone())
             },
             runtime_libraries: Default::default(),
+            globals_json: serde_json::to_string(&config.globals)?,
         },
-        fuzz: None,
+        fuzz: if config.mode == "FUZZ" {
+            Some(
+                aegis_application::runtime::windows_runtime::WindowsFuzzOptions {
+                    engine: config.fuzz.engine.clone(),
+                    runs: config.fuzz.max_cases,
+                    timeout_seconds: config.timeout_seconds.max(1),
+                    budget_seconds: config.fuzz.budget_seconds,
+                    random_seed: config.fuzz.random_seed,
+                    max_input_bytes: config
+                        .fuzz
+                        .seeds
+                        .iter()
+                        .map(|seed| seed.len() as u32)
+                        .max()
+                        .unwrap_or(1)
+                        .clamp(1, 1024 * 1024),
+                    seeds: config.fuzz.seeds.clone(),
+                },
+            )
+        } else {
+            None
+        },
     };
     windows_config.validate()?;
     let config_sha256 = windows_config.fingerprint()?;
@@ -184,14 +222,13 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         WindowsRuntimeAdapter::OriginalPe32 | WindowsRuntimeAdapter::OriginalPe64 => {
             HostRuntimeEntrypoint::OriginalPe
         }
-        WindowsRuntimeAdapter::LibFuzzerPrebuilt => {
-            anyhow::bail!("libFuzzer is not part of the host runtime")
-        }
+        WindowsRuntimeAdapter::LibFuzzerPrebuilt => HostRuntimeEntrypoint::WindowsLibFuzzerPrebuilt,
     };
     let runtime_script = match entrypoint {
         HostRuntimeEntrypoint::WindowsPython => "run-python.ps1",
         HostRuntimeEntrypoint::WindowsNativeSource => "run-native-source.ps1",
         HostRuntimeEntrypoint::OriginalPe => "run-pe.ps1",
+        HostRuntimeEntrypoint::WindowsLibFuzzerPrebuilt => "run-libfuzzer.ps1",
     };
     let session_id = format!("{}-session-{}", ctx.lease.attempt_id, d::id());
     let runtime_root = work.join("runtime");
@@ -225,7 +262,8 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         .progress
         .send((
             format!(
-                "开始 Windows 宿主机 VERIFY：{}；范围 {}",
+                "开始 Windows 宿主机 {}：{}；范围 {}",
+                config.mode,
                 config.path,
                 config.target_scope()
             ),
@@ -253,6 +291,9 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
             HostRuntimeOutputPolicy::windows_native_source()
         }
         HostRuntimeEntrypoint::OriginalPe => HostRuntimeOutputPolicy::original_pe(),
+        HostRuntimeEntrypoint::WindowsLibFuzzerPrebuilt => {
+            HostRuntimeOutputPolicy::windows_lib_fuzzer()
+        }
     };
     let output = host_runtime_collect_output(&prepared, &policy)?;
 
@@ -286,20 +327,22 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
     };
     let mut trials = Vec::new();
     if let Some(records) = guest_observation["trials"].as_array() {
-        for (index, record) in records.iter().enumerate() {
-            let expected = if index == 0 {
-                &config.baseline
-            } else {
-                &config.probe
-            };
-            let input_json = serde_json::to_string(expected)?;
+        for record in records {
+            let input: d::Invocation = serde_json::from_str(
+                record["input_json"]
+                    .as_str()
+                    .context("missing consumed input JSON")?,
+            )
+            .context("Windows host runtime did not record its consumed input")?;
+            let input_json = serde_json::to_string(&input)?;
             trials.push(d::RuntimeTrial {
                 label: record["label"].as_str().unwrap_or_default().into(),
                 input_sha256: d::sha256(input_json.as_bytes()),
                 input_json,
                 exit_code: record["exit_code"].as_i64().map(|code| code as i32),
                 timed_out: record["timed_out"].as_bool().unwrap_or_default(),
-                processes_reaped: execution.processes_reaped,
+                processes_reaped: execution.processes_reaped
+                    && record["processes_reaped"].as_bool().unwrap_or_default(),
                 observed: record["observed"].as_bool().unwrap_or_default(),
                 exception: record["exception"].as_str().unwrap_or_default().into(),
                 stdout: record["stdout"].as_str().unwrap_or_default().into(),
@@ -312,11 +355,14 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
             });
         }
     }
-    let build = if entrypoint == HostRuntimeEntrypoint::WindowsNativeSource {
+    let build = if config.mode == "FUZZ" {
+        guest_observation["build"].clone()
+    } else if entrypoint == HostRuntimeEntrypoint::WindowsNativeSource {
         json!({
             "status": if guest_observation["compile_exit_code"] == 0 { "READY" } else { "ERROR" },
             "compiler": guest_observation["compiler"],
             "compile_exit_code": guest_observation["compile_exit_code"],
+            "instrumentation": "NONE",
         })
     } else {
         json!({"status": if observation_error.is_empty() { "READY" } else { "ERROR" }, "environment": "Windows host x64"})
@@ -328,8 +374,16 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         path: config.path.clone(),
         build,
         trials,
-        fuzz: json!({}),
-        crashes: vec![],
+        fuzz: if config.mode == "FUZZ" {
+            guest_observation["fuzz"].clone()
+        } else {
+            json!({})
+        },
+        crashes: if config.mode == "FUZZ" {
+            serde_json::from_value(guest_observation["crashes"].clone())?
+        } else {
+            Vec::new()
+        },
         error: observation_error,
     };
     observation.validate(&config).map_err(anyhow::Error::msg)?;
@@ -437,23 +491,6 @@ pub async fn execute(ctx: &JobContext, work: &Path, payload: &Value) -> Result<S
         .id)
 }
 
-fn reject_unsupported_python_inputs(config: &d::RuntimeConfig) -> Result<()> {
-    if config.adapter != "WINDOWS_PYTHON_CALL" {
-        return Ok(());
-    }
-    ensure!(
-        config.globals.is_empty(),
-        "Windows Python runtime has no trusted globals channel; refusing to silently discard globals"
-    );
-    for (label, invocation) in [("baseline", &config.baseline), ("probe", &config.probe)] {
-        ensure!(
-            invocation.kwargs.is_empty(),
-            "Windows Python runtime has no trusted kwargs channel; refusing to silently discard {label} kwargs"
-        );
-    }
-    Ok(())
-}
-
 pub(crate) fn tool_version_matches(actual: &str, expected: &str) -> bool {
     actual.split_whitespace().last() == Some(expected)
 }
@@ -549,15 +586,29 @@ async fn upload_host_runtime_logs(
     })])
 }
 
-fn invocation_inputs(invocation: &d::Invocation) -> Result<Vec<WindowsRuntimeInput>> {
+fn invocation_inputs(
+    invocation: &d::Invocation,
+    adapter: WindowsRuntimeAdapter,
+) -> Result<Vec<WindowsRuntimeInput>> {
     let mut inputs = Vec::new();
-    for argument in &invocation.args {
-        let value = argument
-            .as_str()
-            .context("Windows runtime arguments must be strings")?;
-        inputs.push(WindowsRuntimeInput::Argument {
-            value: value.to_owned(),
+    if adapter == WindowsRuntimeAdapter::PythonCall {
+        inputs.push(WindowsRuntimeInput::PythonCall {
+            // PowerShell 5.1 cannot preserve case-distinct keys or all JSON integers.
+            invocation_json: serde_json::to_string(invocation)?,
         });
+    } else {
+        ensure!(
+            invocation.kwargs.is_empty(),
+            "native invocations cannot have kwargs"
+        );
+        for argument in &invocation.args {
+            let value = argument
+                .as_str()
+                .context("Windows native arguments must be strings")?;
+            inputs.push(WindowsRuntimeInput::Argument {
+                value: value.to_owned(),
+            });
+        }
     }
     inputs.push(WindowsRuntimeInput::Stdin {
         value: invocation.stdin.clone(),
@@ -637,33 +688,23 @@ mod tests {
     }
 
     #[test]
-    fn windows_python_rejects_kwargs_and_globals_instead_of_discarding_them() {
-        let mut config = d::RuntimeConfig {
-            adapter: "WINDOWS_PYTHON_CALL".into(),
-            path: "target.py".into(),
-            function: "helper".into(),
-            mode: "VERIFY".into(),
-            observer: "FILE_CREATED".into(),
-            marker_path: "marker.txt".into(),
-            ..Default::default()
+    fn windows_python_invocations_preserve_json_types_and_keywords() {
+        let invocation = d::Invocation {
+            args: vec![json!(3), json!(false), json!([null, {"name": "sample"}])],
+            kwargs: [("enabled".into(), json!(true))].into(),
+            stdin: "input".into(),
         };
-        config
-            .globals
-            .insert("canary".into(), Value::String("{{canary}}".into()));
-        assert!(reject_unsupported_python_inputs(&config).is_err());
-        config.globals.clear();
-        config
-            .baseline
-            .kwargs
-            .insert("name".into(), Value::String("baseline".into()));
-        assert!(reject_unsupported_python_inputs(&config).is_err());
-        config.baseline.kwargs.clear();
-        config
-            .probe
-            .kwargs
-            .insert("name".into(), Value::String("probe".into()));
-        assert!(reject_unsupported_python_inputs(&config).is_err());
-        config.probe.kwargs.clear();
-        assert!(reject_unsupported_python_inputs(&config).is_ok());
+        let inputs = invocation_inputs(&invocation, WindowsRuntimeAdapter::PythonCall).unwrap();
+        assert_eq!(
+            serde_json::to_value(&inputs[0]).unwrap(),
+            json!({"type": "PYTHON_CALL", "invocation_json": serde_json::to_string(&invocation).unwrap()})
+        );
+        assert_eq!(
+            serde_json::to_value(&inputs[1]).unwrap(),
+            json!({
+                "type": "STDIN", "value": "input",
+            })
+        );
+        assert!(invocation_inputs(&invocation, WindowsRuntimeAdapter::OriginalPe64).is_err());
     }
 }

@@ -6,7 +6,6 @@ use std::{future::Future, pin::Pin, time::Duration};
 
 pub const ENDPOINT: &str = "https://api.deepseek.com";
 pub const DEFAULT_MODEL: &str = "deepseek-v4-flash";
-
 pub struct DeepSeek {
     client: reqwest::Client,
     key: String,
@@ -28,6 +27,7 @@ pub struct ModelRequest {
     pub messages: Vec<Value>,
     pub max_tokens: u32,
     pub reasoning_effort: String,
+    pub timeout_seconds: u32,
 }
 
 pub struct ModelResponse {
@@ -66,7 +66,6 @@ impl DeepSeek {
         let _ = rustls::crypto::ring::default_provider().install_default();
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(300))
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Ok(Self {
@@ -86,7 +85,7 @@ impl DeepSeek {
             "temperature":0,
             "stream":false
         });
-        let result = self.send(&body, 64 * 1024).await?;
+        let result = self.send(&body, 64 * 1024, 300).await?;
         let content = result.response["choices"][0]["message"]["content"]
             .as_str()
             .context("DeepSeek 未返回消息内容")?;
@@ -98,10 +97,11 @@ impl DeepSeek {
         Ok(result)
     }
 
-    async fn send(&self, body: &Value, limit: usize) -> Result<ProbeResult> {
+    async fn send(&self, body: &Value, limit: usize, timeout_seconds: u32) -> Result<ProbeResult> {
         let mut response = self
             .client
             .post(format!("{}/chat/completions", self.endpoint))
+            .timeout(Duration::from_secs(timeout_seconds.into()))
             .bearer_auth(&self.key)
             .json(body)
             .send()
@@ -168,23 +168,23 @@ impl ModelClient for DeepSeek {
         request: &'a ModelRequest,
     ) -> Pin<Box<dyn Future<Output = Result<ModelResponse>> + Send + 'a>> {
         Box::pin(async move {
+            ensure!(request.max_tokens != u32::MAX, "模型输出 token 限制无效");
             ensure!(
-                (128..=32768).contains(&request.max_tokens),
-                "模型输出 token 限制无效"
+                (30..=aegis_domain::MAX_MODEL_TIMEOUT_SECONDS).contains(&request.timeout_seconds),
+                "模型请求时限无效"
             );
             ensure!(
                 ["low", "high", "max", "disabled"].contains(&request.reasoning_effort.as_str()),
                 "模型推理强度无效"
             );
-            ensure!(
-                serde_json::to_vec(&request.messages)?.len() <= 256 * 1024,
-                "模型上下文超过 256 KiB"
-            );
             let mut body = json!({
-                "model":request.model, "messages":request.messages, "max_tokens":request.max_tokens,
+                "model":request.model, "messages":request.messages,
                 "response_format":{"type":"json_object"}, "thinking":{"type":"enabled"},
                 "reasoning_effort":request.reasoning_effort, "stream":false
             });
+            if request.max_tokens > 0 {
+                body["max_tokens"] = json!(request.max_tokens);
+            }
             if request.reasoning_effort == "disabled" {
                 body["thinking"] = json!({"type":"disabled"});
                 body.as_object_mut()
@@ -192,7 +192,9 @@ impl ModelClient for DeepSeek {
                     .remove("reasoning_effort");
                 body["temperature"] = json!(0);
             }
-            let result = self.send(&body, 1024 * 1024).await?;
+            let result = self
+                .send(&body, 4 * 1024 * 1024, request.timeout_seconds)
+                .await?;
             let content = result.response["choices"][0]["message"]["content"]
                 .as_str()
                 .unwrap_or_default()
@@ -214,6 +216,37 @@ impl ModelClient for DeepSeek {
 mod tests {
     use super::*;
     use axum::{Router, http::StatusCode, routing::post};
+
+    #[tokio::test]
+    async fn unlimited_context_and_output_budget_reach_the_provider() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let app = Router::new().route("/chat/completions", post(|axum::Json(body): axum::Json<Value>| async move {
+            assert!(body.get("max_tokens").is_none());
+            assert_eq!(body["reasoning_effort"], "max");
+            assert_eq!(body["thinking"]["type"], "enabled");
+            assert!(body.get("timeout_seconds").is_none());
+            axum::Json(json!({"id":"budget-test","choices":[{"message":{"content":"{}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":10,"total_tokens":30}}))
+        }));
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let mut client = DeepSeek::new("fixture-private-token".into()).unwrap();
+        client.endpoint = format!("http://{address}");
+        let mut request = ModelRequest {
+            model: DEFAULT_MODEL.into(),
+            messages: vec![json!({"role":"user","content":"a".repeat(300 * 1024)})],
+            max_tokens: 0,
+            reasoning_effort: "max".into(),
+            timeout_seconds: 900,
+        };
+        let response = client.complete(&request).await.unwrap();
+        assert_eq!(response.finish_reason, "stop");
+        assert_eq!(response.result.total_tokens, 30);
+        request.messages = vec![json!({"role":"user","content":"a".repeat(1536 * 1024)})];
+        client.complete(&request).await.unwrap();
+        server.abort();
+    }
 
     #[tokio::test]
     async fn usage_is_measured_and_provider_errors_cannot_echo_the_key() {

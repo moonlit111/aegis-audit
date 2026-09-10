@@ -251,6 +251,36 @@ impl Store {
             "audited_units":order.len().min(config.max_units as usize),"total_units":order.len(),
             "static_review_only":true,"dynamic_execution":"NOT_RUN","structure_warnings":corpus.target["structure_warnings"]});
         context.execute("REPORTER", "report", report).await?;
+        if corpus.target["kind"] == "BINARY" {
+            for finding in evidence.findings.iter().filter(|finding| {
+                finding.review_status == "VALIDATED" && finding.draft.category == "MEMORY_BOUNDS"
+            }) {
+                match self.suggest_runtime(context.run_id, &finding.id).await {
+                    Ok((config, _, _)) => {
+                        if let Err(error) = self
+                            .create_runtime(
+                                &format!("auto-fuzz-{}", finding.id),
+                                context.run_id,
+                                &finding.id,
+                                Some(config),
+                            )
+                            .await
+                        {
+                            tracing::warn!(
+                                finding_id=%finding.id,
+                                error=%error,
+                                "automatic fuzz reuse could not be queued"
+                            );
+                        }
+                    }
+                    Err(error) => tracing::warn!(
+                        finding_id=%finding.id,
+                        error=%error,
+                        "automatic fuzz reuse was not applicable"
+                    ),
+                }
+            }
+        }
         Ok(())
     }
     pub async fn finish_audit(&self, id: &str, error: Option<String>) -> Result<()> {
@@ -334,7 +364,8 @@ impl Store {
             "COMPLETED"
         });
         run.summary["fuzzing"] = json!("NOT_RUN");
-        run.summary["exploitation"] = json!("NOT_RUN");
+        // A runtime queued during audit completion owns the exploitation state;
+        // do not replace QUEUED/RUNNING/COMPLETED with NOT_RUN here.
         run.summary["audited_unit_count"] = json!(audited);
         run.summary["finding_count"] = json!(evidence.findings.len());
         run.summary["reviewed_finding_count"] = json!(reviewed);
@@ -464,8 +495,9 @@ impl AgentContext<'_> {
             let request = ModelRequest {
                 model: self.model.into(),
                 messages: messages.clone(),
-                max_tokens: 16384,
-                reasoning_effort: if repairs > 0 { "disabled" } else { "high" }.into(),
+                max_tokens: self.config.max_output_tokens,
+                reasoning_effort: self.config.reasoning_effort.clone(),
+                timeout_seconds: self.config.model_timeout_seconds,
             };
             let response = self.turn(&task, &request).await;
             let (response, call) = match response {
@@ -482,7 +514,12 @@ impl AgentContext<'_> {
                 }
                 Err(error) => return Err(error),
             };
-            let action: anyhow::Result<AgentAction> = if response.finish_reason != "stop" {
+            let action: anyhow::Result<AgentAction> = if response.finish_reason == "length" {
+                Err(anyhow::anyhow!(
+                    "模型输出被截断（length）；单次预算为 {} token（含思考），请提高预算或缩小任务上下文",
+                    request.max_tokens
+                ))
+            } else if response.finish_reason != "stop" {
                 Err(anyhow::anyhow!(
                     "模型输出未完整结束：{}",
                     response.finish_reason
@@ -661,6 +698,7 @@ impl AgentContext<'_> {
         let response = tokio::select! {
             _=self.cancelled()=>Err(anyhow::anyhow!("审计取消或控制服务停止；本次模型用量未知")),
             _=tokio::time::sleep(Duration::from_secs(remaining as u64))=>Err(anyhow::anyhow!("审计时间预算耗尽；本次模型用量未知")),
+            _=tokio::time::sleep(Duration::from_secs(request.timeout_seconds.into()))=>Err(anyhow::anyhow!("单次模型请求达到 {} 秒时限；本次模型用量未知", request.timeout_seconds)),
             result=self.client.complete(request)=>result,
         };
         call.finished_at = d::now();

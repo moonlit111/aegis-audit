@@ -9,12 +9,16 @@ use std::{
 
 struct ScriptedModel {
     invalid_quote: bool,
+    audit_tool_requests: usize,
+    truncate_first: bool,
     requests: Mutex<Vec<ModelRequest>>,
 }
 impl ScriptedModel {
     fn new(invalid_quote: bool) -> Self {
         Self {
             invalid_quote,
+            audit_tool_requests: 0,
+            truncate_first: false,
             requests: Mutex::new(vec![]),
         }
     }
@@ -55,12 +59,32 @@ impl ModelClient for ScriptedModel {
             } else {
                 json!({"summary":"static fixture analysis only","recommendations":[],"limitations":["runtime not executed"]})
             };
-            let content = json!({"action":"finish","result":result}).to_string();
+            let tool_results = request
+                .messages
+                .iter()
+                .filter(|message| {
+                    message["role"] == "user"
+                        && message["content"].as_str().is_some_and(|text| {
+                            serde_json::from_str::<Value>(text)
+                                .ok()
+                                .is_some_and(|value| value.get("remaining_tool_requests").is_some())
+                        })
+                })
+                .count();
+            let truncated = self.truncate_first && self.requests.lock().unwrap().len() == 1;
+            let content = if truncated {
+                "{\"action\":".into()
+            } else if system.contains("ROLE: AUDITOR") && tool_results < self.audit_tool_requests {
+                json!({"action":"tool","name":"inspect_target","arguments":{}}).to_string()
+            } else {
+                json!({"action":"finish","result":result}).to_string()
+            };
+            let finish_reason = if truncated { "length" } else { "stop" };
             Ok(ModelResponse {
                 content: content.clone(),
-                finish_reason: "stop".into(),
+                finish_reason: finish_reason.into(),
                 result: ProbeResult {
-                    response: json!({"choices":[{"message":{"content":content},"finish_reason":"stop"}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}),
+                    response: json!({"choices":[{"message":{"content":content},"finish_reason":finish_reason}],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}),
                     provider_request_id: d::id(),
                     input_tokens: 100,
                     output_tokens: 20,
@@ -254,12 +278,13 @@ async fn hallucinated_quotes_never_become_findings_and_calls_keep_usage() {
     let store = Store::open(directory.path()).await.unwrap();
     let config = d::AuditConfig::default();
     let run = prepared(&store, config.clone()).await;
+    let model = ScriptedModel::new(true);
     let result = store
         .drive_audit_with_model(
             &run.id,
             "fixture-model",
             &config,
-            &ScriptedModel::new(true),
+            &model,
             &CancellationToken::new(),
         )
         .await;
@@ -278,8 +303,65 @@ async fn hallucinated_quotes_never_become_findings_and_calls_keep_usage() {
         3
     );
     assert!(data.model_calls.iter().all(|c| c.usage_available));
+    assert!(
+        model
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|request| request.reasoning_effort == config.reasoning_effort)
+    );
     let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
     assert_eq!(result.state, d::RunState::Partial);
+}
+
+#[tokio::test]
+async fn extended_budget_and_truncation_repairs_keep_the_configured_reasoning() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig {
+        max_model_calls: 1200,
+        max_tool_rounds: 24,
+        timeout_seconds: 21_600,
+        max_output_tokens: 131_072,
+        reasoning_effort: "max".into(),
+        model_timeout_seconds: 1800,
+        ..Default::default()
+    };
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.truncate_first = true;
+    model.audit_tool_requests = 13;
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
+    assert_eq!(result.state, d::RunState::Completed);
+    assert_eq!(
+        result.summary["audit_config"],
+        serde_json::to_value(&config).unwrap()
+    );
+    let evidence = store.audit_evidence(&run.id).await.unwrap();
+    let truncated = evidence
+        .model_calls
+        .iter()
+        .find(|call| call.finish_reason == "length")
+        .unwrap();
+    assert_eq!(truncated.status, "INVALID_RESPONSE");
+    assert!(truncated.error.contains("131072"));
+    let requests = model.requests.lock().unwrap();
+    assert!(requests.len() > 26);
+    assert!(requests.iter().all(|request| request.max_tokens == 131_072
+        && request.reasoning_effort == "max"
+        && request.timeout_seconds == 1800));
 }
 
 #[tokio::test]
@@ -317,6 +399,115 @@ async fn audit_budget_is_persisted_and_does_not_claim_full_coverage() {
     let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
     assert_eq!(result.state, d::RunState::Partial);
     assert_eq!(result.summary["vulnerability_audit"], "PARTIAL");
+}
+
+#[tokio::test]
+async fn audit_budget_rpc_preserves_custom_values_and_rejects_invalid_limits() {
+    let directory = tempfile::tempdir().unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let shutdown = CancellationToken::new();
+    let state = web::create_state(directory.path(), address, None, shutdown.clone())
+        .await
+        .unwrap();
+    let store = state.store.clone();
+    tokio::fs::write(store.root.join("deepseek.token"), "fixture-only-key")
+        .await
+        .unwrap();
+    let fixture = Fixture::new(&store).await;
+    let app = web::router(state, Path::new("missing-static-dir").to_owned());
+    let signal = shutdown.clone();
+    let server = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .with_graceful_shutdown(signal.cancelled_owned())
+        .await
+        .unwrap();
+    });
+    let base = format!("http://{address}");
+    let client = reqwest::Client::builder().no_proxy().build().unwrap();
+    let session = client
+        .get(format!("{base}/api/session"))
+        .send()
+        .await
+        .unwrap();
+    let cookie = session.headers()["set-cookie"]
+        .to_str()
+        .unwrap()
+        .split(';')
+        .next()
+        .unwrap()
+        .to_owned();
+    let csrf = session.json::<Value>().await.unwrap()["csrf_token"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let request = json!({"requestId":d::id(),"snapshotId":fixture.snapshot.id,"scope":d::AUDIT_SCOPE,
+        "maxModelCalls":1000,"maxUnits":25,"maxToolRounds":48,"timeoutSeconds":21600,
+        "maxOutputTokens":131072,"reasoningEffort":"max","modelTimeoutSeconds":1800});
+    let send = |body: Value| {
+        client
+            .post(format!("{base}/rpc/audit.v1.RunService/CreateRun"))
+            .header("cookie", &cookie)
+            .header("x-aegis-csrf", &csrf)
+            .header("connect-protocol-version", "1")
+            .json(&body)
+            .send()
+    };
+    let response = send(request.clone()).await.unwrap();
+    assert_eq!(response.status(), 200);
+    let response: Value = response.json().await.unwrap();
+    let id = response["run"]["id"].as_str().unwrap();
+    let run: d::AuditRun = store.get("audit_runs", id).await.unwrap();
+    let config: String = sqlx::query_scalar("SELECT config FROM audit_workflows WHERE run_id=?")
+        .bind(id)
+        .fetch_one(&store.pool)
+        .await
+        .unwrap();
+    let expected = json!({"max_model_calls":1000,"max_units":25,"max_tool_rounds":48,
+        "timeout_seconds":21600,"max_output_tokens":131072,"reasoning_effort":"max","model_timeout_seconds":1800});
+    assert_eq!(serde_json::from_str::<Value>(&config).unwrap(), expected);
+    assert_eq!(run.summary["audit_config"], expected);
+    assert_eq!(
+        send(request.clone())
+            .await
+            .unwrap()
+            .json::<Value>()
+            .await
+            .unwrap()["run"]["id"],
+        id
+    );
+    for (field, value) in [
+        ("maxOutputTokens", json!(u32::MAX)),
+        ("reasoningEffort", json!("unlimited")),
+        ("modelTimeoutSeconds", json!(3601)),
+        ("maxToolRounds", json!(101)),
+    ] {
+        let mut invalid = request.clone();
+        invalid["requestId"] = json!(d::id());
+        invalid[field] = value;
+        assert_eq!(send(invalid).await.unwrap().status(), 400, "{field}");
+    }
+    let default_request =
+        json!({"requestId":d::id(),"snapshotId":fixture.snapshot.id,"scope":d::AUDIT_SCOPE});
+    let response = send(default_request)
+        .await
+        .unwrap()
+        .json::<Value>()
+        .await
+        .unwrap();
+    let run: d::AuditRun = store
+        .get("audit_runs", response["run"]["id"].as_str().unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        run.summary["audit_config"],
+        serde_json::to_value(d::AuditConfig::default()).unwrap()
+    );
+    shutdown.cancel();
+    server.await.unwrap();
 }
 
 struct BlockingModel(Arc<tokio::sync::Notify>);

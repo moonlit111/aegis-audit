@@ -149,6 +149,15 @@ impl p::RunService for Api {
         if req.timeout_seconds > 0 {
             config.timeout_seconds = req.timeout_seconds;
         }
+        if req.max_output_tokens > 0 {
+            config.max_output_tokens = req.max_output_tokens;
+        }
+        if !req.reasoning_effort.is_empty() {
+            config.reasoning_effort = req.reasoning_effort.into();
+        }
+        if req.model_timeout_seconds > 0 {
+            config.model_timeout_seconds = req.model_timeout_seconds;
+        }
         Response::ok(p::CreateRunResponse {
             run: c::run(
                 self.store
@@ -400,6 +409,24 @@ impl p::RuntimeService for Api {
                     .await?,
             )
             .into(),
+            ..Default::default()
+        })
+    }
+
+    async fn suggest_runtime(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::SuggestRuntimeRequest>,
+    ) -> ServiceResult<p::SuggestRuntimeResponse> {
+        let (config, rationale, limitations) = self
+            .store
+            .suggest_runtime(req.source_run_id, req.finding_id)
+            .await?;
+        Response::ok(p::SuggestRuntimeResponse {
+            config_json: serde_json::to_string(&config)
+                .map_err(|e| ConnectError::internal(format!("运行建议序列化失败：{e}")))?,
+            rationale,
+            limitations,
             ..Default::default()
         })
     }

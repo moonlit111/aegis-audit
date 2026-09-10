@@ -1,0 +1,26 @@
+[
+  {
+    "id": "small-deepseek-v3",
+    "name": "DeepSeek-V3",
+    "repository": "deepseek-ai/DeepSeek-V3",
+    "revision": "9b4e9788e4a3a731f7567338ed15d3ec549ce03b",
+    "code_license": "MIT",
+    "license_evidence": "LICENSE-CODE",
+    "entry": "inference/generate.py",
+    "max_source_lines": 2500,
+    "usage": "small-repository-source-demo",
+    "formal_acceptance": false
+  },
+  {
+    "id": "small-chatglm2-6b",
+    "name": "ChatGLM2-6B",
+    "repository": "zai-org/ChatGLM2-6B",
+    "revision": "cb8e8b43c0951b32614f25c03e1ab593a0603a1c",
+    "code_license": "Apache-2.0 (declared in upstream README)",
+    "license_evidence": "README.md",
+    "entry": "api.py",
+    "max_source_lines": 2500,
+    "usage": "small-repository-source-demo",
+    "formal_acceptance": false
+  }
+]

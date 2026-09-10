@@ -5,12 +5,14 @@
 .tools/
 .data/
 .cache/
+.workbuddy/
 target/
 node_modules/
 .pnpm-store/
 frontend/dist/
 playwright-report/
 test-results/
+/crash-*
 *.log
 __pycache__/
 *.py[cod]

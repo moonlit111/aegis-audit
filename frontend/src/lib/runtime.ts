@@ -16,6 +16,7 @@ export const runtimeLabels: Record<string, string> = {
   INCONCLUSIVE: '结果不确定',
   COMPONENT: 'Python 组件',
   INSTRUMENTED_BUILD: '插桩构建',
+  REBUILT_TARGET: '重新构建的程序',
   ORIGINAL: '原始二进制',
   READY: '方案就绪',
   NEEDS_CONFIGURATION: '需补充运行配置',
@@ -25,9 +26,12 @@ export const runtimeLabels: Record<string, string> = {
   MUTATION: '输入变异',
   AFLPP: 'AFL++ 覆盖引导',
   WINDOWS_PYTHON_CALL: 'Windows Python 组件',
-  WINDOWS_NATIVE_SOURCE: 'Windows 插桩构建',
+  WINDOWS_NATIVE_SOURCE: 'Windows 本地构建',
   WINDOWS_ORIGINAL_PE32: '原始 PE32',
   WINDOWS_ORIGINAL_PE64: '原始 PE64',
+  WINDOWS_LIBFUZZER_PREBUILT: '预构建 libFuzzer',
+  LLVM_LIBFUZZER: 'LLVM libFuzzer',
+  FILE: '文件输入',
 };
 export const runtimeLabel = (value: string) => runtimeLabels[value] || value;
 export const runtimePending = (value: string) =>
@@ -99,12 +103,17 @@ export function runtimeTemplate(adapter: string, mode: string, unit?: ProgramUni
     config.globals = {};
   }
   if (mode === 'FUZZ') {
+    config.adapter = 'WINDOWS_LIBFUZZER_PREBUILT';
+    config.path = unit?.path || 'fuzz.exe';
+    config.function = '';
+    config.observer = 'SANITIZER';
+    config.marker_path = '';
     config.fuzz = {
-      engine: 'MUTATION',
-      input_mode: 'STDIN',
+      engine: 'LLVM_LIBFUZZER',
+      input_mode: 'FILE',
       seeds: ['hello'],
-      max_cases: 128,
-      budget_seconds: 15,
+      max_cases: 1000,
+      budget_seconds: 60,
       random_seed: 71413,
     };
   }

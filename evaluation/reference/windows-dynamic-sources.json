@@ -1,0 +1,658 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-09-10 11:40:05 UTC",
+  "resumed_session_id": "01a08a86-8efb-7ff0-9499-856ff7ed09de",
+  "project_baseline_commit": "42fcfa290d41272aaf42e6f0c8261b445c68c23c",
+  "working_tree_note": "Existing uncommitted product changes were inspected and left untouched.",
+  "status": "RESEARCH_COMPLETE_IMPLEMENTATION_PENDING_APPROVAL",
+  "execution": {
+    "product_code_modified": false,
+    "dependencies_installed": false,
+    "target_programs_executed": false,
+    "product_tests_run": false,
+    "model_api_calls_made": false
+  },
+  "review_scope": "Captured source files and hashes are an evidence inventory, not a claim that every line was reviewed or that the projects passed local Windows integration tests.",
+  "source_file_count": 52,
+  "source_bytes": 1195641,
+  "documentation": [
+    {
+      "url": "https://llvm.org/docs/LibFuzzer.html",
+      "use": "Windows support, ASan/CRT/linker constraints, corpus merge, crash minimization and final statistics.",
+      "evidence_kind": "official_documentation_fetched"
+    },
+    {
+      "url": "https://boofuzz.readthedocs.io/en/stable/user/install.html",
+      "use": "Native Windows installation path and optional process monitor.",
+      "evidence_kind": "official_documentation_fetched"
+    },
+    {
+      "url": "https://boofuzz.readthedocs.io/en/stable/user/monitors.html",
+      "use": "BaseMonitor lifecycle and observation contract.",
+      "evidence_kind": "official_search_result_plus_pinned_source"
+    },
+    {
+      "url": "https://pypi.org/pypi/hypothesis/6.164.0/json",
+      "use": "Pinned source distribution and CPython 3.13 Windows wheel availability.",
+      "evidence_kind": "package_metadata_fetched"
+    }
+  ],
+  "package_archives": [
+    {
+      "package": "hypothesis",
+      "version": "6.164.0",
+      "url": "https://files.pythonhosted.org/packages/7a/ac/7b76103bd74d8457e4de0c6a6c3a26ac6327016438bde125e0a3de83a5b8/hypothesis-6.164.0.tar.gz",
+      "cache_path": ".data/references/dynamic-reuse-20260910/hypothesis-6.164.0.tar.gz",
+      "sha256": "5d63d263d8c71b571638c18d9591f6e34b836c60a12469e9d9105c1c785f00f1",
+      "bytes": 492022
+    }
+  ],
+  "existing_engine_evidence": {
+    "path": ".data/verification/windows-fuzz/a05-engines-final-20260909/summary.json",
+    "observed_at": "2026-09-09T11:15:57Z",
+    "product_integration": false,
+    "source_engine": "LLVM libFuzzer",
+    "clang_version": "23.1.1",
+    "clang_commit": "6dfe1677ab8dffbc6ec13d53a1e0215d75147689",
+    "binary_probe": "TinyInst litecov on sample-pe64.exe",
+    "tinyinst_revision": "9b564702c01481825e4a1629d1701cf49d3d091f",
+    "limitation": "Historical minimal compatibility probes, not current product FUZZ or formal-target acceptance."
+  },
+  "unresolved_checks": [
+    "Compile and exercise the pinned Jackalope/TinyInst pair on native Windows; a TinyInst-only smoke test does not validate Jackalope.",
+    "Validate clang plus ASan plus CRT/linker combination with a real target body; an empty harness is insufficient.",
+    "Lithium's inspected CI matrix runs Ubuntu only. Native Windows reducer integration remains a required gate.",
+    "Exercise boofuzz with the project's Python 3.13 interpreter and host lifecycle monitor.",
+    "Validate each selected target's real entrypoint, reset behavior, and whole-program proof boundary."
+  ],
+  "failed_requests": [
+    {
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/winafl-tinyinst.cpp",
+      "resolution": "GitHub tree identified tinyinst_afl.cpp; the correct file was downloaded."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/HypothesisWorks/hypothesis/hypothesis-python-6.164.0/hypothesis-python/src/hypothesis/core.py",
+      "status": 404,
+      "resolution": "Read matching source from the SHA-256 verified PyPI 6.164.0 source distribution."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/HypothesisWorks/hypothesis/hypothesis-python-6.164.0/hypothesis-python/src/hypothesis/strategies/_internal/core.py",
+      "status": 404,
+      "resolution": "Read matching source from the SHA-256 verified PyPI 6.164.0 source distribution."
+    }
+  ],
+  "sources": [
+    {
+      "project": "boofuzz",
+      "repository": "jtpereyda/boofuzz",
+      "revision": "8e2aac764fa827955621edb4c2da0e0b2a652190",
+      "path": "boofuzz/connections/tcp_socket_connection.py",
+      "url": "https://raw.githubusercontent.com/jtpereyda/boofuzz/8e2aac764fa827955621edb4c2da0e0b2a652190/boofuzz/connections/tcp_socket_connection.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/boofuzz/boofuzz/connections/tcp_socket_connection.py",
+      "sha256": "a50b5356b2608c8cf33265205c602730e7e9c2c93a946d0c554a0cd16b822395",
+      "bytes": 4721,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "boofuzz",
+      "repository": "jtpereyda/boofuzz",
+      "revision": "8e2aac764fa827955621edb4c2da0e0b2a652190",
+      "path": "boofuzz/monitors/base_monitor.py",
+      "url": "https://raw.githubusercontent.com/jtpereyda/boofuzz/8e2aac764fa827955621edb4c2da0e0b2a652190/boofuzz/monitors/base_monitor.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/boofuzz/boofuzz/monitors/base_monitor.py",
+      "sha256": "aae7f02ac2c69cfcafc47790cee94c75e209602cd8f137b6b7ae747e404c535c",
+      "bytes": 4155,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "boofuzz",
+      "repository": "jtpereyda/boofuzz",
+      "revision": "8e2aac764fa827955621edb4c2da0e0b2a652190",
+      "path": "boofuzz/sessions/session.py",
+      "url": "https://raw.githubusercontent.com/jtpereyda/boofuzz/8e2aac764fa827955621edb4c2da0e0b2a652190/boofuzz/sessions/session.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/boofuzz/boofuzz/sessions/session.py",
+      "sha256": "b42144348a5ab797ce934a453234ab43454c6b8d8a25f3e4a45d40c2ef4ae6ae",
+      "bytes": 66739,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "boofuzz",
+      "repository": "jtpereyda/boofuzz",
+      "revision": "8e2aac764fa827955621edb4c2da0e0b2a652190",
+      "path": "pyproject.toml",
+      "url": "https://raw.githubusercontent.com/jtpereyda/boofuzz/8e2aac764fa827955621edb4c2da0e0b2a652190/pyproject.toml",
+      "cache_path": ".data/references/dynamic-reuse-20260910/boofuzz/pyproject.toml",
+      "sha256": "062722e48695475ae73bd4ce6dfb267e59d831ef762462bf5e338da6719c3266",
+      "bytes": 2930,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "pkg/fuzz/fuzzer.go",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/pkg/fuzz/fuzzer.go",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/pkg/fuzz/fuzzer.go",
+      "sha256": "38aaa613b2fb038ba2feba03eaf7fa22ca47e94e2ab9264e54e1cc5aaeb6d1ea",
+      "bytes": 10907,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "pkg/mcp/tools_reports.go",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/pkg/mcp/tools_reports.go",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/pkg/mcp/tools_reports.go",
+      "sha256": "4cc52abe95e8dde6de5d3251b693d21195d0acce39a06379008fc4e618d7abef",
+      "bytes": 14418,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "pkg/report/aggregator.go",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/pkg/report/aggregator.go",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/pkg/report/aggregator.go",
+      "sha256": "22611ec0f317c688617d90c41dbb053750040790979501e55e359f961ab3c5c3",
+      "bytes": 6666,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "pkg/report/parser.go",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/pkg/report/parser.go",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/pkg/report/parser.go",
+      "sha256": "982a8e18556391dbe6f7920cda911c0d087e00da933f0470ffb98b990a6704d1",
+      "bytes": 5360,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "pkg/scope/scope.go",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/pkg/scope/scope.go",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/pkg/scope/scope.go",
+      "sha256": "4967ed1971e000bf7b73677b80a6d0898d96970f0ca730566aeb1d9452c8d409",
+      "bytes": 8049,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/README.md",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/README.md",
+      "sha256": "e5475fd132f621d57dba3c7c0944c3ba1737ccf9a5fba4d402ee70911492d10d",
+      "bytes": 23974,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Cybermes",
+      "repository": "Zyrexnn/Cybermes",
+      "revision": "79684fed09b4a9075159a389e7976eeb81331f68",
+      "path": "setup_windows.ps1",
+      "url": "https://raw.githubusercontent.com/Zyrexnn/Cybermes/79684fed09b4a9075159a389e7976eeb81331f68/setup_windows.ps1",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Cybermes/setup_windows.ps1",
+      "sha256": "0635c43b6f7a3bc983e1d632de583a4c3fdd6c577369794de207697984ac8ab7",
+      "bytes": 6022,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "DeepAudit",
+      "repository": "lintsinghua/DeepAudit",
+      "revision": "324133fe60b540327d182fbb8c800aa65a613349",
+      "path": "backend/app/services/agent/agents/verification.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/agents/verification.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/DeepAudit/backend/app/services/agent/agents/verification.py",
+      "sha256": "3a57f5447cb9f46a0992032f6262fc667705cec11432f8d95a0c1c4057750644",
+      "bytes": 46061,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "DeepAudit",
+      "repository": "lintsinghua/DeepAudit",
+      "revision": "324133fe60b540327d182fbb8c800aa65a613349",
+      "path": "backend/app/services/agent/core/executor.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/core/executor.py",
+      "cache_path": ".data/references/fix-review-20260910/DeepAudit/backend/app/services/agent/core/executor.py",
+      "sha256": "31d07c1a8b282710f6e8e3b21ea37dada8430f912ee4ffc99a6a81129de636cd",
+      "bytes": 16125,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "DeepAudit",
+      "repository": "lintsinghua/DeepAudit",
+      "revision": "324133fe60b540327d182fbb8c800aa65a613349",
+      "path": "backend/app/services/agent/core/validation.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/core/validation.py",
+      "cache_path": ".data/references/fix-review-20260910/DeepAudit/backend/app/services/agent/core/validation.py",
+      "sha256": "6070a57e87a14687c5766a2b3723e169635970df9fcf62e95d89806042db1f60",
+      "bytes": 11757,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "DeepAudit",
+      "repository": "lintsinghua/DeepAudit",
+      "revision": "324133fe60b540327d182fbb8c800aa65a613349",
+      "path": "backend/app/services/agent/tools/reporting_tool.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/tools/reporting_tool.py",
+      "cache_path": ".data/references/fix-review-20260910/DeepAudit/backend/app/services/agent/tools/reporting_tool.py",
+      "sha256": "c7f1b7e80362bee865413277c99675a3632d325047bc88a480cfb13c51cc2ea8",
+      "bytes": 10253,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "DeepAudit",
+      "repository": "lintsinghua/DeepAudit",
+      "revision": "324133fe60b540327d182fbb8c800aa65a613349",
+      "path": "backend/app/services/agent/tools/sandbox_tool.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/tools/sandbox_tool.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/DeepAudit/backend/app/services/agent/tools/sandbox_tool.py",
+      "sha256": "2e431dc6ce3b0be30bb44c911af398133c09f9dd37777c4ca7f4d2cf12f05dc4",
+      "bytes": 43278,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "DeepAudit",
+      "repository": "lintsinghua/DeepAudit",
+      "revision": "324133fe60b540327d182fbb8c800aa65a613349",
+      "path": "backend/app/services/agent/tools/sandbox_vuln.py",
+      "url": "https://raw.githubusercontent.com/lintsinghua/DeepAudit/324133fe60b540327d182fbb8c800aa65a613349/backend/app/services/agent/tools/sandbox_vuln.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/DeepAudit/backend/app/services/agent/tools/sandbox_vuln.py",
+      "sha256": "d165fd0d4087cd3e6d484533051e9f8650739e797a90eeca12f4f6ec17786b38",
+      "bytes": 55024,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Hypothesis",
+      "repository": "HypothesisWorks/hypothesis",
+      "revision": "pypi:6.164.0",
+      "path": "PKG-INFO",
+      "url": "https://files.pythonhosted.org/packages/7a/ac/7b76103bd74d8457e4de0c6a6c3a26ac6327016438bde125e0a3de83a5b8/hypothesis-6.164.0.tar.gz",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Hypothesis/hypothesis-6.164.0/PKG-INFO",
+      "sha256": "d0140788645661bf05bfd795d371d7e75a4ae49f4b46342864789d05a2920625",
+      "bytes": 5688,
+      "acquisition": "extracted_from_digest_verified_sdist_not_executed"
+    },
+    {
+      "project": "Hypothesis",
+      "repository": "HypothesisWorks/hypothesis",
+      "revision": "pypi:6.164.0",
+      "path": "src/hypothesis/core.py",
+      "url": "https://files.pythonhosted.org/packages/7a/ac/7b76103bd74d8457e4de0c6a6c3a26ac6327016438bde125e0a3de83a5b8/hypothesis-6.164.0.tar.gz",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Hypothesis/hypothesis-6.164.0/src/hypothesis/core.py",
+      "sha256": "39d57339dacee58d504510d42fea18d61167e97393a3e72381e6b148f8eae23e",
+      "bytes": 104558,
+      "acquisition": "extracted_from_digest_verified_sdist_not_executed"
+    },
+    {
+      "project": "Hypothesis",
+      "repository": "HypothesisWorks/hypothesis",
+      "revision": "pypi:6.164.0",
+      "path": "src/hypothesis/internal/conjecture/engine.py",
+      "url": "https://files.pythonhosted.org/packages/7a/ac/7b76103bd74d8457e4de0c6a6c3a26ac6327016438bde125e0a3de83a5b8/hypothesis-6.164.0.tar.gz",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Hypothesis/hypothesis-6.164.0/src/hypothesis/internal/conjecture/engine.py",
+      "sha256": "63c2fe1b7794f5c157969b4deb02d44c915ef4ca39384c04f407b80e3aa64837",
+      "bytes": 78545,
+      "acquisition": "extracted_from_digest_verified_sdist_not_executed"
+    },
+    {
+      "project": "Hypothesis",
+      "repository": "HypothesisWorks/hypothesis",
+      "revision": "pypi:6.164.0",
+      "path": "src/hypothesis/strategies/_internal/core.py",
+      "url": "https://files.pythonhosted.org/packages/7a/ac/7b76103bd74d8457e4de0c6a6c3a26ac6327016438bde125e0a3de83a5b8/hypothesis-6.164.0.tar.gz",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Hypothesis/hypothesis-6.164.0/src/hypothesis/strategies/_internal/core.py",
+      "sha256": "71c154e3508435612b900093a9cd80dc4cb84ef0a9b642750355b6b3d4853901",
+      "bytes": 115681,
+      "acquisition": "extracted_from_digest_verified_sdist_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "CMakeLists.txt",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/CMakeLists.txt",
+      "cache_path": ".data/references/fix-review-20260910/Jackalope/CMakeLists.txt",
+      "sha256": "a41a053b9118e3c015de8e7e285ed17e89fb3203a85309818d5824ae18be2290",
+      "bytes": 3574,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "fuzzer.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/fuzzer.cpp",
+      "cache_path": ".data/references/fix-review-20260910/Jackalope/fuzzer.cpp",
+      "sha256": "fa8b22d0761889449dcbfde693b0d96037601012086acaf547c9ac93f70e7e91",
+      "bytes": 34375,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "fuzzer.h",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/fuzzer.h",
+      "cache_path": ".data/references/fix-review-20260910/Jackalope/fuzzer.h",
+      "sha256": "504aa68016f4ac145258174b9bc4a45e77a71abd3e5f7a19de07d6199b5fd2a6",
+      "bytes": 7459,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "main.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/main.cpp",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Jackalope/main.cpp",
+      "sha256": "8fbf59f9a661947e69a567dd846e52bbadd1f0f892960d3b250a6f515c1c52ec",
+      "bytes": 7524,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "minimizer.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/minimizer.cpp",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Jackalope/minimizer.cpp",
+      "sha256": "172b31b9adbda2961fec080a29d7f7ed321cef69111624909a1a42c76aa782be",
+      "bytes": 1342,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "mutator.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/mutator.cpp",
+      "cache_path": ".data/references/fix-review-20260910/Jackalope/mutator.cpp",
+      "sha256": "c9727099a1f25d95402e9d75a629cf85392012d3d059097a5845bddd3d97991d",
+      "bytes": 20538,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/README.md",
+      "cache_path": ".data/references/fix-review-20260910/Jackalope/README.md",
+      "sha256": "c6c310dffa83a1fb0d886eb32359d8b1414b9b43bf14f994a8781f332c014f66",
+      "bytes": 16613,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "sampledelivery.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/sampledelivery.cpp",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Jackalope/sampledelivery.cpp",
+      "sha256": "ce6f647b10f8a476ac4d966e61802f335cd2fdc1544b78367732ac99d9e755b6",
+      "bytes": 1165,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Jackalope",
+      "repository": "googleprojectzero/Jackalope",
+      "revision": "8fb27c9039c10a53639455d22ac4b2158d2256e3",
+      "path": "tinyinstinstrumentation.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/Jackalope/8fb27c9039c10a53639455d22ac4b2158d2256e3/tinyinstinstrumentation.cpp",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Jackalope/tinyinstinstrumentation.cpp",
+      "sha256": "372be1771325558fb1ec8c17a2c91c1f9899e22f142be7690c85062fd464388d",
+      "bytes": 5537,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Lithium",
+      "repository": "MozillaSecurity/lithium",
+      "revision": "8b567a5f7572240fc15d25ad0df173f2008010a3",
+      "path": ".github/workflows/ci.yml",
+      "url": "https://raw.githubusercontent.com/MozillaSecurity/lithium/8b567a5f7572240fc15d25ad0df173f2008010a3/.github/workflows/ci.yml",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Lithium/.github/workflows/ci.yml",
+      "sha256": "c61d892bdd926f1428082cdfaf088d5dc7e1a707249cf31467fb6c9a0cd5c508",
+      "bytes": 2321,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Lithium",
+      "repository": "MozillaSecurity/lithium",
+      "revision": "8b567a5f7572240fc15d25ad0df173f2008010a3",
+      "path": "pyproject.toml",
+      "url": "https://raw.githubusercontent.com/MozillaSecurity/lithium/8b567a5f7572240fc15d25ad0df173f2008010a3/pyproject.toml",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Lithium/pyproject.toml",
+      "sha256": "2fc3d7141a046f4b0d28b4866ce4da600f20de38c3e4e6bb197ffac1fd000e95",
+      "bytes": 1372,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Lithium",
+      "repository": "MozillaSecurity/lithium",
+      "revision": "8b567a5f7572240fc15d25ad0df173f2008010a3",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/MozillaSecurity/lithium/8b567a5f7572240fc15d25ad0df173f2008010a3/README.md",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Lithium/README.md",
+      "sha256": "f01c4ffb381c6d0e39f22568397759482e9be1a389ec652ec68ab4a5e17e97c1",
+      "bytes": 6226,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Lithium",
+      "repository": "MozillaSecurity/lithium",
+      "revision": "8b567a5f7572240fc15d25ad0df173f2008010a3",
+      "path": "src/lithium/docs/creating-tests.md",
+      "url": "https://raw.githubusercontent.com/MozillaSecurity/lithium/8b567a5f7572240fc15d25ad0df173f2008010a3/src/lithium/docs/creating-tests.md",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Lithium/src/lithium/docs/creating-tests.md",
+      "sha256": "9090e3dac9ed8ea0e83136e83075b08073223448b0efd0cc20b961773b2f57e8",
+      "bytes": 1484,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Lithium",
+      "repository": "MozillaSecurity/lithium",
+      "revision": "8b567a5f7572240fc15d25ad0df173f2008010a3",
+      "path": "src/lithium/reducer.py",
+      "url": "https://raw.githubusercontent.com/MozillaSecurity/lithium/8b567a5f7572240fc15d25ad0df173f2008010a3/src/lithium/reducer.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Lithium/src/lithium/reducer.py",
+      "sha256": "ba73cdf331c5d8553d3cac1dfdb3f3dca3b9e68539d1ac31e599a0d2b2c60b57",
+      "bytes": 11897,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "Lithium",
+      "repository": "MozillaSecurity/lithium",
+      "revision": "8b567a5f7572240fc15d25ad0df173f2008010a3",
+      "path": "src/lithium/testcases.py",
+      "url": "https://raw.githubusercontent.com/MozillaSecurity/lithium/8b567a5f7572240fc15d25ad0df173f2008010a3/src/lithium/testcases.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/Lithium/src/lithium/testcases.py",
+      "sha256": "c09e2d3b8185a6018947bad421153fa50ef18b11b2c61a30e088eb99ac2627c2",
+      "bytes": 18291,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "docs/validation-0.3.md",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/docs/validation-0.3.md",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/docs/validation-0.3.md",
+      "sha256": "82b915096e73fc1e9a31c5a836548ede28f58ec9565994dbb108e961f9d3ba92",
+      "bytes": 2396,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "src/re_agent/config/schema.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/src/re_agent/config/schema.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/src/re_agent/config/schema.py",
+      "sha256": "4985b975f66188024f5bb4803f61df18fb10fdce330e17466996149a04e9969b",
+      "bytes": 5625,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "src/re_agent/orchestrator/single.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/src/re_agent/orchestrator/single.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/src/re_agent/orchestrator/single.py",
+      "sha256": "71c68533a45d5742c871dd539c3b9194d39a11a4896e8f53f5e41bd800d6ae01",
+      "bytes": 9188,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "src/re_agent/utils/process.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/src/re_agent/utils/process.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/src/re_agent/utils/process.py",
+      "sha256": "d320e2af1f55b9f2c7f63c1ed93ed7f93bd2cd270ef07eab1f974ae24124b99f",
+      "bytes": 3667,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "src/re_agent/verification/candidate.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/src/re_agent/verification/candidate.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/src/re_agent/verification/candidate.py",
+      "sha256": "bb622ff218fae87fd8020a97435605123f911390fbd75fc00ae86baa26581d1c",
+      "bytes": 15162,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "src/re_agent/verification/differential.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/src/re_agent/verification/differential.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/src/re_agent/verification/differential.py",
+      "sha256": "4d69af6a0ad214d8d78b764cca6a8b1a99d034470c5ffe9b5c04989dca983798",
+      "bytes": 2639,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "tests/test_verification/test_candidate.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/tests/test_verification/test_candidate.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/tests/test_verification/test_candidate.py",
+      "sha256": "078e87ad2cc1a83bb3a517db57e261bbe7dce7c9263356efcaee81cb53e95401",
+      "bytes": 6530,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "ReAgent",
+      "repository": "Dryxio/reagent",
+      "revision": "d12cea338c61898b06a86fe8adb25275fa9d5615",
+      "path": "tests/test_verification/test_portable_commands.py",
+      "url": "https://raw.githubusercontent.com/Dryxio/reagent/d12cea338c61898b06a86fe8adb25275fa9d5615/tests/test_verification/test_portable_commands.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/ReAgent/tests/test_verification/test_portable_commands.py",
+      "sha256": "ce290c7d032f02cc704bcf0263b02cb39dd38158fd8e9aa802383768256017a3",
+      "bytes": 3738,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "winafl",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "afl-fuzz.c",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/afl-fuzz.c",
+      "cache_path": ".data/references/fix-review-20260910/winafl/afl-fuzz.c",
+      "sha256": "3041a33cb9da293f646075f2eab63faa2bba8ef28590889084857bfdd5348fe5",
+      "bytes": 223792,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "WinAFL",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "afl-showmap.c",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/afl-showmap.c",
+      "cache_path": ".data/references/dynamic-reuse-20260910/WinAFL/afl-showmap.c",
+      "sha256": "68cf36bdb8c9d68d2059b0522a5f5e893fef97a6b0acc676fcd671bf3f011d09",
+      "bytes": 27237,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "WinAFL",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "afl-tmin.c",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/afl-tmin.c",
+      "cache_path": ".data/references/dynamic-reuse-20260910/WinAFL/afl-tmin.c",
+      "sha256": "73869ddc4d15cf2e853ad8c8bd7f6d67e5c399ae07c95188ea98196b98455fbb",
+      "bytes": 39061,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "winafl",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "CMakeLists.txt",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/CMakeLists.txt",
+      "cache_path": ".data/references/fix-review-20260910/winafl/CMakeLists.txt",
+      "sha256": "10bd407cc35710baa79c089d5e5e94f13d3e3ee8f79dd1f7bb0c914a3747d8c5",
+      "bytes": 4429,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "winafl",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "readme_tinyinst.md",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/readme_tinyinst.md",
+      "cache_path": ".data/references/fix-review-20260910/winafl/readme_tinyinst.md",
+      "sha256": "8b3f1bb97dec942ce5c355825dd26399ac9ff26d60abd0215768168a84dac900",
+      "bytes": 5174,
+      "acquisition": "existing_cache_rehashed_not_executed"
+    },
+    {
+      "project": "WinAFL",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/README.md",
+      "cache_path": ".data/references/dynamic-reuse-20260910/WinAFL/README.md",
+      "sha256": "04be2c2a46e6bca6ddfbede58e721ae55a5d697782d14681e365a329992c39c1",
+      "bytes": 31597,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "WinAFL",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "tinyinst_afl.cpp",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/tinyinst_afl.cpp",
+      "cache_path": ".data/references/dynamic-reuse-20260910/WinAFL/tinyinst_afl.cpp",
+      "sha256": "01d8f015fb2d6967074621841b970071970929d42cfb29f08095c844e88b376d",
+      "bytes": 4255,
+      "acquisition": "downloaded_source_not_executed"
+    },
+    {
+      "project": "WinAFL",
+      "repository": "googleprojectzero/winafl",
+      "revision": "fd85f38548b14352f4b70ad414f364ea6dc1a769",
+      "path": "winafl-cmin.py",
+      "url": "https://raw.githubusercontent.com/googleprojectzero/winafl/fd85f38548b14352f4b70ad414f364ea6dc1a769/winafl-cmin.py",
+      "cache_path": ".data/references/dynamic-reuse-20260910/WinAFL/winafl-cmin.py",
+      "sha256": "9fe75e20d580aa4f29a4b15165ef8a0d3eac0380622dd5cd3ea0b72152bd3ca1",
+      "bytes": 30522,
+      "acquisition": "downloaded_source_not_executed"
+    }
+  ]
+}

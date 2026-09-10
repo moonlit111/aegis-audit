@@ -15,7 +15,7 @@ test('runtime configuration → repeated component observations → reload → f
   );
   const data = zipSync({
     'store.py': strToU8(
-      'from pathlib import Path\n\ndef fetch(name):\n    if name == "private":\n        Path("marker.txt").write_text("created", encoding="ascii")\n    return name\n',
+      'from pathlib import Path\n\nsettings = {}\n\ndef fetch(count, values, *, name):\n    assert type(count) is int and count == 7\n    assert values == [True, None, {"key": "value"}]\n    assert settings == {"enabled": True}\n    if name == "private":\n        Path("marker.txt").write_text("created", encoding="ascii")\n    return name\n',
     ),
   });
   const card = await importFile(page, '运行证据浏览器验证', 'runtime-ui.zip', Buffer.from(data));
@@ -28,10 +28,10 @@ test('runtime configuration → repeated component observations → reload → f
     adapter: 'WINDOWS_PYTHON_CALL',
     path: 'store.py',
     function: 'fetch',
-    globals: {},
+    globals: { settings: { enabled: true } },
     fixtures: [],
-    baseline: { args: ['public'], kwargs: {}, stdin: '' },
-    probe: { args: ['private'], kwargs: {}, stdin: '' },
+    baseline: { args: [7, [true, null, { key: 'value' }]], kwargs: { name: 'public' }, stdin: '' },
+    probe: { args: [7, [true, null, { key: 'value' }]], kwargs: { name: 'private' }, stdin: '' },
     observer: 'FILE_CREATED',
     marker_path: 'marker.txt',
     repeats: 2,
@@ -54,6 +54,9 @@ test('runtime configuration → repeated component observations → reload → f
   expect(report.checks.exploitation).toBe('NOT_RUN');
   expect(report.audit.runtime[0].result.target_scope).toBe('COMPONENT');
   expect(report.audit.runtime[0].result.observation.trials).toHaveLength(3);
+  const trials = report.audit.runtime[0].result.observation.trials;
+  expect(JSON.parse(trials[0].input_json)).toEqual(config.baseline);
+  expect(JSON.parse(trials[1].input_json)).toEqual(config.probe);
 });
 
 async function importFile(page: Page, project: string, name: string, bytes: Buffer, binary = false) {
@@ -196,4 +199,67 @@ test('invalid ZIP paths and unrecognized binaries fail visibly without an analys
   await expect(invalid.locator('.inline-error')).toContainText('unsupported binary format');
   await expect(invalid.getByRole('button', { name: '开始反编译' })).toBeDisabled();
   await expect(invalid.getByRole('button', { name: '开始漏洞审计' })).toBeDisabled();
+});
+
+test('audit budget dialog submits explicit limits and stays usable on mobile', async ({ page }, testInfo) => {
+  await page.route('**/audit.v1.SystemService/GetCapabilities', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.modelConnection = { ...body.modelConnection, configured: true };
+    await route.fulfill({ response, json: body });
+  });
+  let submitted: Record<string, unknown> | undefined;
+  await page.route('**/audit.v1.RunService/CreateRun', async (route) => {
+    submitted = route.request().postDataJSON();
+    await route.fulfill({
+      status: 400,
+      contentType: 'application/json',
+      json: { code: 'failed_precondition', message: 'UI transport test: no model request was sent' },
+    });
+  });
+  const data = zipSync({ 'small.py': strToU8('def value():\n    return 1\n') });
+  const card = await importFile(page, '审计预算界面验证', 'small.zip', Buffer.from(data));
+  await expect(card.getByText('可分析', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: '开始漏洞审计', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '审计预算' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel('总模型调用上限')).toHaveValue('240');
+  await expect(dialog.getByLabel('单次输出预算（0 = 不限制）')).toHaveValue('0');
+  await expect(dialog.getByLabel('每个子任务工具轮数')).toHaveValue('24');
+  await expect(dialog.getByLabel('任务时限（秒）', { exact: true })).toHaveValue('10800');
+  await expect(dialog.getByLabel('单次模型时限（秒）')).toHaveValue('900');
+  await dialog.getByLabel('思考强度').selectOption('max');
+  await dialog.getByLabel('单次输出预算（0 = 不限制）').fill('131072');
+  await dialog.getByLabel('总模型调用上限').fill('1000');
+  await dialog.getByLabel('每个子任务工具轮数').fill('48');
+  await dialog.getByLabel('程序单元上限').fill('25');
+  await dialog.getByLabel('任务时限（秒）', { exact: true }).fill('21600');
+  await dialog.getByLabel('单次模型时限（秒）').fill('1800');
+  await dialog.getByRole('button', { name: '开始审计', exact: true }).click();
+  await expect(dialog.getByRole('alert')).toContainText('no model request was sent');
+  expect(submitted).toMatchObject({
+    scope: 'SECURITY_AUDIT',
+    maxModelCalls: 1000,
+    maxUnits: 25,
+    maxToolRounds: 48,
+    timeoutSeconds: 21600,
+    maxOutputTokens: 131072,
+    reasoningEffort: 'max',
+    modelTimeoutSeconds: 1800,
+  });
+  await dialog.getByRole('button', { name: '恢复默认预算' }).click();
+  await expect(dialog.getByLabel('思考强度')).toHaveValue('high');
+  await expect(dialog.getByLabel('总模型调用上限')).toHaveValue('240');
+  await expect(dialog.getByLabel('单次输出预算（0 = 不限制）')).toHaveValue('0');
+  await page.screenshot({ path: testInfo.outputPath('audit-budget-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(await dialog.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('audit-budget-mobile.png'), fullPage: true });
+  await dialog.getByRole('button', { name: '开始审计', exact: true }).scrollIntoViewIfNeeded();
+  await expect(dialog.getByRole('button', { name: '开始审计', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
 });

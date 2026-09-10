@@ -222,6 +222,14 @@ pub type OwnedCreateRuntimeRequestView = ::buffa::view::OwnedView<
 pub type OwnedCreateRuntimeResponseView = ::buffa::view::OwnedView<
     crate::messages::audit::v1::__buffa::view::CreateRuntimeResponseView<'static>,
 >;
+///Shorthand for `OwnedView<SuggestRuntimeRequestView<'static>>`.
+pub type OwnedSuggestRuntimeRequestView = ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::SuggestRuntimeRequestView<'static>,
+>;
+///Shorthand for `OwnedView<SuggestRuntimeResponseView<'static>>`.
+pub type OwnedSuggestRuntimeResponseView = ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::SuggestRuntimeResponseView<'static>,
+>;
 ///Shorthand for `OwnedView<GetRuntimeRequestView<'static>>`.
 pub type OwnedGetRuntimeRequestView = ::buffa::view::OwnedView<
     crate::messages::audit::v1::__buffa::view::GetRuntimeRequestView<'static>,
@@ -1168,6 +1176,40 @@ for crate::messages::audit::v1::__buffa::view::CreateRuntimeResponseView<'_> {
 impl ::connectrpc::Encodable<crate::messages::audit::v1::CreateRuntimeResponse>
 for ::buffa::view::OwnedView<
     crate::messages::audit::v1::__buffa::view::CreateRuntimeResponseView<'static>,
+> {
+    fn encode(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
+    }
+    /// An `OwnedView` still holds the buffer it was decoded from, so
+    /// its large fields can be handed to the response body by
+    /// reference count instead of copied. The bare view impl above
+    /// cannot do this: it has borrows but no buffer to name.
+    fn encode_segments(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body_segments(
+            self.reborrow(),
+            self.bytes(),
+            codec,
+        )
+    }
+}
+impl ::connectrpc::Encodable<crate::messages::audit::v1::SuggestRuntimeResponse>
+for crate::messages::audit::v1::__buffa::view::SuggestRuntimeResponseView<'_> {
+    fn encode(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body(self, codec)
+    }
+}
+impl ::connectrpc::Encodable<crate::messages::audit::v1::SuggestRuntimeResponse>
+for ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::SuggestRuntimeResponseView<'static>,
 > {
     fn encode(
         &self,
@@ -6702,6 +6744,12 @@ pub const RUNTIME_SERVICE_CREATE_RUNTIME_SPEC: ::connectrpc::Spec = ::connectrpc
         ::connectrpc::StreamType::Unary,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
+/// Static [`Spec`](::connectrpc::Spec) for the `SuggestRuntime` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
+pub const RUNTIME_SERVICE_SUGGEST_RUNTIME_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
+        "/audit.v1.RuntimeService/SuggestRuntime",
+        ::connectrpc::StreamType::Unary,
+    )
+    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
 /// Static [`Spec`](::connectrpc::Spec) for the `GetRuntime` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
 pub const RUNTIME_SERVICE_GET_RUNTIME_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
         "/audit.v1.RuntimeService/GetRuntime",
@@ -6785,6 +6833,29 @@ pub trait RuntimeService: Send + Sync + 'static {
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
                 crate::messages::audit::v1::CreateRuntimeResponse,
+            > + Send + use<'a, Self>,
+        >,
+    > + Send;
+    /// Handle the SuggestRuntime RPC.
+    ///
+    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
+    ///
+    /// `request` is borrowed from the request body and is valid for the
+    /// duration of the call; message fields are read directly on it
+    /// (zero-copy). The response cannot borrow from `request` — use
+    /// `.to_owned_message()` (or copy the specific fields) for anything
+    /// returned, stored, or moved into `tokio::spawn`.
+    fn suggest_runtime<'a>(
+        &'a self,
+        ctx: ::connectrpc::RequestContext,
+        request: ::connectrpc::ServiceRequest<
+            '_,
+            crate::messages::audit::v1::SuggestRuntimeRequest,
+        >,
+    ) -> impl ::std::future::Future<
+        Output = ::connectrpc::ServiceResult<
+            impl ::connectrpc::Encodable<
+                crate::messages::audit::v1::SuggestRuntimeResponse,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -6895,6 +6966,35 @@ impl<S: RuntimeService> RuntimeServiceExt for S {
                 },
             )
             .with_spec(RUNTIME_SERVICE_CREATE_RUNTIME_SPEC)
+            .route_view(
+                RUNTIME_SERVICE_SERVICE_NAME,
+                "SuggestRuntime",
+                {
+                    let svc = ::std::sync::Arc::clone(&self);
+                    ::connectrpc::view_handler_fn(move |
+                        ctx,
+                        req: ::buffa::view::OwnedView<
+                            crate::messages::audit::v1::__buffa::view::SuggestRuntimeRequestView<
+                                'static,
+                            >,
+                        >,
+                        format|
+                    {
+                        let svc = ::std::sync::Arc::clone(&svc);
+                        async move {
+                            let sreq = ::connectrpc::ServiceRequest::<
+                                crate::messages::audit::v1::SuggestRuntimeRequest,
+                            >::from_parts(req.reborrow(), req.bytes());
+                            svc.suggest_runtime(ctx, sreq)
+                                .await?
+                                .encode::<
+                                    crate::messages::audit::v1::SuggestRuntimeResponse,
+                                >(format)
+                        }
+                    })
+                },
+            )
+            .with_spec(RUNTIME_SERVICE_SUGGEST_RUNTIME_SPEC)
             .route_view(
                 RUNTIME_SERVICE_SERVICE_NAME,
                 "GetRuntime",
@@ -7013,6 +7113,12 @@ impl<T: RuntimeService> ::connectrpc::Dispatcher for RuntimeServiceServer<T> {
                         .with_spec(RUNTIME_SERVICE_CREATE_RUNTIME_SPEC),
                 )
             }
+            "SuggestRuntime" => {
+                Some(
+                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
+                        .with_spec(RUNTIME_SERVICE_SUGGEST_RUNTIME_SPEC),
+                )
+            }
             "GetRuntime" => {
                 Some(
                     ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
@@ -7059,6 +7165,28 @@ impl<T: RuntimeService> ::connectrpc::Dispatcher for RuntimeServiceServer<T> {
                         .await?
                         .encode::<
                             crate::messages::audit::v1::CreateRuntimeResponse,
+                        >(format)
+                })
+            }
+            "SuggestRuntime" => {
+                let svc = ::std::sync::Arc::clone(&self.inner);
+                Box::pin(async move {
+                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
+                        crate::messages::audit::v1::SuggestRuntimeRequest,
+                    >(request.encoded()?, format)?;
+                    let req: crate::messages::audit::v1::__buffa::view::SuggestRuntimeRequestView<
+                        '_,
+                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
+                        &body,
+                        ctx.decode_options(),
+                    )?;
+                    let req = ::connectrpc::ServiceRequest::<
+                        crate::messages::audit::v1::SuggestRuntimeRequest,
+                    >::from_parts(&req, &body);
+                    svc.suggest_runtime(ctx, req)
+                        .await?
+                        .encode::<
+                            crate::messages::audit::v1::SuggestRuntimeResponse,
                         >(format)
                 })
             }
@@ -7271,6 +7399,51 @@ where
                 &self.transport,
                 &self.config,
                 RUNTIME_SERVICE_CREATE_RUNTIME_SPEC
+                    .with_origin(::connectrpc::SpecOrigin::Client),
+                request,
+                options,
+            )
+            .await
+    }
+    /// Call the SuggestRuntime RPC. Sends a request to /audit.v1.RuntimeService/SuggestRuntime.
+    pub async fn suggest_runtime(
+        &self,
+        request: crate::messages::audit::v1::SuggestRuntimeRequest,
+    ) -> Result<
+        ::connectrpc::client::UnaryResponse<
+            ::buffa::view::OwnedView<
+                crate::messages::audit::v1::__buffa::view::SuggestRuntimeResponseView<
+                    'static,
+                >,
+            >,
+        >,
+        ::connectrpc::ConnectError,
+    > {
+        self.suggest_runtime_with_options(
+                request,
+                ::connectrpc::client::CallOptions::default(),
+            )
+            .await
+    }
+    /// Call the SuggestRuntime RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
+    pub async fn suggest_runtime_with_options(
+        &self,
+        request: crate::messages::audit::v1::SuggestRuntimeRequest,
+        options: ::connectrpc::client::CallOptions,
+    ) -> Result<
+        ::connectrpc::client::UnaryResponse<
+            ::buffa::view::OwnedView<
+                crate::messages::audit::v1::__buffa::view::SuggestRuntimeResponseView<
+                    'static,
+                >,
+            >,
+        >,
+        ::connectrpc::ConnectError,
+    > {
+        ::connectrpc::client::call_unary(
+                &self.transport,
+                &self.config,
+                RUNTIME_SERVICE_SUGGEST_RUNTIME_SPEC
                     .with_origin(::connectrpc::SpecOrigin::Client),
                 request,
                 options,

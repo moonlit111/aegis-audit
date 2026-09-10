@@ -98,6 +98,25 @@
       busy = false;
     }
   }
+
+  async function reuse() {
+    if (busy || !selectedFinding) return;
+    busy = true;
+    error = '';
+    try {
+      const response = await runtimeApi.suggestRuntime({
+        requestId: requestId(),
+        sourceRunId: run.id,
+        findingId: selectedFinding,
+      });
+      configJson = response.configJson;
+      notify(response.rationale || '已生成可复用的动态测试配置。');
+    } catch (failure) {
+      error = errorMessage(failure);
+    } finally {
+      busy = false;
+    }
+  }
   async function cancel(record: RuntimeRecord) {
     try {
       await runsApi.cancelRun({ runId: record.runId });
@@ -173,8 +192,8 @@
     <details class="runtime-config" open={!plans.length}>
       <summary>配置本地测试</summary>
       <p class="muted">
-        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口插桩构建，原始二进制支持 ELF
-        x86_64。
+        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口插桩构建，原始二进制支持 PE
+        x86/x64，预构建 libFuzzer 支持动态测试。
       </p>
       <form
         onsubmit={(event) => {
@@ -189,17 +208,25 @@
                 >Python 函数</option
               ><option value="WINDOWS_ORIGINAL_PE32">原始 PE32</option><option value="WINDOWS_ORIGINAL_PE64"
                 >原始 PE64</option
-              ></select
+              ><option value="WINDOWS_LIBFUZZER_PREBUILT">预构建 libFuzzer</option></select
             ></label
           >
           <label class="field"
             >测试方式<select bind:value={mode}
-              ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ" disabled
-                >动态测试（产品链未接入）</option
+              ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ"
+                >动态测试（libFuzzer）</option
               ></select
             ></label
           >
-          <button type="button" class="button secondary" onclick={template}>填入模板</button>
+          <div class="runtime-template-actions">
+            <button type="button" class="button secondary" onclick={template}>填入模板</button>
+            <button
+              type="button"
+              class="button secondary"
+              disabled={busy || !selectedFinding}
+              onclick={() => void reuse()}>智能复用</button
+            >
+          </div>
         </div>
         {#if audit?.findings.length}<label class="field"
             >关联发现<select bind:value={selectedFinding}
@@ -216,10 +243,6 @@
             required
           ></textarea></label
         >
-        <p class="field-help">
-          path 为快照内文件；args 为参数数组，stdin 为标准输入。Python 的 function 为已有函数名。运行目录可用 {'{{work}}'}，受控测试文件或数据可用
-          {'{{canary}}'}。模糊测试的 ARGUMENT / FILE 入口使用 {'{{input}}'}。
-        </p>
         <button class="button primary" disabled={busy || !configJson.trim()}
           ><Play size={15} />{busy ? '创建中…' : '开始本地测试'}</button
         >
@@ -319,3 +342,11 @@
     组件内验证、插桩构建和原始程序执行分别记录。未复现或未观察到崩溃，仅说明本次输入和预算下的结果。
   </p>
 </section>
+
+<style>
+  .runtime-template-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+</style>

@@ -97,6 +97,8 @@ pub mod __buffa {
         reg.register_json_any(super::__RUNTIME_RECORD_JSON_ANY);
         reg.register_json_any(super::__CREATE_RUNTIME_REQUEST_JSON_ANY);
         reg.register_json_any(super::__CREATE_RUNTIME_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__SUGGEST_RUNTIME_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__SUGGEST_RUNTIME_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_RUNTIME_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_RUNTIME_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__LIST_RUNTIME_REQUEST_JSON_ANY);
@@ -403,6 +405,14 @@ pub use self::__buffa::view::CreateRuntimeRequestOwnedView;
 pub use self::__buffa::view::CreateRuntimeResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::CreateRuntimeResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SuggestRuntimeRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::SuggestRuntimeRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SuggestRuntimeResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::SuggestRuntimeResponseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::GetRuntimeRequestView;
 #[doc(inline)]

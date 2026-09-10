@@ -5283,6 +5283,30 @@ pub struct CreateRunRequest {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u32"
     )]
     pub timeout_seconds: u32,
+    /// Field 8: `max_output_tokens`
+    #[serde(
+        rename = "maxOutputTokens",
+        alias = "max_output_tokens",
+        with = "::buffa::json_helpers::uint32",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u32"
+    )]
+    pub max_output_tokens: u32,
+    /// Field 9: `reasoning_effort`
+    #[serde(
+        rename = "reasoningEffort",
+        alias = "reasoning_effort",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub reasoning_effort: ::buffa::alloc::string::String,
+    /// Field 10: `model_timeout_seconds`
+    #[serde(
+        rename = "modelTimeoutSeconds",
+        alias = "model_timeout_seconds",
+        with = "::buffa::json_helpers::uint32",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u32"
+    )]
+    pub model_timeout_seconds: u32,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -5297,6 +5321,9 @@ impl ::core::fmt::Debug for CreateRunRequest {
             .field("max_units", &self.max_units)
             .field("max_tool_rounds", &self.max_tool_rounds)
             .field("timeout_seconds", &self.timeout_seconds)
+            .field("max_output_tokens", &self.max_output_tokens)
+            .field("reasoning_effort", &self.reasoning_effort)
+            .field("model_timeout_seconds", &self.model_timeout_seconds)
             .finish()
     }
 }
@@ -5354,6 +5381,22 @@ impl ::buffa::Message for CreateRunRequest {
                 += 1u64
                     + ::buffa::types::uint32_encoded_len(self.timeout_seconds) as u64;
         }
+        if self.max_output_tokens != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.max_output_tokens) as u64;
+        }
+        if !self.reasoning_effort.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.reasoning_effort) as u64;
+        }
+        if self.model_timeout_seconds != 0u32 {
+            size
+                += 1u64
+                    + ::buffa::types::uint32_encoded_len(self.model_timeout_seconds)
+                        as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -5384,6 +5427,15 @@ impl ::buffa::Message for CreateRunRequest {
         }
         if self.timeout_seconds != 0u32 {
             ::buffa::types::put_uint32_field(7u32, self.timeout_seconds, buf);
+        }
+        if self.max_output_tokens != 0u32 {
+            ::buffa::types::put_uint32_field(8u32, self.max_output_tokens, buf);
+        }
+        if !self.reasoning_effort.is_empty() {
+            ::buffa::types::put_string_field(9u32, &self.reasoning_effort, buf);
+        }
+        if self.model_timeout_seconds != 0u32 {
+            ::buffa::types::put_uint32_field(10u32, self.model_timeout_seconds, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -5447,6 +5499,27 @@ impl ::buffa::Message for CreateRunRequest {
                 )?;
                 self.timeout_seconds = ::buffa::types::decode_uint32(buf)?;
             }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.max_output_tokens = ::buffa::types::decode_uint32(buf)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.reasoning_effort, buf)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.model_timeout_seconds = ::buffa::types::decode_uint32(buf)?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -5462,6 +5535,9 @@ impl ::buffa::Message for CreateRunRequest {
         self.max_units = 0u32;
         self.max_tool_rounds = 0u32;
         self.timeout_seconds = 0u32;
+        self.max_output_tokens = 0u32;
+        self.reasoning_effort.clear();
+        self.model_timeout_seconds = 0u32;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -15964,6 +16040,355 @@ pub const __CREATE_RUNTIME_RESPONSE_JSON_ANY: ::buffa::type_registry::JsonAnyEnt
     type_url: "type.googleapis.com/audit.v1.CreateRuntimeResponse",
     to_json: ::buffa::type_registry::any_to_json::<CreateRuntimeResponse>,
     from_json: ::buffa::type_registry::any_from_json::<CreateRuntimeResponse>,
+    is_wkt: false,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct SuggestRuntimeRequest {
+    /// Field 1: `request_id`
+    #[serde(
+        rename = "requestId",
+        alias = "request_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub request_id: ::buffa::alloc::string::String,
+    /// Field 2: `source_run_id`
+    #[serde(
+        rename = "sourceRunId",
+        alias = "source_run_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub source_run_id: ::buffa::alloc::string::String,
+    /// Field 3: `finding_id`
+    #[serde(
+        rename = "findingId",
+        alias = "finding_id",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub finding_id: ::buffa::alloc::string::String,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for SuggestRuntimeRequest {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("SuggestRuntimeRequest")
+            .field("request_id", &self.request_id)
+            .field("source_run_id", &self.source_run_id)
+            .field("finding_id", &self.finding_id)
+            .finish()
+    }
+}
+impl SuggestRuntimeRequest {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SuggestRuntimeRequest";
+}
+::buffa::impl_default_instance!(SuggestRuntimeRequest);
+impl ::buffa::MessageName for SuggestRuntimeRequest {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "SuggestRuntimeRequest";
+    const FULL_NAME: &'static str = "audit.v1.SuggestRuntimeRequest";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SuggestRuntimeRequest";
+}
+impl ::buffa::Message for SuggestRuntimeRequest {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.request_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.request_id) as u64;
+        }
+        if !self.source_run_id.is_empty() {
+            size
+                += 1u64 + ::buffa::types::string_encoded_len(&self.source_run_id) as u64;
+        }
+        if !self.finding_id.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.finding_id) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.request_id.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.request_id, buf);
+        }
+        if !self.source_run_id.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.source_run_id, buf);
+        }
+        if !self.finding_id.is_empty() {
+            ::buffa::types::put_string_field(3u32, &self.finding_id, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.request_id, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.source_run_id, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.finding_id, buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.request_id.clear();
+        self.source_run_id.clear();
+        self.finding_id.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for SuggestRuntimeRequest {
+    const PROTO_FQN: &'static str = "audit.v1.SuggestRuntimeRequest";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for SuggestRuntimeRequest {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __SUGGEST_RUNTIME_REQUEST_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.SuggestRuntimeRequest",
+    to_json: ::buffa::type_registry::any_to_json::<SuggestRuntimeRequest>,
+    from_json: ::buffa::type_registry::any_from_json::<SuggestRuntimeRequest>,
+    is_wkt: false,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct SuggestRuntimeResponse {
+    /// Field 1: `config_json`
+    #[serde(
+        rename = "configJson",
+        alias = "config_json",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub config_json: ::buffa::alloc::string::String,
+    /// Field 2: `rationale`
+    #[serde(
+        rename = "rationale",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub rationale: ::buffa::alloc::string::String,
+    /// Field 3: `limitations`
+    #[serde(
+        rename = "limitations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub limitations: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for SuggestRuntimeResponse {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("SuggestRuntimeResponse")
+            .field("config_json", &self.config_json)
+            .field("rationale", &self.rationale)
+            .field("limitations", &self.limitations)
+            .finish()
+    }
+}
+impl SuggestRuntimeResponse {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SuggestRuntimeResponse";
+}
+::buffa::impl_default_instance!(SuggestRuntimeResponse);
+impl ::buffa::MessageName for SuggestRuntimeResponse {
+    const PACKAGE: &'static str = "audit.v1";
+    const NAME: &'static str = "SuggestRuntimeResponse";
+    const FULL_NAME: &'static str = "audit.v1.SuggestRuntimeResponse";
+    const TYPE_URL: &'static str = "type.googleapis.com/audit.v1.SuggestRuntimeResponse";
+}
+impl ::buffa::Message for SuggestRuntimeResponse {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return)]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.config_json.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.config_json) as u64;
+        }
+        if !self.rationale.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.rationale) as u64;
+        }
+        for v in &self.limitations {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        if !self.config_json.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.config_json, buf);
+        }
+        if !self.rationale.is_empty() {
+            ::buffa::types::put_string_field(2u32, &self.rationale, buf);
+        }
+        for v in &self.limitations {
+            ::buffa::types::put_string_field(3u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports)]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports)]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.config_json, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.rationale, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.limitations.push(__elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.config_json.clear();
+        self.rationale.clear();
+        self.limitations.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for SuggestRuntimeResponse {
+    const PROTO_FQN: &'static str = "audit.v1.SuggestRuntimeResponse";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for SuggestRuntimeResponse {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __SUGGEST_RUNTIME_RESPONSE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/audit.v1.SuggestRuntimeResponse",
+    to_json: ::buffa::type_registry::any_to_json::<SuggestRuntimeResponse>,
+    from_json: ::buffa::type_registry::any_from_json::<SuggestRuntimeResponse>,
     is_wkt: false,
 };
 #[derive(Clone, PartialEq, Default)]

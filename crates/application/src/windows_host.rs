@@ -25,6 +25,8 @@ pub enum HostRuntimeEntrypoint {
     WindowsPython,
     #[serde(rename = "WINDOWS_NATIVE_SOURCE")]
     WindowsNativeSource,
+    #[serde(rename = "WINDOWS_LIBFUZZER_PREBUILT")]
+    WindowsLibFuzzerPrebuilt,
 }
 
 impl HostRuntimeEntrypoint {
@@ -33,6 +35,7 @@ impl HostRuntimeEntrypoint {
             Self::OriginalPe => "run-pe.ps1",
             Self::WindowsPython => "run-python.ps1",
             Self::WindowsNativeSource => "run-native-source.ps1",
+            Self::WindowsLibFuzzerPrebuilt => "run-libfuzzer.ps1",
         }
     }
 }
@@ -141,6 +144,27 @@ impl HostRuntimeOutputPolicy {
                 "target.stderr.log".into(),
                 "target.stdout.log".into(),
             ]),
+            max_total_bytes: 4 * 1024 * 1024,
+            ..Self::runtime_output()
+        }
+    }
+
+    pub fn windows_lib_fuzzer() -> Self {
+        let mut optional_files = BTreeSet::from([
+            "crash-input.bin".into(),
+            "guest-error.json".into(),
+            "guest-observation.json".into(),
+            "target-executed.txt".into(),
+            "target.stderr.log".into(),
+            "target.stdout.log".into(),
+        ]);
+        for index in 1..=16 {
+            optional_files.insert(format!("crash-{index:02}-input.bin"));
+            optional_files.insert(format!("crash-{index:02}-minimize.stdout.log"));
+            optional_files.insert(format!("crash-{index:02}-minimize.stderr.log"));
+        }
+        Self {
+            optional_files,
             max_total_bytes: 4 * 1024 * 1024,
             ..Self::runtime_output()
         }
@@ -313,21 +337,34 @@ pub async fn run(
     let output = process::run(
         ProcessSpec {
             program,
-            args: vec![
-                "-NoProfile".into(),
-                "-ExecutionPolicy".into(),
-                "Bypass".into(),
-                "-File".into(),
-                prepared.script.to_string_lossy().into_owned(),
-                "-InputPath".into(),
-                prepared.input.to_string_lossy().into_owned(),
-                "-OutputPath".into(),
-                prepared.output.to_string_lossy().into_owned(),
-                "-PythonPath".into(),
-                python_path.to_string_lossy().into_owned(),
-                "-ZigPath".into(),
-                zig_path.to_string_lossy().into_owned(),
-            ],
+            args: {
+                let mut args = vec![
+                    "-NoProfile".into(),
+                    "-ExecutionPolicy".into(),
+                    "Bypass".into(),
+                    "-File".into(),
+                    prepared.script.to_string_lossy().into_owned(),
+                    "-InputPath".into(),
+                    prepared.input.to_string_lossy().into_owned(),
+                    "-OutputPath".into(),
+                    prepared.output.to_string_lossy().into_owned(),
+                    "-PythonPath".into(),
+                    python_path.to_string_lossy().into_owned(),
+                    "-ZigPath".into(),
+                    zig_path.to_string_lossy().into_owned(),
+                ];
+                if prepared.entrypoint == HostRuntimeEntrypoint::WindowsLibFuzzerPrebuilt {
+                    args.push("-LlvmPath".into());
+                    args.push(
+                        prepared
+                            .tool_root
+                            .join("llvm-min")
+                            .to_string_lossy()
+                            .into_owned(),
+                    );
+                }
+                args
+            },
             directory: prepared.root.clone(),
             env: BTreeMap::new(),
             timeout,
@@ -441,6 +478,18 @@ fn validate_entrypoint(spec: &HostRuntimeSpec) -> Result<()> {
             );
             config
         }
+        (HostRuntimeEntrypoint::WindowsLibFuzzerPrebuilt, Some(config)) => {
+            config.validate()?;
+            ensure!(
+                config.adapter == WindowsRuntimeAdapter::LibFuzzerPrebuilt,
+                "the libFuzzer entrypoint requires a prebuilt libFuzzer adapter"
+            );
+            ensure!(
+                matches!(&config.entry, WindowsRuntimeEntry::CommandLine { .. }),
+                "the libFuzzer entrypoint requires a command-line entry"
+            );
+            config
+        }
         _ => anyhow::bail!("host runtime entrypoint and configuration do not match"),
     };
     if let Some(input) = spec
@@ -527,4 +576,30 @@ fn is_identifier(value: &str) -> bool {
 
 fn is_sha256(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn libfuzzer_outputs_accept_all_bounded_crash_evidence() {
+        let policy = HostRuntimeOutputPolicy::windows_lib_fuzzer();
+        policy.validate().unwrap();
+        for file in [
+            "crash-input.bin",
+            "crash-01-input.bin",
+            "crash-01-minimize.stdout.log",
+            "crash-01-minimize.stderr.log",
+            "crash-16-input.bin",
+            "crash-16-minimize.stderr.log",
+        ] {
+            assert!(
+                policy.optional_files.contains(file),
+                "missing output: {file}"
+            );
+        }
+        assert!(!policy.optional_files.contains("crash-17-input.bin"));
+        assert!(!policy.optional_files.contains("crash-01-minimize.log"));
+    }
 }

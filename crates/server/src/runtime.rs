@@ -6,6 +6,23 @@ use aegis_domain as d;
 use serde_json::json;
 use sqlx::{Row, SqliteConnection};
 
+const EXPLOIT_RUNNER: &str = r##"#!/usr/bin/env python3
+"""Run the archived crash input against an authorized local libFuzzer target."""
+import argparse
+from pathlib import Path
+import subprocess
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", required=True)
+parser.add_argument("--input", type=Path, default=Path(__file__).with_suffix(".input"))
+parser.add_argument("--timeout", type=float, default=30.0)
+arguments = parser.parse_args()
+raise SystemExit(subprocess.run(
+    [arguments.target, str(arguments.input)],
+    timeout=arguments.timeout,
+).returncode)
+"##;
+
 impl Store {
     pub async fn runtime_records(&self, source_run_id: &str) -> Result<Vec<d::RuntimeRecord>> {
         let rows = sqlx::query("SELECT v.data,r.data AS run_data FROM runtime_records v JOIN audit_runs r ON r.id=v.run_id WHERE v.source_run_id=? OR v.run_id=? ORDER BY v.created_at,v.id")
@@ -37,7 +54,7 @@ impl Store {
         finding_id: &str,
         config: Option<d::RuntimeConfig>,
     ) -> Result<d::RuntimeRecord> {
-        let source: d::AuditRun = self.get("audit_runs", source_run_id).await?;
+        let mut source: d::AuditRun = self.get("audit_runs", source_run_id).await?;
         if ![d::SCOPE, d::AUDIT_SCOPE].contains(&source.scope.as_str()) {
             return Err(AppError::Invalid(
                 "运行验证必须关联结构分析或漏洞审计任务".into(),
@@ -67,22 +84,18 @@ impl Store {
             }
         };
         config.validate().map_err(AppError::Invalid)?;
-        if config.adapter == "WINDOWS_PYTHON_CALL"
-            && (!config.globals.is_empty()
-                || !config.baseline.kwargs.is_empty()
-                || !config.probe.kwargs.is_empty())
-        {
-            return Err(AppError::Invalid(
-                "Windows Python 运行配置暂不支持 globals/kwargs；拒绝创建会静默丢弃输入的任务"
-                    .into(),
-            ));
-        }
-        if let Some(finding) = finding
-            && (config.mode != "VERIFY" || !finding.evidence.iter().any(|e| e.path == config.path))
-        {
-            return Err(AppError::Invalid(
-                "关联发现的验证必须运行其证据文件，并包含正常输入和重复测试".into(),
-            ));
+        if let Some(finding) = finding {
+            let evidence_matches = finding.evidence.iter().any(|e| e.path == config.path);
+            let fuzz_reuse =
+                config.mode == "FUZZ" && config.adapter == "WINDOWS_LIBFUZZER_PREBUILT";
+            if (config.mode == "VERIFY" && !evidence_matches)
+                || (config.mode == "FUZZ" && !fuzz_reuse)
+            {
+                return Err(AppError::Invalid(
+                    "关联发现的验证必须运行其证据文件；FUZZ 智能复用必须使用预构建 libFuzzer"
+                        .into(),
+                ));
+            }
         }
         let snapshot: d::Snapshot = self.get("snapshots", &source.snapshot_id).await?;
         let manifest: d::SnapshotManifest = serde_json::from_slice(
@@ -104,7 +117,9 @@ impl Store {
             _ => "",
         };
         let adapter_matches = if snapshot.kind == "BINARY" {
-            snapshot.metadata["format"] == "PE" && config.adapter == expected_pe_adapter
+            snapshot.metadata["format"] == "PE"
+                && (config.adapter == expected_pe_adapter
+                    || (config.mode == "FUZZ" && config.adapter == "WINDOWS_LIBFUZZER_PREBUILT"))
         } else {
             matches!(
                 config.adapter.as_str(),
@@ -130,6 +145,10 @@ impl Store {
                 record.status = run.state.as_str().into();
             }
             return Ok(record);
+        }
+        if config.mode == "FUZZ" {
+            source.summary["exploitation"] = json!("QUEUED");
+            update_run(&mut tx, &source).await?;
         }
         let available = self.executors().await?.iter().any(|e| {
             e.capabilities
@@ -196,6 +215,87 @@ impl Store {
         tx.commit().await?;
         self.changed.notify_waiters();
         Ok(record)
+    }
+
+    pub async fn suggest_runtime(
+        &self,
+        source_run_id: &str,
+        finding_id: &str,
+    ) -> Result<(d::RuntimeConfig, String, Vec<String>)> {
+        let source: d::AuditRun = self.get("audit_runs", source_run_id).await?;
+        if ![d::SCOPE, d::AUDIT_SCOPE].contains(&source.scope.as_str()) {
+            return Err(AppError::Invalid(
+                "运行建议必须关联结构分析或漏洞审计任务".into(),
+            ));
+        }
+        let finding: d::Finding = self.get("findings", finding_id).await?;
+        if finding.run_id != source_run_id {
+            return Err(AppError::Invalid("发现不属于当前分析任务".into()));
+        }
+        let snapshot: d::Snapshot = self.get("snapshots", &source.snapshot_id).await?;
+        let manifest: d::SnapshotManifest = serde_json::from_slice(
+            &self
+                .artifact_bytes(&snapshot.manifest_artifact_id, 32 * 1024 * 1024)
+                .await?,
+        )?;
+        if finding.draft.category != "MEMORY_BOUNDS" || snapshot.kind != "BINARY" {
+            return Err(AppError::Precondition(
+                "当前智能复用仅支持二进制目标的 MEMORY_BOUNDS 发现".into(),
+            ));
+        }
+        let path = finding
+            .evidence
+            .iter()
+            .find(|e| e.path.to_ascii_lowercase().ends_with(".exe"))
+            .map(|e| e.path.clone())
+            .or_else(|| {
+                manifest
+                    .files
+                    .iter()
+                    .find(|f| f.path.to_ascii_lowercase().ends_with(".exe"))
+                    .map(|f| f.path.clone())
+            })
+            .ok_or_else(|| {
+                AppError::Precondition("二进制目标中没有可用于动态测试的 EXE 入口".into())
+            })?;
+        let seed = if finding.draft.input_source.trim().is_empty() {
+            "seed".to_owned()
+        } else {
+            finding.draft.input_source.trim().to_owned()
+        };
+        let config = d::RuntimeConfig {
+            mode: "FUZZ".into(),
+            adapter: "WINDOWS_LIBFUZZER_PREBUILT".into(),
+            path,
+            function: String::new(),
+            globals: Default::default(),
+            fixtures: vec![],
+            baseline: Default::default(),
+            probe: Default::default(),
+            observer: "SANITIZER".into(),
+            marker_path: String::new(),
+            repeats: 2,
+            timeout_seconds: 5,
+            fuzz: d::FuzzOptions {
+                engine: "LLVM_LIBFUZZER".into(),
+                input_mode: "FILE".into(),
+                seeds: vec![seed],
+                max_cases: 1000,
+                budget_seconds: 60,
+                random_seed: 71413,
+            },
+        };
+        config.validate().map_err(AppError::Invalid)?;
+        let rationale = format!(
+            "根据 MEMORY_BOUNDS 发现和二进制入口 {} 生成 libFuzzer 动态测试配置",
+            config.path
+        );
+        let limitations = vec![
+            "智能复用当前仅覆盖二进制目标的 MEMORY_BOUNDS 发现".into(),
+            "目标必须是已构建的 libFuzzer 可执行文件".into(),
+            "种子来自发现中的输入来源描述，执行前应人工确认".into(),
+        ];
+        Ok((config, rationale, limitations))
     }
 
     pub(crate) async fn ingest_runtime(
@@ -294,6 +394,97 @@ impl Store {
             "NOT_RUN"
         });
         run.summary["runtime"] = serde_json::to_value(&result)?;
+        let mut exploitation_status = "NOT_RUN";
+        let mut exploitation_artifact_id = String::new();
+        let mut exploitation_input_artifact_id = String::new();
+        if record.config.mode == "FUZZ" {
+            if let Some(crash) = result
+                .observation
+                .crashes
+                .iter()
+                .find(|crash| crash.reproduced)
+            {
+                let input = hex::decode(&crash.input_hex)
+                    .map_err(|e| AppError::Invalid(format!("利用输入无效：{e}")))?;
+                let input_artifact = self
+                    .stage_bytes(
+                        &input,
+                        &format!("exploit-{}.input", record.id),
+                        "application/octet-stream",
+                    )
+                    .await?;
+                Self::insert_artifact(
+                    conn,
+                    &input_artifact,
+                    Some(&snapshot.id),
+                    Some(work),
+                    Some(attempt),
+                )
+                .await?;
+                let runner_artifact = self
+                    .stage_bytes(
+                        EXPLOIT_RUNNER.as_bytes(),
+                        &format!("exploit-{}.py", record.id),
+                        "text/x-python",
+                    )
+                    .await?;
+                Self::insert_artifact(
+                    conn,
+                    &runner_artifact,
+                    Some(&snapshot.id),
+                    Some(work),
+                    Some(attempt),
+                )
+                .await?;
+                let evidence = json!({
+                    "schema_version": 1,
+                    "kind": "CRASH_POC",
+                    "finding_id": record.finding_id,
+                    "target_path": record.config.path,
+                    "target_sha256": result.target_sha256,
+                    "config_hash": result.config_hash,
+                    "input_sha256": crash.input_sha256,
+                    "input_artifact_id": input_artifact.id,
+                    "runner_artifact_id": runner_artifact.id,
+                    "signature": crash.signature,
+                    "minimized": crash.minimized,
+                    "replays": crash.replays.len(),
+                    "impact": "The minimized input reproduces the sanitizer-observed memory-safety failure.",
+                    "limitations": [
+                        "This is a crash PoC, not proof of arbitrary code execution.",
+                        "The runner must only be used against the authorized local target."
+                    ]
+                });
+                let evidence_artifact = self
+                    .stage_bytes(
+                        serde_json::to_vec_pretty(&evidence)?.as_slice(),
+                        &format!("exploit-{}.json", record.id),
+                        "application/json",
+                    )
+                    .await?;
+                Self::insert_artifact(
+                    conn,
+                    &evidence_artifact,
+                    Some(&snapshot.id),
+                    Some(work),
+                    Some(attempt),
+                )
+                .await?;
+                exploitation_status = "COMPLETED";
+                exploitation_artifact_id = evidence_artifact.id.clone();
+                exploitation_input_artifact_id = input_artifact.id.clone();
+                run.summary["exploitation"] = json!(exploitation_status);
+                run.summary["exploitation_artifact_id"] = json!(evidence_artifact.id);
+                run.summary["exploitation_input_artifact_id"] = json!(input_artifact.id);
+            } else {
+                exploitation_status = if verdict == "ERROR" {
+                    "ERROR"
+                } else {
+                    "NOT_REPRODUCED"
+                };
+                run.summary["exploitation"] = json!(exploitation_status);
+            }
+        }
         update_run(conn, &run).await?;
         if !record.finding_id.is_empty() {
             let mut finding: d::Finding = load(conn, "findings", &record.finding_id).await?;
@@ -343,6 +534,16 @@ impl Store {
                 .bind(serde_json::to_string(tool)?)
                 .execute(&mut *conn)
                 .await?;
+        }
+        if record.config.mode == "FUZZ" {
+            let mut source: d::AuditRun = load(conn, "audit_runs", &record.source_run_id).await?;
+            source.summary["exploitation"] = json!(exploitation_status);
+            if !exploitation_artifact_id.is_empty() {
+                source.summary["exploitation_artifact_id"] = json!(exploitation_artifact_id);
+                source.summary["exploitation_input_artifact_id"] =
+                    json!(exploitation_input_artifact_id);
+            }
+            update_run(conn, &source).await?;
         }
         record.result = Some(result);
         sqlx::query("UPDATE runtime_records SET data=? WHERE id=?")

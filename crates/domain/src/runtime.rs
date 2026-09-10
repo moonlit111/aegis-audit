@@ -1,7 +1,7 @@
 use crate::{ToolExecution, sha256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const VERIFY_SCOPE: &str = "RUNTIME_VERIFICATION";
 pub const FUZZ_SCOPE: &str = "DYNAMIC_TESTING";
@@ -10,6 +10,7 @@ pub const WINDOWS_RUNTIME_ADAPTERS: &[&str] = &[
     "WINDOWS_NATIVE_SOURCE",
     "WINDOWS_ORIGINAL_PE32",
     "WINDOWS_ORIGINAL_PE64",
+    "WINDOWS_LIBFUZZER_PREBUILT",
 ];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -119,7 +120,9 @@ impl RuntimeConfig {
     pub fn target_scope(&self) -> &'static str {
         match self.adapter.as_str() {
             "PYTHON_CALL" | "WINDOWS_PYTHON_CALL" => "COMPONENT",
-            "NATIVE_SOURCE" | "WINDOWS_NATIVE_SOURCE" => "INSTRUMENTED_BUILD",
+            "NATIVE_SOURCE" => "INSTRUMENTED_BUILD",
+            "WINDOWS_NATIVE_SOURCE" => "REBUILT_TARGET",
+            "WINDOWS_LIBFUZZER_PREBUILT" => "INSTRUMENTED_BUILD",
             _ => "ORIGINAL",
         }
     }
@@ -151,6 +154,16 @@ impl RuntimeConfig {
         if !(1..=15).contains(&self.timeout_seconds) {
             return Err(
                 "timeout_seconds 必须为 1—15 秒，例如 5；这是单次目标执行时限，编译使用独立时限"
+                    .into(),
+            );
+        }
+        if is_windows_runtime_adapter(&self.adapter)
+            && serde_json::to_string(self)
+                .map_err(|e| e.to_string())?
+                .contains("{{")
+        {
+            return Err(
+                "Windows 运行配置不支持模板占位符；请使用实际 JSON 数据和测试目录内的相对路径"
                     .into(),
             );
         }
@@ -222,6 +235,16 @@ impl RuntimeConfig {
             {
                 return Err("原生程序参数必须为不含 NUL 的字符串".into());
             }
+            if is_windows_runtime_adapter(&self.adapter)
+                && self.adapter != "WINDOWS_PYTHON_CALL"
+                && input.args.iter().any(|value| {
+                    value
+                        .as_str()
+                        .is_none_or(|value| value.len() > 4096 || value.contains(['\r', '\n']))
+                })
+            {
+                return Err("Windows 原生程序的单个参数不能超过 4096 字节或包含换行".into());
+            }
         }
         let python_adapter = self.adapter == "PYTHON_CALL" || self.adapter == "WINDOWS_PYTHON_CALL";
         if !["RETURN_CANARY", "FILE_CREATED", "SANITIZER"].contains(&self.observer.as_str())
@@ -239,30 +262,31 @@ impl RuntimeConfig {
             return Err("返回值观察需要含随机标记的受控测试文件或测试数据".into());
         }
         if self.mode == "FUZZ" {
-            if is_windows_runtime_adapter(&self.adapter) {
-                return Err("Windows 宿主机产品链当前只支持 VERIFY；libFuzzer 仍是引擎实验".into());
-            }
             let fuzz = &self.fuzz;
-            if self.adapter == "PYTHON_CALL"
+            if self.adapter != "WINDOWS_LIBFUZZER_PREBUILT"
+                || !self.path.to_ascii_lowercase().ends_with(".exe")
+                || !self.function.is_empty()
                 || !self.globals.is_empty()
                 || !self.fixtures.is_empty()
-                || !["MUTATION", "AFLPP"].contains(&fuzz.engine.as_str())
-                || !["STDIN", "ARGUMENT", "FILE"].contains(&fuzz.input_mode.as_str())
-                || (fuzz.engine == "AFLPP"
-                    && (self.adapter != "NATIVE_SOURCE" || fuzz.input_mode == "ARGUMENT"))
-                || !(1..=4096).contains(&fuzz.max_cases)
-                || !(5..=600).contains(&fuzz.budget_seconds)
+                || fuzz.engine != "LLVM_LIBFUZZER"
+                || fuzz.input_mode != "FILE"
+                || self.observer != "SANITIZER"
+                || !self.baseline.args.is_empty()
+                || !self.baseline.kwargs.is_empty()
+                || !self.baseline.stdin.is_empty()
+                || !self.probe.args.is_empty()
+                || !self.probe.kwargs.is_empty()
+                || !self.probe.stdin.is_empty()
+                || !(1..=1_000_000).contains(&fuzz.max_cases)
+                || !(1..=900).contains(&fuzz.budget_seconds)
                 || fuzz.seeds.is_empty()
                 || fuzz.seeds.len() > 32
                 || fuzz.seeds.iter().any(|s| s.is_empty() || s.len() > 8192)
-                || (fuzz.input_mode != "STDIN"
-                    && !self
-                        .baseline
-                        .args
-                        .iter()
-                        .any(|a| a.as_str().is_some_and(|s| s.contains("{{input}}"))))
+                || fuzz.random_seed == 0
             {
-                return Err("模糊测试配置无效；AFL++ 支持 C/C++ 的标准输入或文件入口".into());
+                return Err(
+                    "模糊测试配置无效；当前仅支持 WINDOWS_LIBFUZZER_PREBUILT 的文件输入".into(),
+                );
             }
         }
         Ok(())
@@ -353,16 +377,19 @@ impl RuntimeObservation {
             && self.error.is_empty()
             && (self.fuzz["executions"].as_u64().is_none_or(|n| n == 0)
                 || self.fuzz["engine"] != config.fuzz.engine
-                || self.fuzz["coverage_feedback"] != (config.fuzz.engine == "AFLPP"))
+                || self.fuzz["coverage_feedback"]
+                    != (config.fuzz.engine == "AFLPP" || config.fuzz.engine == "LLVM_LIBFUZZER"))
         {
             return Err("模糊测试没有有效的执行与覆盖模式记录".into());
         }
+        let mut crash_signatures = BTreeSet::new();
         for sample in &self.crashes {
             let bytes = hex::decode(&sample.input_hex).map_err(|_| "异常输入格式无效")?;
             if bytes.len() > 65536
                 || sha256(&bytes) != sample.input_sha256
                 || sample.signature.is_empty()
                 || sample.signature.len() > 2048
+                || !crash_signatures.insert(sample.signature.as_str())
                 || sample.replays.len() > 2
             {
                 return Err("异常输入哈希或大小无效".into());
@@ -539,7 +566,7 @@ mod tests {
             ..Default::default()
         };
         config.validate().unwrap();
-        assert_eq!(config.target_scope(), "INSTRUMENTED_BUILD");
+        assert_eq!(config.target_scope(), "REBUILT_TARGET");
 
         config.adapter = "WINDOWS_ORIGINAL_PE64".into();
         config.path = "target.exe".into();
@@ -553,6 +580,122 @@ mod tests {
         assert!(config.validate().is_err());
         assert!(is_windows_runtime_adapter("WINDOWS_ORIGINAL_PE64"));
         assert!(!is_windows_runtime_adapter("ELF"));
+    }
+
+    #[test]
+    fn prebuilt_libfuzzer_recipes_are_bounded_and_deterministic() {
+        let mut config = RuntimeConfig {
+            mode: "FUZZ".into(),
+            adapter: "WINDOWS_LIBFUZZER_PREBUILT".into(),
+            path: "fuzz.exe".into(),
+            observer: "SANITIZER".into(),
+            ..Default::default()
+        };
+        config.fuzz.engine = "LLVM_LIBFUZZER".into();
+        config.fuzz.input_mode = "FILE".into();
+        config.fuzz.seeds = vec!["seed".into()];
+        config.fuzz.max_cases = 1000;
+        config.fuzz.budget_seconds = 60;
+        config.fuzz.random_seed = 71413;
+        config.validate().unwrap();
+        assert_eq!(config.target_scope(), "INSTRUMENTED_BUILD");
+
+        config.fuzz.engine = "AFLPP".into();
+        assert!(config.validate().is_err());
+        config.fuzz.engine = "LLVM_LIBFUZZER".into();
+        config.fuzz.seeds.clear();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn fuzz_crashes_are_deduplicated_by_signature() {
+        let mut config = RuntimeConfig {
+            mode: "FUZZ".into(),
+            adapter: "WINDOWS_LIBFUZZER_PREBUILT".into(),
+            path: "fuzz.exe".into(),
+            observer: "SANITIZER".into(),
+            ..Default::default()
+        };
+        config.fuzz.engine = "LLVM_LIBFUZZER".into();
+        config.fuzz.input_mode = "FILE".into();
+        config.fuzz.seeds = vec!["seed".into()];
+        let sample = CrashSample {
+            input_hex: hex::encode(b"crash"),
+            input_sha256: sha256(b"crash"),
+            signature: "AddressSanitizer:heap-buffer-overflow".into(),
+            reproduced: true,
+            minimized: true,
+            replays: vec![
+                RuntimeTrial {
+                    label: "replay".into(),
+                    input_sha256: sha256(b"crash"),
+                    processes_reaped: true,
+                    observed: true,
+                    crash_signature: "AddressSanitizer:heap-buffer-overflow".into(),
+                    ..Default::default()
+                };
+                2
+            ],
+        };
+        let observation = RuntimeObservation {
+            schema_version: 1,
+            mode: "FUZZ".into(),
+            adapter: "WINDOWS_LIBFUZZER_PREBUILT".into(),
+            path: "fuzz.exe".into(),
+            build: serde_json::json!({"status": "READY"}),
+            fuzz: serde_json::json!({
+                "executions": 1,
+                "engine": "LLVM_LIBFUZZER",
+                "coverage_feedback": true
+            }),
+            crashes: vec![sample.clone()],
+            ..Default::default()
+        };
+        assert!(observation.validate(&config).is_ok());
+
+        let mut duplicate = observation.clone();
+        duplicate.crashes.push(sample);
+        assert_eq!(
+            duplicate.validate(&config).unwrap_err(),
+            "异常输入哈希或大小无效"
+        );
+    }
+
+    #[test]
+    fn windows_recipes_preserve_json_types_and_reject_unexpanded_templates() {
+        let mut config = RuntimeConfig {
+            adapter: "WINDOWS_PYTHON_CALL".into(),
+            path: "target.py".into(),
+            function: "inspect".into(),
+            observer: "FILE_CREATED".into(),
+            ..Default::default()
+        };
+        config.probe.args = vec![serde_json::json!(7), serde_json::json!([true, null])];
+        config
+            .probe
+            .kwargs
+            .insert("enabled".into(), Value::Bool(true));
+        config.globals.insert("limit".into(), serde_json::json!(10));
+        config.validate().unwrap();
+        for template in ["{{work}}", "{{canary}}", "{{input}}"] {
+            config.probe.stdin = template.into();
+            assert!(config.validate().is_err());
+            config.probe.stdin.clear();
+            config.globals.insert("root".into(), template.into());
+            assert!(config.validate().is_err());
+            config.globals.remove("root");
+        }
+        config.adapter = "WINDOWS_ORIGINAL_PE64".into();
+        config.path = "target.exe".into();
+        config.function.clear();
+        config.globals.clear();
+        config.probe = Invocation::default();
+        config.probe.args = vec!["a".repeat(4097).into()];
+        assert!(config.validate().is_err());
+        config.probe.args = vec!["a".repeat(4096).into(); 32];
+        assert!(config.validate().is_err()); // The total recipe is still bounded to 128 KiB.
+        config.probe.args = vec!["argument".into(); 32];
+        config.validate().unwrap();
     }
 
     #[test]
