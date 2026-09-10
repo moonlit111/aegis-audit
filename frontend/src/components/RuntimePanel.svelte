@@ -7,7 +7,9 @@
     RuntimeRecord,
     GetAuditResponse,
     AgentTask,
+    Snapshot,
   } from '../gen/audit/v1/audit_pb';
+  import { TargetKind } from '../gen/audit/v1/audit_pb';
   import { artifactUrl, errorMessage, findingsApi, requestId, runsApi, runtimeApi } from '../lib/api';
   import { dateTime, isTerminal, parseJson } from '../lib/format';
   import {
@@ -20,12 +22,14 @@
 
   let {
     run,
+    snapshot,
     unit,
     findingId = '',
     onchanged,
     notify,
   }: {
     run: AuditRun;
+    snapshot?: Snapshot;
     unit?: ProgramUnit;
     findingId?: string;
     onchanged: () => Promise<void>;
@@ -42,6 +46,12 @@
   let loading = false;
   let alive = true;
   const controller = new AbortController();
+  const snapshotMetadata = $derived(
+    parseJson<{ architecture?: string; format?: string }>(snapshot?.metadataJson || '', {}),
+  );
+  const runtimeAdapterSupported = $derived(
+    snapshot?.kind !== TargetKind.BINARY || snapshotMetadata.format === 'PE',
+  );
   const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope));
   const plans = $derived(
     (audit?.tasks || []).filter((t) => t.role === 'VERIFIER' && t.status === 'SUCCEEDED'),
@@ -132,7 +142,9 @@
       unit?.language === 'python'
         ? 'WINDOWS_PYTHON_CALL'
         : unit?.language === 'binary'
-          ? 'WINDOWS_ORIGINAL_PE64'
+          ? snapshotMetadata.architecture === 'x86'
+            ? 'WINDOWS_ORIGINAL_PE32'
+            : 'WINDOWS_ORIGINAL_PE64'
           : 'WINDOWS_NATIVE_SOURCE';
     template();
     void refresh();
@@ -195,6 +207,9 @@
         填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口插桩构建，原始二进制支持 PE
         x86/x64，预构建 libFuzzer 支持动态测试。
       </p>
+      {#if !runtimeAdapterSupported}<div class="error-banner" role="alert">
+          当前运行器仅支持 PE x86/x64；ELF 目标只能进行静态分析。
+        </div>{/if}
       <form
         onsubmit={(event) => {
           event.preventDefault();
@@ -243,7 +258,7 @@
             required
           ></textarea></label
         >
-        <button class="button primary" disabled={busy || !configJson.trim()}
+        <button class="button primary" disabled={busy || !configJson.trim() || !runtimeAdapterSupported}
           ><Play size={15} />{busy ? '创建中…' : '开始本地测试'}</button
         >
       </form>

@@ -399,7 +399,7 @@
       }}
     />
   {:else if tab === 'runtime'}
-    <RuntimePanel {run} {unit} {notify} {onchanged} findingId={runtimeFinding} />
+    <RuntimePanel {run} {snapshot} {unit} {notify} {onchanged} findingId={runtimeFinding} />
   {:else if tab === 'program'}
     <div class="program-layout">
       <aside class="unit-explorer">
