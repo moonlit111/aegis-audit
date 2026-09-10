@@ -11,7 +11,7 @@ test('runtime configuration → repeated component observations → reload → f
   test.setTimeout(240_000);
   test.skip(
     process.env.AEGIS_TEST_RUNTIME !== '1',
-    'Run scripts/e2e.py --runtime with Windows Sandbox and pinned runtime tools installed',
+    'Run scripts/e2e.py --runtime with Windows host runtime tools installed',
   );
   const data = zipSync({
     'store.py': strToU8(

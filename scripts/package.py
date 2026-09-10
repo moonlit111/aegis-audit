@@ -39,8 +39,8 @@ def main():
         shutil.copytree(ROOT / 'frontend/dist', stage / 'frontend/dist')
         shutil.copytree(ROOT / 'Docs', stage / 'Docs')
         shutil.copytree(
-            ROOT / 'tools/windows/sandbox',
-            stage / 'tools/windows/sandbox',
+            ROOT / 'tools/windows/runtime',
+            stage / 'tools/windows/runtime',
             ignore=shutil.ignore_patterns('__pycache__', '*.pyc'),
         )
         for source in ['README.md', 'tools/versions.json', 'tools/windows/versions.json', 'tools/windows/semgrep-requirements.txt', 'tools/windows/install-upx.py', 'tools/ghidra/ExportProgram.java', 'scripts/aegis.py', 'scripts/bootstrap.py', 'scripts/manage.py', 'scripts/configure_model.py', 'scripts/windows_secrets.py']:

@@ -240,9 +240,7 @@ impl RuntimeConfig {
         }
         if self.mode == "FUZZ" {
             if is_windows_runtime_adapter(&self.adapter) {
-                return Err(
-                    "Windows Sandbox 产品链当前只支持 VERIFY；libFuzzer 仍是引擎实验".into(),
-                );
+                return Err("Windows 宿主机产品链当前只支持 VERIFY；libFuzzer 仍是引擎实验".into());
             }
             let fuzz = &self.fuzz;
             if self.adapter == "PYTHON_CALL"

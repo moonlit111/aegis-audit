@@ -95,7 +95,7 @@ impl Store {
         }
         if !d::is_windows_runtime_adapter(&config.adapter) {
             return Err(AppError::Invalid(
-                "旧 Linux/ELF 运行配置是历史数据；新运行必须使用 Windows Sandbox 适配器".into(),
+                "旧 Linux/ELF 运行配置是历史数据；新运行必须使用 Windows 宿主机适配器".into(),
             ));
         }
         let expected_pe_adapter = match snapshot.metadata["architecture"].as_str() {
@@ -134,7 +134,7 @@ impl Store {
         let available = self.executors().await?.iter().any(|e| {
             e.capabilities
                 .iter()
-                .any(|c| c.name == "windows-sandbox" && c.available)
+                .any(|c| c.name == "windows-host" && c.available)
         });
         let run = d::AuditRun {
             id: d::id(),
@@ -150,7 +150,7 @@ impl Store {
             started_at: String::new(),
             finished_at: String::new(),
             unit_count: 0,
-            summary: json!({"source_run_id":source_run_id,"verification":"NOT_RUN","fuzzing":"NOT_RUN","exploitation":"NOT_RUN","required_capability":"windows-sandbox","target_scope":config.target_scope(),"config":config}),
+            summary: json!({"source_run_id":source_run_id,"verification":"NOT_RUN","fuzzing":"NOT_RUN","exploitation":"NOT_RUN","required_capability":"windows-host","target_scope":config.target_scope(),"config":config}),
             error: String::new(),
         };
         let record = d::RuntimeRecord {
@@ -170,7 +170,7 @@ impl Store {
             .bind(&record.created_at).bind(serde_json::to_string(&record)?).execute(&mut *tx).await?;
         let work = d::id();
         let payload = json!({"manifest_artifact_id":snapshot.manifest_artifact_id,"config":config,"timeout_seconds":config.deadline()});
-        sqlx::query("INSERT INTO work_items(id,snapshot_id,run_id,kind,capability,state,created_at,input_artifact_id,payload) VALUES(?,?,?,'RUNTIME','windows-sandbox','QUEUED',?,?,?)")
+        sqlx::query("INSERT INTO work_items(id,snapshot_id,run_id,kind,capability,state,created_at,input_artifact_id,payload) VALUES(?,?,?,'RUNTIME','windows-host','QUEUED',?,?,?)")
             .bind(&work).bind(&run.snapshot_id).bind(&run.id).bind(&run.created_at).bind(&snapshot.normalized_artifact_id).bind(payload.to_string()).execute(&mut *tx).await?;
         event(
             &mut tx,
@@ -226,13 +226,9 @@ impl Store {
             || result.tools.iter().any(|t| {
                 t.version != result.image_id
                     || t.details["processes_reaped"] != true
-                    || t.details["network"] != "DISABLED"
-                    || t.details["isolation"] != "WINDOWS_SANDBOX"
-                    || t.command.first().map(String::as_str) != Some("wsb.exe")
-                    || t.details["wsb_session_id"]
-                        .as_str()
-                        .unwrap_or_default()
-                        .is_empty()
+                    || t.details["network"] != "HOST"
+                    || t.details["execution"] != "WINDOWS_HOST"
+                    || t.command.first().map(String::as_str) != Some("powershell.exe")
                     || t.details["raw_log_artifact_ids"]
                         .as_array()
                         .is_none_or(|ids| ids.is_empty())

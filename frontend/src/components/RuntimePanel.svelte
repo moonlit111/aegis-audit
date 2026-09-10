@@ -102,7 +102,7 @@
     try {
       await runsApi.cancelRun({ runId: record.runId });
       await refresh();
-      notify('取消请求已记录，正在等待 Windows Sandbox 回收。');
+      notify('取消请求已记录，正在等待宿主机运行进程回收。');
     } catch (failure) {
       error = errorMessage(failure);
     }

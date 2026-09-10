@@ -14,15 +14,6 @@
     "url": "https://ziglang.org/download/0.15.2/zig-x86_64-windows-0.15.2.zip",
     "sha256": "3a0ed1e8799a2f8ce2a6e6290a9ff22e6906f8227865911fb7ddedc3cc14cb0c"
   },
-  "llvm": {
-    "version": "23.1.1",
-    "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.1/clang%2Bllvm-23.1.1-x86_64-pc-windows-msvc.tar.zst",
-    "sha256": "c8a12d754b5050c5668b56a5425c806792d46c70f7244b1216046164aa4b6462"
-  },
-  "tinyinst": {
-    "version": "9b564702c01481825e4a1629d1701cf49d3d091f",
-    "url": "https://github.com/googleprojectzero/tinyinst.git"
-  },
   "upx": {
     "version": "5.2.1",
     "url": "https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-win64.zip",

@@ -1,13 +1,22 @@
 param(
     [string]$InputPath,
     [string]$OutputPath,
+    [string]$PythonPath,
+    [string]$ZigPath,
     [ValidateSet('ORIGINAL_PE', 'WINDOWS_PYTHON', 'WINDOWS_NATIVE_SOURCE')]
     [string]$Kind
 )
 
+
 function Read-WindowsRuntimeJson {
     param([string]$Path)
     Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+}
+
+function Write-WindowsRuntimeJson {
+    param([string]$Path, [object]$Value)
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText($Path, (ConvertTo-Json -InputObject $Value -Depth 8), $encoding)
 }
 
 function Test-WindowsRuntimeRelativePath {
@@ -29,12 +38,12 @@ function Test-WindowsRuntimeRelativePath {
 
 function Write-WindowsRuntimeFailure {
     param([string]$InputPath, [string]$OutputPath, [string]$Message)
+    Remove-Item -LiteralPath (Join-Path $OutputPath 'observer-start.txt') -Force -ErrorAction SilentlyContinue
     $error = [ordered]@{
         schema_version = 1
         error = $Message
     }
-    $error | ConvertTo-Json -Depth 5 |
-        Set-Content -LiteralPath (Join-Path $OutputPath 'guest-error.json') -Encoding UTF8
+    Write-WindowsRuntimeJson -Path (Join-Path $OutputPath 'guest-error.json') -Value $error
     $session = Read-WindowsRuntimeJson (Join-Path $InputPath 'session.json')
     $receipt = [ordered]@{
         schema_version = 1
@@ -43,67 +52,7 @@ function Write-WindowsRuntimeFailure {
         session_id = [string]$session.session_id
         status = 'ERROR'
     }
-    $receipt | ConvertTo-Json |
-        Set-Content -LiteralPath (Join-Path $OutputPath 'session.json') -Encoding UTF8
-}
-
-function Protect-WindowsRuntimeOutput {
-    param([string]$OutputPath)
-
-    $acl = Get-Acl -LiteralPath $OutputPath
-    $acl.SetAccessRuleProtection($true, $false)
-    $system = [System.Security.Principal.SecurityIdentifier]::new(
-        [System.Security.Principal.WellKnownSidType]::LocalSystemSid, $null)
-    $administrators = [System.Security.Principal.SecurityIdentifier]::new(
-        [System.Security.Principal.WellKnownSidType]::BuiltinAdministratorsSid, $null)
-    $rules = @(
-        New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $system, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-        New-Object System.Security.AccessControl.FileSystemAccessRule(
-            $administrators, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
-    )
-    foreach ($rule in $rules) { $acl.SetAccessRule($rule) }
-    Set-Acl -LiteralPath $OutputPath -AclObject $acl
-}
-
-function New-WindowsRuntimeTargetIdentity {
-    $bytes = New-Object byte[] 32
-    $random = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    try { $random.GetBytes($bytes) } finally { $random.Dispose() }
-
-    # The deterministic suffix only guarantees password-complexity categories;
-    # the 256 random bits above remain the secret. It is never logged or written.
-    $passwordText = [Convert]::ToBase64String($bytes) + '!Aa1'
-    $password = New-Object System.Security.SecureString
-    foreach ($character in $passwordText.ToCharArray()) { $password.AppendChar($character) }
-    $password.MakeReadOnly()
-
-    # Keep the SAM-compatible name short while the random suffix avoids reuse.
-    $name = 'AegisTgt-' + [guid]::NewGuid().ToString('N').Substring(0, 10)
-    New-LocalUser -Name $name -Password $password -Description 'AegisAudit disposable runtime target' `
-        -AccountNeverExpires -PasswordNeverExpires -UserMayNotChangePassword | Out-Null
-    [pscustomobject]@{ Name = $name; Password = $password }
-}
-
-function Remove-WindowsRuntimeTargetIdentity {
-    param([object]$Identity)
-    if ($null -eq $Identity) { return }
-    try {
-        if (Get-LocalUser -Name $Identity.Name -ErrorAction SilentlyContinue) {
-            Remove-LocalUser -Name $Identity.Name
-        }
-    } catch { }
-}
-
-function Grant-WindowsRuntimeTargetAccess {
-    param([string]$Path, [string]$Account, [string]$Rights, [switch]$Recurse)
-
-    $arguments = @($Path, '/grant:r', "$($Account):(OI)(CI)$Rights", '/Q')
-    if ($Recurse) { $arguments += @('/T', '/C') }
-    & "$env:SystemRoot\System32\icacls.exe" @arguments | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "failed to grant target access to $Path (icacls exit code $LASTEXITCODE)"
-    }
+    Write-WindowsRuntimeJson -Path (Join-Path $OutputPath 'session.json') -Value $receipt
 }
 
 function Get-WindowsRuntimeInputParts {
@@ -148,9 +97,7 @@ function Invoke-WindowsRuntimeTrial {
         [int]$TimeoutSeconds,
         [string]$Label,
         [string]$Observer,
-        [string]$MarkerPath,
-        [string]$TargetUser,
-        [System.Security.SecureString]$TargetPassword
+        [string]$MarkerPath
     )
 
     $marker = $null
@@ -173,12 +120,6 @@ function Invoke-WindowsRuntimeTrial {
     $startInfo.Arguments = ($Arguments | ForEach-Object { ConvertTo-WindowsArgument $_ }) -join ' '
     $startInfo.WorkingDirectory = $Work
     $startInfo.UseShellExecute = $false
-    if (-not [string]::IsNullOrEmpty($TargetUser)) {
-        $startInfo.Domain = $env:COMPUTERNAME
-        $startInfo.UserName = $TargetUser
-        $startInfo.Password = $TargetPassword
-        $startInfo.LoadUserProfile = $true
-    }
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
@@ -246,24 +187,27 @@ function Invoke-WindowsRuntimeTrials {
     param(
         [Parameter(Mandatory = $true)][string]$InputPath,
         [Parameter(Mandatory = $true)][string]$OutputPath,
+        [string]$PythonPath,
+        [string]$ZigPath,
         [Parameter(Mandatory = $true)][ValidateSet('ORIGINAL_PE', 'WINDOWS_PYTHON', 'WINDOWS_NATIVE_SOURCE')][string]$Kind
     )
 
     $ErrorActionPreference = 'Stop'
-    $PythonPath = 'C:\Users\WDAGUtilityAccount\Desktop\AegisPython'
-    $ZigPath = 'C:\Users\WDAGUtilityAccount\Desktop\AegisZig'
+    $ProjectRoot = (Get-Item -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).FullName
+    if ([string]::IsNullOrEmpty($PythonPath)) {
+        $PythonPath = Join-Path $ProjectRoot '.tools\windows-python'
+    }
+    if ([string]::IsNullOrEmpty($ZigPath)) {
+        $ZigPath = Join-Path $ProjectRoot '.tools\zig'
+    }
 
     Set-Content -LiteralPath (Join-Path $OutputPath 'observer-start.txt') -Value 'started' -Encoding ASCII
-
-    Protect-WindowsRuntimeOutput -OutputPath $OutputPath
-
-    $targetIdentity = $null
 
     try {
         $session = Read-WindowsRuntimeJson (Join-Path $InputPath 'session.json')
         $config = Read-WindowsRuntimeJson (Join-Path $InputPath 'runtime-config.json')
         if ($session.schema_version -ne 1 -or $config.schema_version -ne 1) {
-            throw 'unsupported sandbox schema'
+            throw 'unsupported host runtime schema'
         }
         if ($config.mode -ne 'VERIFY') {
             throw 'the Windows product runtime currently supports VERIFY mode'
@@ -276,14 +220,12 @@ function Invoke-WindowsRuntimeTrials {
         $compiler = ''
         $compileStdoutPath = Join-Path $OutputPath 'compile.stdout.log'
         $compileStderrPath = Join-Path $OutputPath 'compile.stderr.log'
-        $runtimeRoot = Join-Path $env:ProgramData 'AegisAuditRuntime'
+        $runtimeRoot = Join-Path ([IO.Path]::GetTempPath()) 'AegisAuditRuntime'
         if (-not (Test-Path -LiteralPath $runtimeRoot -PathType Container)) {
             New-Item -ItemType Directory -Path $runtimeRoot | Out-Null
         }
         $sharedWork = Join-Path $runtimeRoot ('runtime-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $sharedWork | Out-Null
-        $targetIdentity = New-WindowsRuntimeTargetIdentity
-        Grant-WindowsRuntimeTargetAccess -Path $sharedWork -Account $targetIdentity.Name -Rights 'M'
 
         if ($Kind -eq 'WINDOWS_NATIVE_SOURCE') {
             if ($config.adapter -ne 'WINDOWS_NATIVE_SOURCE') { throw 'adapter mismatch' }
@@ -324,15 +266,11 @@ function Invoke-WindowsRuntimeTrials {
                 if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { throw 'target is missing' }
                 $trial = Invoke-WindowsRuntimeTrial -FilePath $target -Arguments $parts.Arguments `
                     -StandardInput $parts.StandardInput -Work $work -TimeoutSeconds $config.timeout_seconds `
-                    -Label $plan.Label -Observer $observer -MarkerPath $markerPath `
-                    -TargetUser $targetIdentity.Name -TargetPassword $targetIdentity.Password
+                    -Label $plan.Label -Observer $observer -MarkerPath $markerPath
             } elseif ($Kind -eq 'WINDOWS_PYTHON') {
                 if ($config.adapter -ne 'WINDOWS_PYTHON_CALL') { throw 'adapter mismatch' }
                 $python = Join-Path $PythonPath 'python.exe'
-                if (-not (Test-Path -LiteralPath $python -PathType Leaf)) { throw 'Python runtime is missing' }
-                Grant-WindowsRuntimeTargetAccess -Path (Split-Path -Parent $PythonPath) -Account $targetIdentity.Name -Rights 'X'
-                Grant-WindowsRuntimeTargetAccess -Path (Split-Path -Parent (Split-Path -Parent $PythonPath)) -Account $targetIdentity.Name -Rights 'X'
-                Grant-WindowsRuntimeTargetAccess -Path $PythonPath -Account $targetIdentity.Name -Rights 'RX' -Recurse
+                if (-not (Test-Path -LiteralPath $python -PathType Leaf)) { throw "Python runtime is missing: $python" }
                 $module = Join-Path $work $config.entry.module
                 if (-not (Test-Path -LiteralPath $module -PathType Leaf)) { throw 'Python module is missing' }
                 $argumentJson = ConvertTo-Json @($parts.Arguments) -Compress
@@ -351,14 +289,12 @@ print(getattr(module, $functionJson)(*arguments))
                 Set-Content -LiteralPath $wrapper -Value $code -Encoding UTF8
                 $trial = Invoke-WindowsRuntimeTrial -FilePath $python -Arguments @('-I', $wrapper) `
                     -StandardInput $parts.StandardInput -Work $work -TimeoutSeconds $config.timeout_seconds `
-                    -Label $plan.Label -Observer $observer -MarkerPath $markerPath `
-                    -TargetUser $targetIdentity.Name -TargetPassword $targetIdentity.Password
+                    -Label $plan.Label -Observer $observer -MarkerPath $markerPath
             } else {
                 $target = Join-Path $sharedWork 'target.exe'
                 $trial = Invoke-WindowsRuntimeTrial -FilePath $target -Arguments $parts.Arguments `
                     -StandardInput $parts.StandardInput -Work $work -TimeoutSeconds $config.timeout_seconds `
-                    -Label $plan.Label -Observer $observer -MarkerPath $markerPath `
-                    -TargetUser $targetIdentity.Name -TargetPassword $targetIdentity.Password
+                    -Label $plan.Label -Observer $observer -MarkerPath $markerPath
             }
             $trials += $trial
         }
@@ -380,8 +316,7 @@ print(getattr(module, $functionJson)(*arguments))
             stdout_file = 'target.stdout.log'
             stderr_file = 'target.stderr.log'
         }
-        $observation | ConvertTo-Json -Depth 8 |
-            Set-Content -LiteralPath (Join-Path $OutputPath 'guest-observation.json') -Encoding UTF8
+        Write-WindowsRuntimeJson -Path (Join-Path $OutputPath 'guest-observation.json') -Value $observation
         Set-Content -LiteralPath (Join-Path $OutputPath 'target-executed.txt') `
             -Value "session=$($session.session_id);trials=$($trials.Count)" -Encoding ASCII
 
@@ -392,17 +327,14 @@ print(getattr(module, $functionJson)(*arguments))
             session_id = [string]$session.session_id
             status = 'COMPLETED'
         }
-        $receipt | ConvertTo-Json |
-            Set-Content -LiteralPath (Join-Path $OutputPath 'session.json') -Encoding UTF8
+        Write-WindowsRuntimeJson -Path (Join-Path $OutputPath 'session.json') -Value $receipt
         Remove-Item -LiteralPath (Join-Path $OutputPath 'observer-start.txt') -Force -ErrorAction SilentlyContinue
     } catch {
         Write-WindowsRuntimeFailure -InputPath $InputPath -OutputPath $OutputPath -Message $_.Exception.Message
-    } finally {
-        Remove-WindowsRuntimeTargetIdentity -Identity $targetIdentity
     }
 }
 
 # Wrappers dot-source this library and invoke the function themselves.
 if ($MyInvocation.InvocationName -ne '.') {
-    Invoke-WindowsRuntimeTrials -InputPath $InputPath -OutputPath $OutputPath -Kind $Kind
+    Invoke-WindowsRuntimeTrials -InputPath $InputPath -OutputPath $OutputPath -PythonPath $PythonPath -ZigPath $ZigPath -Kind $Kind
 }

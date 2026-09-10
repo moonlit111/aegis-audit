@@ -2,13 +2,13 @@
 
 已确定技术栈：Rust + Axum/Tokio、Svelte + TypeScript、Connect RPC、SQLite；Python/Java 用于必要的工具适配。
 
-**当前唯一支持的构建、开发与部署平台为 Windows 11 x64。** 不再提供 macOS / Linux 宿主平台支持。Windows 原生动态隔离仍在迁移中，旧 Linux 容器实现及历史测试记录不等于 Windows-only 目标已经完成。完整迁移范围和验收门槛见[Windows 专用实施方案](Docs/Windows专用实施方案.md)。
+**当前唯一支持的构建、开发与部署平台为 Windows 11 x64。** 不再提供 macOS / Linux 宿主平台支持。动态验证直接在 Windows 宿主机执行，不再要求 WSL、Docker 或 Windows Sandbox。
 
-当前版本为 **0.2.0：程序结构分析、多智能体审计与动态验证工作台**。Windows 主程序、导入、结构分析、模型审计和原生 Semgrep 规则扫描不要求 WSL、Docker 或另一台计算机。任务、事件和证据持久化，支持 JSON / HTML / Markdown 报告导出。执行不可信目标所需的 Windows 隔离环境另行验收。
+当前版本为 **0.2.0：程序结构分析、多智能体审计与动态验证工作台**。Windows 主程序、导入、结构分析、模型审计、原生 Semgrep 规则扫描和动态验证均在本机运行，不要求 WSL、Docker、Windows Sandbox 或另一台计算机。任务、事件和证据持久化，支持 JSON / HTML / Markdown 报告导出。
 
 支持 Python、Go、C、C++ 源码，以及 PE x86/x64、ELF x86_64。源码使用 Tree-sitter；二进制使用 Ghidra Headless。源码调用边标记为推断或未解析，伪代码只做函数级地址映射。解析失败、覆盖缺口和未执行的检查均保留在界面与报告中。
 
-基线版本已有 DeepSeek 四类缺陷开发回归和 Linux 容器动态回归；这些历史记录不计为 Windows 通过。本机已完成 Windows 源码/PE32/PE64/ELF 静态解析、报告和浏览器回归，并将 Semgrep 1.176.1 Windows beta 接入真实任务准备及证据上传。规则命中仍只是审计线索，不等于漏洞成立或利用成功。
+基线版本已有 DeepSeek 四类缺陷开发回归；本机已完成 Windows 源码/PE32/PE64/ELF 静态解析、报告和浏览器回归，并将 Semgrep 1.176.1 Windows beta 接入真实任务准备及证据上传。规则命中仍只是审计线索，不等于漏洞成立或利用成功。
 
 **正式课程验收仍为 0/6。** 独立运行包的完整验收、原生 PE 动态执行、自动去壳/解混淆、完整目标利用、开源系统对照和正式样本仍需完成。历史能力与实测边界见[审计与动态验证交付记录](Docs/审计与动态验证交付记录.md)，Windows 当前状态见[Windows 专用实施方案](Docs/Windows专用实施方案.md)，正式对象见[正式样本筛选](Docs/正式样本筛选.md)。
 
@@ -23,7 +23,7 @@ py -3 scripts/manage.py start --open
 
 Windows 原生构建需 Visual Studio Build Tools 的“使用 C++ 的桌面开发”和 Windows SDK。工具安装在项目 `.tools/` 及独立 Ghidra 缓存中，不修改全局 shell 配置。无需开发工具的便携版入口为 `AegisAudit.exe`，见[Windows 独立运行](Docs/Windows独立运行.md)。具体前提、版本和排错见[安装与运行](Docs/安装与运行.md)。
 
-打开 **http://127.0.0.1:7331**，新建项目，导入 ZIP / 本地文件夹 / HTTPS Git 指定版本 / PE 或 ELF，等待快照就绪后开始结构分析或安全审计。结构分析无需模型；安全审计使用本地已配置的 DeepSeek API。不要为使用这些能力安装 WSL 或 Docker。原生 Windows 动态执行仍待完成，旧容器代码只是迁移参考。任务不依赖浏览器保持连接。
+打开 **http://127.0.0.1:7331**，新建项目，导入 ZIP / 本地文件夹 / HTTPS Git 指定版本 / PE 或 ELF，等待快照就绪后开始结构分析、安全审计或动态验证。结构分析无需模型；安全审计使用本地已配置的 DeepSeek API。不要为使用这些能力安装 WSL、Docker 或 Windows Sandbox。任务不依赖浏览器保持连接。
 
 ```powershell
 py -3 scripts/manage.py stop        # 停止进程，保留本地数据
@@ -37,7 +37,7 @@ py -3 scripts/package.py --standalone-windows  # 构建含私有运行组件的 
 py -3 scripts/prepare_windows.py    # 导出含未提交改动的 Windows 源码交接包
 ```
 
-服务数据库、源文件、日志、凭据在 `.data/`，均不提交到 Git。默认只有本机浏览器能建立操作会话。导入、结构解析和 Semgrep 扫描不启动目标程序；Windows Job Object 负责工具超时、取消及进程树回收，但不是执行漏洞程序的安全沙箱。原生动态执行必须在断网、受资源限制且可回滚的 Windows 隔离环境中验证，不能直接在宿主运行正式漏洞目标。
+服务数据库、源文件、日志、凭据在 `.data/`，均不提交到 Git。默认只有本机浏览器能建立操作会话。动态验证按项目当前约定直接在宿主机运行目标；Windows Job Object 负责工具超时、取消及进程树回收。请只导入和执行你有权测试的目标，不要用本系统运行恶意软件或未授权样本。
 
 | 文档 | 内容 |
 | --- | --- |

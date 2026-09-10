@@ -629,8 +629,8 @@ impl Store {
             tx.commit().await?;
             return Ok(None);
         }
-        // Windows Sandbox allows one environment per host. A runtime lease that
-        // has not confirmed cleanup must block every executor, not just its owner.
+        // Keep one runtime lease at a time so host resource use stays bounded.
+        // A lease that has not confirmed cleanup blocks every executor.
         let active_runtime:i64=sqlx::query_scalar(
             "SELECT COUNT(*) FROM work_items WHERE kind='RUNTIME' AND (state='RUNNING' OR (state='EXPIRED' AND cleanup_confirmed=0))",
         ).fetch_one(&mut *tx).await?;

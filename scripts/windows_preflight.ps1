@@ -13,10 +13,6 @@ function Get-AegisTool([string]$Name, [string[]]$ToolArgs) {
     $PreviousEncoding = [Console]::OutputEncoding
     try {
         $ErrorActionPreference = "Continue"
-        # WSL writes UTF-16 when redirected, including on Windows PowerShell 5.1.
-        if ([IO.Path]::GetFileName($Executable.Source) -ieq "wsl.exe") {
-            [Console]::OutputEncoding = [Text.Encoding]::Unicode
-        }
         $ToolOutput = ((& $Executable.Source @ToolArgs 2>&1 | ForEach-Object { $_.ToString() }) -join "`n").Trim()
         $ToolExitCode = $LASTEXITCODE
         return @{ found = $true; available = $ToolExitCode -eq 0; path = $Executable.Source; exit_code = $ToolExitCode; detail = $ToolOutput }
@@ -36,9 +32,6 @@ foreach ($Tool in @("git", "rustc", "cargo", "cmake", "python", "node", "pnpm"))
 }
 $ToolVersions["java"] = Get-AegisTool "java" @("-version")
 $ToolVersions["python_launcher"] = Get-AegisTool "py.exe" @("-3", "--version")
-$ToolVersions["docker"] = Get-AegisTool "docker" @("version")
-$ToolVersions["wsl"] = Get-AegisTool "wsl.exe" @("--status")
-$ToolVersions["wsl_distributions"] = Get-AegisTool "wsl.exe" @("--list", "--verbose")
 $VisualStudioLocator = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
 if (Test-Path $VisualStudioLocator) {
     $VisualStudioCpp = Get-AegisTool $VisualStudioLocator @("-latest", "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64", "-property", "installationPath")
@@ -52,10 +45,6 @@ $WindowsSdkVersions = if (Test-Path $WindowsSdkRoot) {
 $ToolVersions["windows_sdk"] = @{ available = @($WindowsSdkVersions).Count -gt 0; include_root = $WindowsSdkRoot; versions = @($WindowsSdkVersions) }
 
 $Features = [ordered]@{}
-foreach ($Feature in @("Microsoft-Windows-Subsystem-Linux", "VirtualMachinePlatform", "Containers-DisposableClientVM", "Microsoft-Hyper-V-All")) {
-    try { $Features[$Feature] = (Get-WindowsOptionalFeature -Online -FeatureName $Feature).State.ToString() }
-    catch { $Features[$Feature] = "Unknown: " + $_.Exception.Message }
-}
 $Report = [ordered]@{
     schema_version = 1
     inspected_at = (Get-Date).ToUniversalTime().ToString("o")
