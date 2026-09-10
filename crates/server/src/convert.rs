@@ -293,6 +293,9 @@ pub fn phase(v: d::RunPhase) -> p::RunPhase {
 }
 pub fn report(v: d::Report) -> p::Report {
     p::Report {
+        snapshot_state: v.snapshot_state,
+        interim: v.interim,
+        snapshot_at: v.snapshot_at,
         id: v.id,
         run_id: v.run_id,
         format: v.format,

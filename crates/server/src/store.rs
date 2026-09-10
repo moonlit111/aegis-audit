@@ -1324,19 +1324,39 @@ impl Store {
             .map(|s| Ok(serde_json::from_str(&s)?))
             .collect()
     }
+    pub async fn reports(
+        &self,
+        run_id: &str,
+        offset: u32,
+        limit: u32,
+    ) -> Result<(Vec<d::Report>, u64)> {
+        let _: d::AuditRun = self.get("audit_runs", run_id).await?;
+        let total: i64 = sqlx::query_scalar("SELECT count(*) FROM report_exports WHERE run_id=?")
+            .bind(run_id)
+            .fetch_one(&self.pool)
+            .await?;
+        let rows: Vec<String> = sqlx::query_scalar("SELECT data FROM report_exports WHERE run_id=? ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?")
+            .bind(run_id).bind(if limit == 0 { 50 } else { limit.min(200) }).bind(offset).fetch_all(&self.pool).await?;
+        Ok((
+            rows.iter()
+                .map(|row| serde_json::from_str(row))
+                .collect::<std::result::Result<_, _>>()?,
+            total as u64,
+        ))
+    }
     pub async fn create_report(
         &self,
         request: &str,
         run_id: &str,
         format: &str,
     ) -> Result<d::Report> {
-        if !["json", "html", "markdown"].contains(&format) {
+        if !["json", "html", "markdown", "pdf"].contains(&format) {
             return Err(AppError::Invalid(
-                "报告格式须为 json、html 或 markdown".into(),
+                "报告格式须为 json、html、markdown 或 pdf".into(),
             ));
         }
         let hash = d::sha256(&serde_json::to_vec(&json!([run_id, format]))?);
-        let _guard = self.writes.lock().await;
+        let guard = self.writes.lock().await;
         let mut tx = self.pool.begin().await?;
         if let Some(id) = duplicate(&mut tx, "CreateReport", request, &hash).await? {
             return load(&mut tx, "report_exports", &id).await;
@@ -1358,9 +1378,38 @@ impl Store {
         }
         let artifacts = self.run_artifacts(run_id).await?;
         let audit = self.audit_evidence(run_id).await?;
-        let (bytes, mime, extension) = aegis_application::report::render(
-            &project, &snapshot, &run, &units, &artifacts, &audit, format,
+        let snapshot_at = d::now();
+        let interim = aegis_application::report::is_interim(&run, &audit);
+        // Freeze the data under the write guard, then release it before formatting or
+        // launching the bounded PDF process. Exports must not block lease/cancel writes.
+        tx.commit().await?;
+        drop(guard);
+        let (bytes, mime, extension) = aegis_application::report::render_at(
+            &project,
+            &snapshot,
+            &run,
+            &units,
+            &artifacts,
+            &audit,
+            if format == "pdf" { "html" } else { format },
+            &snapshot_at,
         )?;
+        let (bytes, mime, extension) = if format == "pdf" {
+            (
+                aegis_application::pdf::render(&bytes).await?,
+                "application/pdf",
+                "pdf",
+            )
+        } else {
+            (bytes, mime, extension)
+        };
+        let _guard = self.writes.lock().await;
+        let mut tx = self.pool.begin().await?;
+        // Concurrent retries return the first immutable export, even if the run
+        // advanced while both requests were rendering.
+        if let Some(id) = duplicate(&mut tx, "CreateReport", request, &hash).await? {
+            return load(&mut tx, "report_exports", &id).await;
+        }
         let artifact = self
             .stage_bytes(&bytes, &format!("aegis-report-{run_id}.{extension}"), mime)
             .await?;
@@ -1371,6 +1420,9 @@ impl Store {
             format: format.into(),
             artifact_id: artifact.id,
             created_at: d::now(),
+            snapshot_state: run.state.as_str().into(),
+            snapshot_at,
+            interim,
         };
         sqlx::query(
             "INSERT INTO report_exports(id,run_id,artifact_id,created_at,data) VALUES(?,?,?,?,?)",

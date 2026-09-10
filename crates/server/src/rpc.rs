@@ -513,6 +513,21 @@ impl p::RuntimeService for Api {
     }
 }
 impl p::ReportService for Api {
+    async fn list_reports(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::ListReportsRequest>,
+    ) -> ServiceResult<p::ListReportsResponse> {
+        let (reports, total) = self
+            .store
+            .reports(req.run_id, req.offset, req.limit)
+            .await?;
+        Response::ok(p::ListReportsResponse {
+            reports: reports.into_iter().map(c::report).collect(),
+            total,
+            ..Default::default()
+        })
+    }
     async fn create_report(
         &self,
         _: RequestContext,

@@ -502,6 +502,47 @@ async fn manual_annotations_are_validated_versioned_and_reused_only_for_identica
 }
 
 #[tokio::test]
+#[ignore = "requires local Edge or Chrome; exports an isolated fixture and never calls a real model"]
+async fn pdf_export_does_not_block_cancellation_and_preserves_a_factual_snapshot() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig::default();
+    let run = prepared(&store, config.clone()).await;
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &ScriptedModel::new(false),
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let copy = store.clone();
+    let run_id = run.id.clone();
+    let export = tokio::spawn(async move { copy.create_report(&d::id(), &run_id, "pdf").await });
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    let cancelled = tokio::time::timeout(Duration::from_secs(1), store.cancel_run(&run.id))
+        .await
+        .expect("PDF formatting must not hold the write lock")
+        .unwrap();
+    assert_eq!(cancelled.state, d::RunState::Cancelled);
+    let report = export.await.unwrap().unwrap();
+    assert!(report.interim);
+    assert_eq!(report.snapshot_state, "RUNNING");
+    let artifact: d::Artifact = store.get("artifacts", &report.artifact_id).await.unwrap();
+    assert_eq!(artifact.media_type, "application/pdf");
+    let bytes = store
+        .artifact_bytes(&report.artifact_id, 64 * 1024 * 1024)
+        .await
+        .unwrap();
+    assert!(bytes.starts_with(b"%PDF-"));
+    if let Some(path) = std::env::var_os("AEGIS_PDF_EVIDENCE") {
+        tokio::fs::write(path, bytes).await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn hallucinated_quotes_never_become_findings_and_calls_keep_usage() {
     let directory = tempfile::tempdir().unwrap();
     let store = Store::open(directory.path()).await.unwrap();

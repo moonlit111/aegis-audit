@@ -310,6 +310,77 @@ async fn real_source_results_reports_events_and_restart_persist() {
 }
 
 #[tokio::test]
+async fn interim_report_history_is_immutable_idempotent_and_paginated() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let fixture = Fixture::new(&store).await;
+    let (run, lease) = fixture.run(&store).await;
+    let request = d::id();
+    let (first, retry) = tokio::join!(
+        store.create_report(&request, &run.id, "json"),
+        store.create_report(&request, &run.id, "json")
+    );
+    let first = first.unwrap();
+    assert_eq!(first.id, retry.unwrap().id);
+    assert!(first.interim);
+    assert_eq!(first.snapshot_state, "RUNNING");
+    let original = store
+        .artifact_bytes(&first.artifact_id, 4 * 1024 * 1024)
+        .await
+        .unwrap();
+    let document: Value = serde_json::from_slice(&original).unwrap();
+    assert_eq!(document["interim"], true);
+    assert_eq!(document["generated_at"], first.snapshot_at);
+    store.cancel_run(&run.id).await.unwrap();
+    store
+        .complete_work(
+            &fixture.executor.id,
+            &lease.work_item_id,
+            &lease.attempt_id,
+            &lease.lease_token,
+            "CANCELLED",
+            "",
+            "",
+            true,
+        )
+        .await
+        .unwrap();
+    let final_report = store
+        .create_report(&d::id(), &run.id, "json")
+        .await
+        .unwrap();
+    assert!(!final_report.interim);
+    assert_eq!(final_report.snapshot_state, "CANCELLED");
+    assert_eq!(
+        store
+            .create_report(&request, &run.id, "json")
+            .await
+            .unwrap()
+            .id,
+        first.id
+    );
+    assert_eq!(
+        store
+            .artifact_bytes(&first.artifact_id, 4 * 1024 * 1024)
+            .await
+            .unwrap(),
+        original
+    );
+    let (history, total) = store.reports(&run.id, 0, 1).await.unwrap();
+    assert_eq!(total, 2);
+    assert_eq!(history[0].id, final_report.id);
+    assert_eq!(
+        store.reports(&run.id, 1, 1).await.unwrap().0[0].id,
+        first.id
+    );
+    let old: d::Report = serde_json::from_value(
+        json!({"id":"old","run_id":"r","format":"html","artifact_id":"a","created_at":"then"}),
+    )
+    .unwrap();
+    assert!(old.snapshot_state.is_empty());
+}
+
+#[tokio::test]
 async fn expired_leases_are_fenced_and_repeated_late_completion_stays_rejected() {
     let directory = tempfile::tempdir().unwrap();
     let store = Store::open(directory.path()).await.unwrap();

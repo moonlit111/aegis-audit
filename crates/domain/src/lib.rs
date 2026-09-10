@@ -395,6 +395,12 @@ pub struct Report {
     pub format: String,
     pub artifact_id: String,
     pub created_at: String,
+    #[serde(default)]
+    pub snapshot_state: String,
+    #[serde(default)]
+    pub interim: bool,
+    #[serde(default)]
+    pub snapshot_at: String,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

@@ -57,6 +57,7 @@
   import RecoveryPanel from './RecoveryPanel.svelte';
   import RunProgress from './RunProgress.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
+  import ReportHistory from './ReportHistory.svelte';
 
   let {
     runId,
@@ -83,6 +84,7 @@
   let selectedId = $state('');
   let reportFormat = $state('html');
   let reportBusy = $state(false);
+  let reportVersion = $state(0);
   let cancelBusy = $state(false);
   let cursor = $state(0n);
   let alive = true;
@@ -241,8 +243,13 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
+      reportVersion += 1;
       await loadRun();
-      notify('报告已生成，包含目标哈希、覆盖情况与产物引用。');
+      notify(
+        response.report?.interim
+          ? '阶段报告已生成，保留导出时的进度与证据。'
+          : '报告已生成，可在报告历史中再次下载。',
+      );
     } catch (failure) {
       error = errorMessage(failure);
     } finally {
@@ -282,13 +289,14 @@
       >{/if}
     <div class="report-action">
       <select aria-label="报告格式" bind:value={reportFormat}
-        ><option value="html">HTML</option><option value="json">JSON</option><option value="markdown"
-          >Markdown</option
-        ></select
-      ><button
-        class="button primary"
-        disabled={reportBusy || !run || !isTerminal(run.state)}
-        onclick={exportReport}><Download size={15} />{reportBusy ? '生成中…' : '导出报告'}</button
+        ><option value="html">HTML</option><option value="pdf">PDF</option><option value="json">JSON</option
+        ><option value="markdown">Markdown</option></select
+      ><button class="button primary" disabled={reportBusy || !run} onclick={exportReport}
+        ><Download size={15} />{reportBusy
+          ? '生成中…'
+          : run && !isTerminal(run.state)
+            ? '导出阶段报告'
+            : '导出报告'}</button
       >
     </div>
   </div>
@@ -355,6 +363,12 @@
   <div class="view-tabs" role="tablist" aria-label="分析内容">
     <button
       role="tab"
+      aria-selected={tab === 'reports'}
+      class:active={tab === 'reports'}
+      onclick={() => (tab = 'reports')}><Download size={16} />报告历史</button
+    >
+    <button
+      role="tab"
       aria-selected={tab === 'annotations'}
       class:active={tab === 'annotations'}
       onclick={() => (tab = 'annotations')}><Code2 size={16} />关键逻辑</button
@@ -406,7 +420,9 @@
       ></i>{streamStatus}</span
     >
   </div>
-  {#if tab === 'annotations'}
+  {#if tab === 'reports'}
+    <ReportHistory {runId} version={reportVersion} />
+  {:else if tab === 'annotations'}
     <AnnotationsPanel
       {run}
       {notify}

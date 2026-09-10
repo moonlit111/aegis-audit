@@ -65,6 +65,8 @@ pub mod __buffa {
         reg.register_json_any(super::__GET_UNIT_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_GRAPH_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_GRAPH_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__LIST_REPORTS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__LIST_REPORTS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__CREATE_REPORT_REQUEST_JSON_ANY);
         reg.register_json_any(super::__CREATE_REPORT_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_REPORT_REQUEST_JSON_ANY);
@@ -285,6 +287,14 @@ pub use self::__buffa::view::GetGraphRequestOwnedView;
 pub use self::__buffa::view::GetGraphResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::GetGraphResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsResponseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::CreateReportRequestView;
 #[doc(inline)]

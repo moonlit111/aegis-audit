@@ -145,6 +145,19 @@ test('ZIP → source positions → inferred graph → reports → event replay a
       expect(report.artifacts.length).toBeGreaterThan(2);
     }
   }
+  await page.getByLabel('报告格式').selectOption('pdf');
+  const pdfDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  const pdfFile = await pdfDownload;
+  expect((await readFile((await pdfFile.path())!)).subarray(0, 5).toString()).toBe('%PDF-');
+  await page.getByRole('tab', { name: '报告历史', exact: true }).click();
+  await expect(page.locator('.report-history tbody tr')).toHaveCount(4);
+  await page.reload();
+  await page.getByRole('tab', { name: '报告历史', exact: true }).click();
+  await expect(page.locator('.report-history tbody tr').first()).toContainText('PDF');
+  const historic = page.waitForEvent('download');
+  await page.locator('.report-history tbody tr').first().getByRole('button', { name: '下载报告' }).click();
+  expect((await readFile((await (await historic).path())!)).subarray(0, 5).toString()).toBe('%PDF-');
   await page.getByRole('tab', { name: '任务事件' }).click();
   await expect(page.locator('.event-list')).toContainText('RUN_COMPLETED');
   const before = await page.locator('.event-seq').allTextContents();

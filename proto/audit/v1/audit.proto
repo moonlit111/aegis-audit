@@ -127,6 +127,9 @@ message Report {
   string format = 3;
   string artifact_id = 4;
   string created_at = 5;
+  string snapshot_state = 6;
+  bool interim = 7;
+  string snapshot_at = 8;
 }
 message ToolCapability {
   string name = 1;
@@ -244,7 +247,10 @@ message GetGraphResponse { repeated ProgramUnit units = 1; repeated ProgramEdge 
 service ReportService {
   rpc CreateReport(CreateReportRequest) returns (CreateReportResponse);
   rpc GetReport(GetReportRequest) returns (GetReportResponse);
+  rpc ListReports(ListReportsRequest) returns (ListReportsResponse);
 }
+message ListReportsRequest { string run_id = 1; uint32 offset = 2; uint32 limit = 3; }
+message ListReportsResponse { repeated Report reports = 1; uint64 total = 2; }
 message CreateReportRequest { string request_id = 1; string run_id = 2; string format = 3; }
 message CreateReportResponse { Report report = 1; }
 message GetReportRequest { string report_id = 1; }
