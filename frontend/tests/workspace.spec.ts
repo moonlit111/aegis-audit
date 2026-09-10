@@ -109,6 +109,22 @@ test('ZIP → source positions → inferred graph → reports → event replay a
     .filter({ hasText: /^helper ·/ });
   await page.getByLabel('预览图节点').selectOption((await helperOption.getAttribute('value')) || '');
   await expect(page.getByRole('region', { name: '图节点代码预览' })).toContainText('return value + 1');
+  await page.getByRole('tab', { name: '关键逻辑', exact: true }).click();
+  await page.getByRole('button', { name: '新建人工标注', exact: true }).click();
+  await page.getByLabel('搜索标注单元').fill('entry');
+  await expect(page.getByLabel('标注程序单元').locator('option')).toHaveCount(1);
+  await page.getByLabel('标注依据', { exact: true }).fill('人工新增入口标注：核对调用原文');
+  await page.getByRole('button', { name: '保存人工标注', exact: true }).click();
+  await expect(page.locator('.annotation-list')).toContainText('人工新增入口标注');
+  await page.getByRole('button', { name: '修订标注', exact: true }).click();
+  await page.getByLabel('修订逻辑类型').selectOption('REGISTRATION');
+  await page.getByLabel('修订标注依据').fill('人工修订入口标注，待后续审计独立核对');
+  await page.getByRole('button', { name: '保存标注修订', exact: true }).click();
+  await expect(page.locator('.annotation-list')).toContainText('v2');
+  await page.reload();
+  await page.getByRole('tab', { name: '关键逻辑', exact: true }).click();
+  await expect(page.locator('.annotation-list')).toContainText('人工修订入口标注');
+  await expect(page.locator('.annotation-list')).toContainText('helper(7)');
   await page.getByRole('tab', { name: '覆盖与产物' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'future.ts' })).toContainText('不支持');
   await page.getByText('导入时排除的文件或目录', { exact: false }).click();
@@ -120,6 +136,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
     const download = await downloaded;
     const content = await readFile((await download.path())!, 'utf8');
     expect(content).toContain('NOT_RUN');
+    expect(content).toContain('人工修订入口标注');
     if (format === 'json') {
       const report = JSON.parse(content);
       expect(report.checks.exploitation).toBe('NOT_RUN');

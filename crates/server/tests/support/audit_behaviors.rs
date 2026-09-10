@@ -307,6 +307,201 @@ async fn audit_review_revision_and_report_use_real_persisted_code() {
 }
 
 #[tokio::test]
+async fn manual_annotations_are_validated_versioned_and_reused_only_for_identical_snapshot_code() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig::default();
+    let run = prepared(&store, config.clone()).await;
+    let (units, _) = store.list_units(&run.id, "", "", 0, 200).await.unwrap();
+    let login = units.iter().find(|u| u.unit.name == "login").unwrap();
+    let mut draft = d::AnnotationDraft {
+        unit_id: login.id.clone(),
+        tag: "AUTHENTICATION".into(),
+        subtype: "PASSWORD".into(),
+        rationale: "人工核对密码逻辑；仍须独立验证".into(),
+        evidence: vec![d::EvidenceInput {
+            unit_id: login.id.clone(),
+            start_line: 5,
+            end_line: 5,
+            quote: "fabricated()".into(),
+        }],
+    };
+    assert!(matches!(
+        store
+            .create_annotation(&d::id(), &run.id, draft.clone())
+            .await,
+        Err(AppError::Invalid(_))
+    ));
+    assert!(store.annotations(&run.id).await.unwrap().is_empty());
+    draft.evidence[0].quote.clear();
+    let request = d::id();
+    let annotation = store
+        .create_annotation(&request, &run.id, draft.clone())
+        .await
+        .unwrap();
+    assert_eq!(annotation.actor, "HUMAN");
+    assert_eq!(
+        annotation.evidence[0].quote,
+        "    return password == expected"
+    );
+    assert_eq!(
+        store
+            .create_annotation(&request, &run.id, draft.clone())
+            .await
+            .unwrap()
+            .id,
+        annotation.id
+    );
+    assert!(matches!(
+        store
+            .create_annotation(&d::id(), &run.id, draft.clone())
+            .await,
+        Err(AppError::Conflict(_))
+    ));
+    let edited = store
+        .update_annotation(
+            &d::id(),
+            &annotation.id,
+            1,
+            "CRYPTOGRAPHY",
+            "人工标注修订：密码比较需要进一步核对",
+        )
+        .await
+        .unwrap();
+    assert_eq!(edited.revision, 2);
+    assert!(edited.draft.subtype.is_empty());
+    assert!(matches!(
+        store
+            .update_annotation(&d::id(), &annotation.id, 1, "AUTHENTICATION", "stale")
+            .await,
+        Err(AppError::Conflict(_))
+    ));
+    let history: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM annotation_revisions WHERE annotation_id=?")
+            .bind(&annotation.id)
+            .fetch_one(&store.pool)
+            .await
+            .unwrap();
+    assert_eq!(history, 2);
+    store.finish_audit(&run.id, None).await.unwrap();
+    let next = store
+        .create_run_with_options(&d::id(), &run.snapshot_id, d::AUDIT_SCOPE, config.clone())
+        .await
+        .unwrap();
+    let executor = store.executors().await.unwrap().remove(0);
+    let lease = store.claim_work(&executor.id).await.unwrap().unwrap();
+    assert_eq!(lease.run_id, next.id);
+    let result_id = run.summary["result_artifact_id"].as_str().unwrap();
+    let original = store
+        .artifact_bytes(result_id, 16 * 1024 * 1024)
+        .await
+        .unwrap();
+    let artifact = put(&store, &original, "analysis.json", Some(&lease)).await;
+    store
+        .complete_work(
+            &executor.id,
+            &lease.work_item_id,
+            &lease.attempt_id,
+            &lease.lease_token,
+            "COMPLETED",
+            &artifact.id,
+            "",
+            true,
+        )
+        .await
+        .unwrap();
+    let model = ScriptedModel::new(false);
+    store
+        .drive_audit_with_model(
+            &next.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&next.id, None).await.unwrap();
+    {
+        let requests = model.requests.lock().unwrap();
+        let planner: Value =
+            serde_json::from_str(requests[0].messages[1]["content"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            planner["human_annotations"]["items"][0]["annotation_id"],
+            annotation.id
+        );
+        assert_eq!(planner["human_annotations"]["items"][0]["revision"], 2);
+        assert_eq!(
+            planner["human_annotations"]["items"][0]["source_run_id"],
+            run.id
+        );
+        assert!(
+            planner["human_annotations"]["items"][0]["unit_id"]
+                .as_str()
+                .unwrap()
+                .starts_with('U')
+        );
+        let login_request = requests
+            .iter()
+            .find(|request| {
+                request.messages[0]["content"]
+                    .as_str()
+                    .unwrap()
+                    .contains("ROLE: AUDITOR")
+                    && serde_json::from_str::<Value>(
+                        request.messages[1]["content"].as_str().unwrap(),
+                    )
+                    .unwrap()["focus"]["name"]
+                        == "login"
+            })
+            .unwrap();
+        let input: Value =
+            serde_json::from_str(login_request.messages[1]["content"].as_str().unwrap()).unwrap();
+        assert_eq!(
+            input["human_annotations"]["items"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            input["human_annotations"]["items"][0]["evidence"][0]["quote"]
+                .as_str()
+                .unwrap()
+                .contains("password == expected")
+        );
+    }
+    let other = prepared(&store, config.clone()).await;
+    assert_ne!(other.snapshot_id, run.snapshot_id);
+    assert!(
+        store
+            .create_annotation(&d::id(), &other.id, draft)
+            .await
+            .is_err()
+    );
+    let other_model = ScriptedModel::new(false);
+    store
+        .drive_audit_with_model(
+            &other.id,
+            "fixture-model",
+            &config,
+            &other_model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let request = &other_model.requests.lock().unwrap()[0];
+    let input: Value =
+        serde_json::from_str(request.messages[1]["content"].as_str().unwrap()).unwrap();
+    assert!(
+        input["human_annotations"]["items"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
 async fn hallucinated_quotes_never_become_findings_and_calls_keep_usage() {
     let directory = tempfile::tempdir().unwrap();
     let store = Store::open(directory.path()).await.unwrap();

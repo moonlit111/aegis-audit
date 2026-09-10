@@ -56,6 +56,7 @@
   import RuntimePanel from './RuntimePanel.svelte';
   import RecoveryPanel from './RecoveryPanel.svelte';
   import RunProgress from './RunProgress.svelte';
+  import AnnotationsPanel from './AnnotationsPanel.svelte';
 
   let {
     runId,
@@ -352,6 +353,12 @@
       ><a href="#/environment">执行环境<ArrowUpRight size={13} /></a>
     </div>{/if}
   <div class="view-tabs" role="tablist" aria-label="分析内容">
+    <button
+      role="tab"
+      aria-selected={tab === 'annotations'}
+      class:active={tab === 'annotations'}
+      onclick={() => (tab = 'annotations')}><Code2 size={16} />关键逻辑</button
+    >
     {#if summary.recovery}<button
         role="tab"
         aria-selected={tab === 'recovery'}
@@ -399,7 +406,16 @@
       ></i>{streamStatus}</span
     >
   </div>
-  {#if tab === 'recovery' && summary.recovery}
+  {#if tab === 'annotations'}
+    <AnnotationsPanel
+      {run}
+      {notify}
+      onselectunit={(id) => {
+        tab = 'program';
+        void selectUnit(id);
+      }}
+    />
+  {:else if tab === 'recovery' && summary.recovery}
     <RecoveryPanel recovery={summary.recovery} />
   {:else if tab === 'audit'}
     <AuditPanel

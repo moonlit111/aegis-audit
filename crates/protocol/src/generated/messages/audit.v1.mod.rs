@@ -54,6 +54,11 @@ pub mod __buffa {
         reg.register_json_any(super::__WATCH_RUN_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__CANCEL_RUN_REQUEST_JSON_ANY);
         reg.register_json_any(super::__CANCEL_RUN_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__EVIDENCE_INPUT_JSON_ANY);
+        reg.register_json_any(super::__CREATE_ANNOTATION_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__CREATE_ANNOTATION_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__LIST_ANNOTATIONS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__LIST_ANNOTATIONS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__LIST_UNITS_REQUEST_JSON_ANY);
         reg.register_json_any(super::__LIST_UNITS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_UNIT_REQUEST_JSON_ANY);
@@ -236,6 +241,26 @@ pub use self::__buffa::view::CancelRunRequestOwnedView;
 pub use self::__buffa::view::CancelRunResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::CancelRunResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::EvidenceInputView;
+#[doc(inline)]
+pub use self::__buffa::view::EvidenceInputOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsResponseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::ListUnitsRequestView;
 #[doc(inline)]

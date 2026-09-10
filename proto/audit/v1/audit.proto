@@ -214,7 +214,26 @@ service ProgramService {
   rpc GetUnit(GetUnitRequest) returns (GetUnitResponse);
   rpc GetGraph(GetGraphRequest) returns (GetGraphResponse);
   rpc UpdateAnnotation(UpdateAnnotationRequest) returns (UpdateAnnotationResponse);
+  rpc CreateAnnotation(CreateAnnotationRequest) returns (CreateAnnotationResponse);
+  rpc ListAnnotations(ListAnnotationsRequest) returns (ListAnnotationsResponse);
 }
+message EvidenceInput {
+  string unit_id = 1;
+  uint32 start_line = 2;
+  uint32 end_line = 3;
+  string quote = 4;
+}
+message CreateAnnotationRequest {
+  string request_id = 1;
+  string run_id = 2;
+  string unit_id = 3;
+  string tag = 4;
+  string rationale = 5;
+  repeated EvidenceInput evidence = 6;
+}
+message CreateAnnotationResponse { LogicAnnotation annotation = 1; }
+message ListAnnotationsRequest { string run_id = 1; }
+message ListAnnotationsResponse { repeated LogicAnnotation annotations = 1; }
 message ListUnitsRequest { string run_id = 1; string query = 2; string language = 3; uint32 offset = 4; uint32 limit = 5; }
 message ListUnitsResponse { repeated ProgramUnit units = 1; uint64 total = 2; }
 message GetUnitRequest { string unit_id = 1; }

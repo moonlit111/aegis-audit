@@ -254,6 +254,53 @@ impl p::RunService for Api {
     }
 }
 impl p::ProgramService for Api {
+    async fn create_annotation(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::CreateAnnotationRequest>,
+    ) -> ServiceResult<p::CreateAnnotationResponse> {
+        let draft = d::AnnotationDraft {
+            unit_id: req.unit_id.into(),
+            tag: req.tag.into(),
+            subtype: String::new(),
+            rationale: req.rationale.into(),
+            evidence: req
+                .evidence
+                .iter()
+                .map(|reference| d::EvidenceInput {
+                    unit_id: reference.unit_id.into(),
+                    start_line: reference.start_line,
+                    end_line: reference.end_line,
+                    quote: reference.quote.into(),
+                })
+                .collect(),
+        };
+        Response::ok(p::CreateAnnotationResponse {
+            annotation: c::annotation(
+                self.store
+                    .create_annotation(req.request_id, req.run_id, draft)
+                    .await?,
+            )
+            .into(),
+            ..Default::default()
+        })
+    }
+    async fn list_annotations(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::ListAnnotationsRequest>,
+    ) -> ServiceResult<p::ListAnnotationsResponse> {
+        Response::ok(p::ListAnnotationsResponse {
+            annotations: self
+                .store
+                .annotations(req.run_id)
+                .await?
+                .into_iter()
+                .map(c::annotation)
+                .collect(),
+            ..Default::default()
+        })
+    }
     async fn update_annotation(
         &self,
         _: RequestContext,

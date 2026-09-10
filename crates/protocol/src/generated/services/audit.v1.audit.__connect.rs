@@ -110,6 +110,22 @@ pub type OwnedUpdateAnnotationRequestView = ::buffa::view::OwnedView<
 pub type OwnedUpdateAnnotationResponseView = ::buffa::view::OwnedView<
     crate::messages::audit::v1::__buffa::view::UpdateAnnotationResponseView<'static>,
 >;
+///Shorthand for `OwnedView<CreateAnnotationRequestView<'static>>`.
+pub type OwnedCreateAnnotationRequestView = ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::CreateAnnotationRequestView<'static>,
+>;
+///Shorthand for `OwnedView<CreateAnnotationResponseView<'static>>`.
+pub type OwnedCreateAnnotationResponseView = ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::CreateAnnotationResponseView<'static>,
+>;
+///Shorthand for `OwnedView<ListAnnotationsRequestView<'static>>`.
+pub type OwnedListAnnotationsRequestView = ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::ListAnnotationsRequestView<'static>,
+>;
+///Shorthand for `OwnedView<ListAnnotationsResponseView<'static>>`.
+pub type OwnedListAnnotationsResponseView = ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::ListAnnotationsResponseView<'static>,
+>;
 ///Shorthand for `OwnedView<CreateReportRequestView<'static>>`.
 pub type OwnedCreateReportRequestView = ::buffa::view::OwnedView<
     crate::messages::audit::v1::__buffa::view::CreateReportRequestView<'static>,
@@ -700,6 +716,74 @@ for crate::messages::audit::v1::__buffa::view::UpdateAnnotationResponseView<'_> 
 impl ::connectrpc::Encodable<crate::messages::audit::v1::UpdateAnnotationResponse>
 for ::buffa::view::OwnedView<
     crate::messages::audit::v1::__buffa::view::UpdateAnnotationResponseView<'static>,
+> {
+    fn encode(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
+    }
+    /// An `OwnedView` still holds the buffer it was decoded from, so
+    /// its large fields can be handed to the response body by
+    /// reference count instead of copied. The bare view impl above
+    /// cannot do this: it has borrows but no buffer to name.
+    fn encode_segments(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body_segments(
+            self.reborrow(),
+            self.bytes(),
+            codec,
+        )
+    }
+}
+impl ::connectrpc::Encodable<crate::messages::audit::v1::CreateAnnotationResponse>
+for crate::messages::audit::v1::__buffa::view::CreateAnnotationResponseView<'_> {
+    fn encode(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body(self, codec)
+    }
+}
+impl ::connectrpc::Encodable<crate::messages::audit::v1::CreateAnnotationResponse>
+for ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::CreateAnnotationResponseView<'static>,
+> {
+    fn encode(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
+    }
+    /// An `OwnedView` still holds the buffer it was decoded from, so
+    /// its large fields can be handed to the response body by
+    /// reference count instead of copied. The bare view impl above
+    /// cannot do this: it has borrows but no buffer to name.
+    fn encode_segments(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body_segments(
+            self.reborrow(),
+            self.bytes(),
+            codec,
+        )
+    }
+}
+impl ::connectrpc::Encodable<crate::messages::audit::v1::ListAnnotationsResponse>
+for crate::messages::audit::v1::__buffa::view::ListAnnotationsResponseView<'_> {
+    fn encode(
+        &self,
+        codec: ::connectrpc::CodecFormat,
+    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
+        ::connectrpc::__codegen::encode_view_body(self, codec)
+    }
+}
+impl ::connectrpc::Encodable<crate::messages::audit::v1::ListAnnotationsResponse>
+for ::buffa::view::OwnedView<
+    crate::messages::audit::v1::__buffa::view::ListAnnotationsResponseView<'static>,
 > {
     fn encode(
         &self,
@@ -3167,6 +3251,18 @@ pub const PROGRAM_SERVICE_UPDATE_ANNOTATION_SPEC: ::connectrpc::Spec = ::connect
         ::connectrpc::StreamType::Unary,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
+/// Static [`Spec`](::connectrpc::Spec) for the `CreateAnnotation` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
+pub const PROGRAM_SERVICE_CREATE_ANNOTATION_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
+        "/audit.v1.ProgramService/CreateAnnotation",
+        ::connectrpc::StreamType::Unary,
+    )
+    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
+/// Static [`Spec`](::connectrpc::Spec) for the `ListAnnotations` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
+pub const PROGRAM_SERVICE_LIST_ANNOTATIONS_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
+        "/audit.v1.ProgramService/ListAnnotations",
+        ::connectrpc::StreamType::Unary,
+    )
+    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
 /// Server trait for ProgramService.
 ///
 /// # Implementing handlers
@@ -3307,6 +3403,52 @@ pub trait ProgramService: Send + Sync + 'static {
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
                 crate::messages::audit::v1::UpdateAnnotationResponse,
+            > + Send + use<'a, Self>,
+        >,
+    > + Send;
+    /// Handle the CreateAnnotation RPC.
+    ///
+    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
+    ///
+    /// `request` is borrowed from the request body and is valid for the
+    /// duration of the call; message fields are read directly on it
+    /// (zero-copy). The response cannot borrow from `request` — use
+    /// `.to_owned_message()` (or copy the specific fields) for anything
+    /// returned, stored, or moved into `tokio::spawn`.
+    fn create_annotation<'a>(
+        &'a self,
+        ctx: ::connectrpc::RequestContext,
+        request: ::connectrpc::ServiceRequest<
+            '_,
+            crate::messages::audit::v1::CreateAnnotationRequest,
+        >,
+    ) -> impl ::std::future::Future<
+        Output = ::connectrpc::ServiceResult<
+            impl ::connectrpc::Encodable<
+                crate::messages::audit::v1::CreateAnnotationResponse,
+            > + Send + use<'a, Self>,
+        >,
+    > + Send;
+    /// Handle the ListAnnotations RPC.
+    ///
+    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
+    ///
+    /// `request` is borrowed from the request body and is valid for the
+    /// duration of the call; message fields are read directly on it
+    /// (zero-copy). The response cannot borrow from `request` — use
+    /// `.to_owned_message()` (or copy the specific fields) for anything
+    /// returned, stored, or moved into `tokio::spawn`.
+    fn list_annotations<'a>(
+        &'a self,
+        ctx: ::connectrpc::RequestContext,
+        request: ::connectrpc::ServiceRequest<
+            '_,
+            crate::messages::audit::v1::ListAnnotationsRequest,
+        >,
+    ) -> impl ::std::future::Future<
+        Output = ::connectrpc::ServiceResult<
+            impl ::connectrpc::Encodable<
+                crate::messages::audit::v1::ListAnnotationsResponse,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -3458,6 +3600,64 @@ impl<S: ProgramService> ProgramServiceExt for S {
                 },
             )
             .with_spec(PROGRAM_SERVICE_UPDATE_ANNOTATION_SPEC)
+            .route_view(
+                PROGRAM_SERVICE_SERVICE_NAME,
+                "CreateAnnotation",
+                {
+                    let svc = ::std::sync::Arc::clone(&self);
+                    ::connectrpc::view_handler_fn(move |
+                        ctx,
+                        req: ::buffa::view::OwnedView<
+                            crate::messages::audit::v1::__buffa::view::CreateAnnotationRequestView<
+                                'static,
+                            >,
+                        >,
+                        format|
+                    {
+                        let svc = ::std::sync::Arc::clone(&svc);
+                        async move {
+                            let sreq = ::connectrpc::ServiceRequest::<
+                                crate::messages::audit::v1::CreateAnnotationRequest,
+                            >::from_parts(req.reborrow(), req.bytes());
+                            svc.create_annotation(ctx, sreq)
+                                .await?
+                                .encode::<
+                                    crate::messages::audit::v1::CreateAnnotationResponse,
+                                >(format)
+                        }
+                    })
+                },
+            )
+            .with_spec(PROGRAM_SERVICE_CREATE_ANNOTATION_SPEC)
+            .route_view(
+                PROGRAM_SERVICE_SERVICE_NAME,
+                "ListAnnotations",
+                {
+                    let svc = ::std::sync::Arc::clone(&self);
+                    ::connectrpc::view_handler_fn(move |
+                        ctx,
+                        req: ::buffa::view::OwnedView<
+                            crate::messages::audit::v1::__buffa::view::ListAnnotationsRequestView<
+                                'static,
+                            >,
+                        >,
+                        format|
+                    {
+                        let svc = ::std::sync::Arc::clone(&svc);
+                        async move {
+                            let sreq = ::connectrpc::ServiceRequest::<
+                                crate::messages::audit::v1::ListAnnotationsRequest,
+                            >::from_parts(req.reborrow(), req.bytes());
+                            svc.list_annotations(ctx, sreq)
+                                .await?
+                                .encode::<
+                                    crate::messages::audit::v1::ListAnnotationsResponse,
+                                >(format)
+                        }
+                    })
+                },
+            )
+            .with_spec(PROGRAM_SERVICE_LIST_ANNOTATIONS_SPEC)
     }
 }
 /// Type-inference marker used by [`Router::add_service`](::connectrpc::Router::add_service).
@@ -3534,6 +3734,18 @@ impl<T: ProgramService> ::connectrpc::Dispatcher for ProgramServiceServer<T> {
                 Some(
                     ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
                         .with_spec(PROGRAM_SERVICE_UPDATE_ANNOTATION_SPEC),
+                )
+            }
+            "CreateAnnotation" => {
+                Some(
+                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
+                        .with_spec(PROGRAM_SERVICE_CREATE_ANNOTATION_SPEC),
+                )
+            }
+            "ListAnnotations" => {
+                Some(
+                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
+                        .with_spec(PROGRAM_SERVICE_LIST_ANNOTATIONS_SPEC),
                 )
             }
             _ => None,
@@ -3630,6 +3842,50 @@ impl<T: ProgramService> ::connectrpc::Dispatcher for ProgramServiceServer<T> {
                         .await?
                         .encode::<
                             crate::messages::audit::v1::UpdateAnnotationResponse,
+                        >(format)
+                })
+            }
+            "CreateAnnotation" => {
+                let svc = ::std::sync::Arc::clone(&self.inner);
+                Box::pin(async move {
+                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
+                        crate::messages::audit::v1::CreateAnnotationRequest,
+                    >(request.encoded()?, format)?;
+                    let req: crate::messages::audit::v1::__buffa::view::CreateAnnotationRequestView<
+                        '_,
+                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
+                        &body,
+                        ctx.decode_options(),
+                    )?;
+                    let req = ::connectrpc::ServiceRequest::<
+                        crate::messages::audit::v1::CreateAnnotationRequest,
+                    >::from_parts(&req, &body);
+                    svc.create_annotation(ctx, req)
+                        .await?
+                        .encode::<
+                            crate::messages::audit::v1::CreateAnnotationResponse,
+                        >(format)
+                })
+            }
+            "ListAnnotations" => {
+                let svc = ::std::sync::Arc::clone(&self.inner);
+                Box::pin(async move {
+                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
+                        crate::messages::audit::v1::ListAnnotationsRequest,
+                    >(request.encoded()?, format)?;
+                    let req: crate::messages::audit::v1::__buffa::view::ListAnnotationsRequestView<
+                        '_,
+                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
+                        &body,
+                        ctx.decode_options(),
+                    )?;
+                    let req = ::connectrpc::ServiceRequest::<
+                        crate::messages::audit::v1::ListAnnotationsRequest,
+                    >::from_parts(&req, &body);
+                    svc.list_annotations(ctx, req)
+                        .await?
+                        .encode::<
+                            crate::messages::audit::v1::ListAnnotationsResponse,
                         >(format)
                 })
             }
@@ -3920,6 +4176,96 @@ where
                 &self.transport,
                 &self.config,
                 PROGRAM_SERVICE_UPDATE_ANNOTATION_SPEC
+                    .with_origin(::connectrpc::SpecOrigin::Client),
+                request,
+                options,
+            )
+            .await
+    }
+    /// Call the CreateAnnotation RPC. Sends a request to /audit.v1.ProgramService/CreateAnnotation.
+    pub async fn create_annotation(
+        &self,
+        request: crate::messages::audit::v1::CreateAnnotationRequest,
+    ) -> Result<
+        ::connectrpc::client::UnaryResponse<
+            ::buffa::view::OwnedView<
+                crate::messages::audit::v1::__buffa::view::CreateAnnotationResponseView<
+                    'static,
+                >,
+            >,
+        >,
+        ::connectrpc::ConnectError,
+    > {
+        self.create_annotation_with_options(
+                request,
+                ::connectrpc::client::CallOptions::default(),
+            )
+            .await
+    }
+    /// Call the CreateAnnotation RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
+    pub async fn create_annotation_with_options(
+        &self,
+        request: crate::messages::audit::v1::CreateAnnotationRequest,
+        options: ::connectrpc::client::CallOptions,
+    ) -> Result<
+        ::connectrpc::client::UnaryResponse<
+            ::buffa::view::OwnedView<
+                crate::messages::audit::v1::__buffa::view::CreateAnnotationResponseView<
+                    'static,
+                >,
+            >,
+        >,
+        ::connectrpc::ConnectError,
+    > {
+        ::connectrpc::client::call_unary(
+                &self.transport,
+                &self.config,
+                PROGRAM_SERVICE_CREATE_ANNOTATION_SPEC
+                    .with_origin(::connectrpc::SpecOrigin::Client),
+                request,
+                options,
+            )
+            .await
+    }
+    /// Call the ListAnnotations RPC. Sends a request to /audit.v1.ProgramService/ListAnnotations.
+    pub async fn list_annotations(
+        &self,
+        request: crate::messages::audit::v1::ListAnnotationsRequest,
+    ) -> Result<
+        ::connectrpc::client::UnaryResponse<
+            ::buffa::view::OwnedView<
+                crate::messages::audit::v1::__buffa::view::ListAnnotationsResponseView<
+                    'static,
+                >,
+            >,
+        >,
+        ::connectrpc::ConnectError,
+    > {
+        self.list_annotations_with_options(
+                request,
+                ::connectrpc::client::CallOptions::default(),
+            )
+            .await
+    }
+    /// Call the ListAnnotations RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
+    pub async fn list_annotations_with_options(
+        &self,
+        request: crate::messages::audit::v1::ListAnnotationsRequest,
+        options: ::connectrpc::client::CallOptions,
+    ) -> Result<
+        ::connectrpc::client::UnaryResponse<
+            ::buffa::view::OwnedView<
+                crate::messages::audit::v1::__buffa::view::ListAnnotationsResponseView<
+                    'static,
+                >,
+            >,
+        >,
+        ::connectrpc::ConnectError,
+    > {
+        ::connectrpc::client::call_unary(
+                &self.transport,
+                &self.config,
+                PROGRAM_SERVICE_LIST_ANNOTATIONS_SPEC
                     .with_origin(::connectrpc::SpecOrigin::Client),
                 request,
                 options,
