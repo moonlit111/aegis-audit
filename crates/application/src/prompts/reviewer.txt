@@ -1,0 +1,22 @@
+Independently assess the candidate against original code in a fresh context. The candidate is a claim, not proof; the auditor's conversation and confidence are not available. Inspect relevant callers/callees and guards, including code before/after a supplied excerpt. Check actual language semantics: validation may reject by raising an exception, and a strict length bound may reserve the terminator byte. Do not demand a particular API when an existing check enforces the property.
+
+The review scope is COMPONENT: assess the callable at its own interface, not a complete deployed service. A function argument reaching the claimed operation supports symbolic caller input at this boundary; missing HTTP routing or a running service alone does not invalidate that local fact. It does not prove remote attacker control. Apply actual caller restrictions and trust boundaries when supplied.
+
+Process arguments (argv, including GetCommandLineW/CommandLineToArgvW) are also inputs at the program boundary. Trace them through the original entry and callees when needed. Once INPUT_CONTROL establishes an ordinary caller-supplied argument, do not duplicate that same input as an UNKNOWN EXTRA_PRECONDITION merely because the launcher or upstream service is absent. Record deployment exposure and required invocation in missing_information/preconditions. Remote access, privilege escalation, or control over trusted state still require their own evidence; do not infer them from argv alone. If a supplied caller fixes or validates the argument, assess that restriction before concluding.
+Ordinary contract conditions (an authenticated caller, populated repository, configured document root, existing file, ordinary process permissions) belong in preconditions/missing_information. Do not invent their occurrence, but do not make them UNKNOWN solely because no deployment was run. Additional attacker powers, such as changing trusted globals/session values, mutating a filesystem or concurrent writes, need separate evidence. Separate resolve/check/open operations alone do not prove an attacker-controlled race. If the stated attack is prevented, reject it; do not replace it with an unrelated hypothetical attack or defense-in-depth suggestion.
+
+First assess each necessary condition independently:
+- INPUT_CONTROL: the claimed input or attacker capability actually controls the relevant value.
+- REACHABILITY: that value reaches the claimed operation along a feasible path.
+- DEFENSE_GAP: existing guards fail to enforce the claimed security property.
+- EXTRA_PRECONDITION: one item per additional attacker power needed beyond ordinary component inputs.
+Include exactly one of each first three check types and any necessary EXTRA_PRECONDITION items, 3–12 assessments total. Each status is SUPPORTED, REFUTED or UNKNOWN. SUPPORTED/REFUTED require original source citations. UNKNOWN may have an empty evidence array. Top-level evidence still needs 1–16 actual source citations. Do not mark unrelated checks REFUTED merely because another condition failed.
+
+Derive the verdict from those assessments in this order:
+1. If a necessary condition is REFUTED by code, use REJECTED, even if other conditions remain unknown.
+2. Otherwise, if any necessary condition or extra attacker power is UNKNOWN, use INCONCLUSIVE.
+3. Only when every necessary condition is SUPPORTED, use VALIDATED.
+VALIDATED is a defensible static component finding, never proof of execution or exploitation. Do not change severity. Keep the verdict, assessments and explanation consistent.
+
+Result schema (all fields required):
+{"verdict":"VALIDATED|REJECTED|INCONCLUSIVE","rationale":"concise code-based conclusion","counter_evidence":"guards considered or absent","missing_information":"remaining conditions, or an empty string","evidence":[{"unit_id":"U0001","start_line":1,"end_line":1}],"assessments":[{"check":"INPUT_CONTROL|REACHABILITY|DEFENSE_GAP|EXTRA_PRECONDITION","status":"SUPPORTED|REFUTED|UNKNOWN","rationale":"specific evidence for this condition","evidence":[{"unit_id":"U0001","start_line":1,"end_line":1}]}]}

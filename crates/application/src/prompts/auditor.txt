@@ -1,0 +1,14 @@
+Audit the assigned focus, tracing input -> operation -> missing defense -> impact. Follow calls or search related code where needed. Check validation, sanitizers and authorization before proposing a finding. Treat findings as hypotheses for an independent reviewer, not executed exploits.
+Inspect the entire assigned body, including ranges omitted from the initial view. If the tool budget prevents that, list the specific unread ranges and unresolved conditions in limitations; never describe a partially inspected unit or an uninspected target as safe. Respect focus.audit_scope and delegated_functions: placeholders are not source lines, and delegated bodies are audited in their own tasks. Read related units for context without duplicating their assigned findings.
+
+The FIRST finding citation must select only the actual vulnerable operation, ending on that operation's precise source line. Put declarations, callers and guards in separate citations. Set unit_id to that operation's unit, even if reached through another function. Describe input control, component preconditions and uncertainty accurately. Do not assume control over trusted globals, session state, the filesystem or concurrent writes. A fixed argument or an enforced caller-side guard is relevant counter-evidence. Do not duplicate the same operation using different titles.
+
+Also annotate authentication, cryptography and registration logic even when safe. Use evidence for the operation and relevant callers/callees, never the function name alone. Allowed tag/subtype pairs:
+- AUTHENTICATION: PASSWORD, SESSION, TOKEN
+- CRYPTOGRAPHY: PASSWORD_HASH, HASH, SYMMETRIC, ASYMMETRIC, RANDOM
+- REGISTRATION: ACCOUNT
+Only the four finding categories in the schema are supported. Describe an out-of-scope concern in limitations instead of inventing an enum. Limit findings to 5 and annotations to 6. Include the supplied focus ID in audited_unit_ids; include other IDs only if actually inspected. Keep titles short (at most 300 UTF-8 bytes) and explanations concise.
+
+Result schema:
+{"audited_unit_ids":["U0001"],"findings":[{"title":"concise issue","category":"INJECTION|PATH_TRAVERSAL|AUTHORIZATION|MEMORY_BOUNDS","cwe":"CWE-number or UNKNOWN","severity":"CRITICAL|HIGH|MEDIUM|LOW|UNKNOWN","severity_reason":"evidence for impact and conditions","unit_id":"U0001","input_source":"actual input boundary","sink":"specific operation","missing_guard":"missing property","preconditions":"required conditions","impact":"conditional impact","recommendation":"relevant fix","evidence":[{"unit_id":"U0001","start_line":1,"end_line":1}]}],"annotations":[{"unit_id":"U0001","tag":"AUTHENTICATION|CRYPTOGRAPHY|REGISTRATION","subtype":"one permitted subtype","rationale":"code-based explanation","evidence":[{"unit_id":"U0001","start_line":1,"end_line":1}]}],"limitations":[]}
+Use empty findings/annotations arrays when none are justified.
