@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "investigation_date": "2026-09-11",
+  "scope": "PUBLIC_RESEARCH_AND_READ_ONLY_LOCAL_SCREENING",
+  "accepted_count": 0,
+  "required_count": 6,
+  "formal_acceptance": "NOT_RUN",
+  "notes": [
+    "No new samples were downloaded and no target was executed during this investigation.",
+    "Packing evidence for the local pool was produced by read-only upx -t sweeps, see .data/verification/upx-sweep-raw.json.",
+    "Only UPX can be unpacked automatically; other packers are detected but not handled.",
+    "Filenames, version resources and packing clues do not establish formal qualification."
+  ],
+  "categories": [
+    {
+      "category": "open_source_llm_software",
+      "slots": ["S1", "S2"],
+      "candidates": [
+        {
+          "id": "S-A",
+          "name": "Ollama",
+          "code_license": "MIT",
+          "cve": ["CVE-2024-37032", "CVE-2025-63389"],
+          "affected_range": "<= 0.1.33 for CVE-2024-37032; <= 0.12.3 for CVE-2025-63389",
+          "fixed_version": "0.1.34 / 0.12.4",
+          "flaw_class": "path traversal to arbitrary file write; missing authentication",
+          "windows_runnable": true,
+          "windows_entry": "native installer plus ollama CLI (serve/pull)",
+          "adapter_fit": "WINDOWS_ORIGINAL_PE64 CLI plus a small local driver for the rogue registry",
+          "evidence_status": "PUBLIC_INFO_ONLY",
+          "gaps": ["Fixed binary and SHA-256", "Normal run configuration", "Exploitation evidence", "License scope of the distributed build"],
+          "notes": "Highest brand recognition among locally deployed LLM software. Exploitation needs a local mock registry."
+        },
+        {
+          "id": "S-B",
+          "name": "Langflow",
+          "code_license": "MIT",
+          "cve": ["CVE-2025-3248"],
+          "affected_range": "< 1.3.0",
+          "fixed_version": "1.3.0",
+          "flaw_class": "unauthenticated code injection leading to RCE via POST /api/v1/validate/code",
+          "windows_runnable": true,
+          "windows_entry": "pip installed python package with a local HTTP service",
+          "adapter_fit": "WINDOWS_PYTHON_CALL plus a small HTTP driver",
+          "evidence_status": "PUBLIC_INFO_ONLY",
+          "gaps": ["Fixed binary and SHA-256", "Normal run configuration", "Exploitation evidence"],
+          "notes": "Lowest exploitation complexity of the shortlist: a single unauthenticated POST executes code."
+        },
+        {
+          "id": "S-C",
+          "name": "Open WebUI",
+          "code_license": "see the pinned commit license file; the project has changed licence over time",
+          "cve": ["CVE-2024-6707", "CVE-2025-64496"],
+          "affected_range": "see the advisories for the pinned version",
+          "fixed_version": "see the advisories",
+          "flaw_class": "upload filename path traversal to arbitrary file write; auth bypass",
+          "windows_runnable": true,
+          "windows_entry": "pip installed python package with a local HTTP service",
+          "adapter_fit": "WINDOWS_PYTHON_CALL plus a small HTTP driver",
+          "evidence_status": "PUBLIC_INFO_ONLY",
+          "gaps": ["Fixed binary and SHA-256", "License scope of the pinned commit", "Normal run configuration", "Exploitation evidence"],
+          "notes": "Pairs naturally with Ollama in the same local deployment stack."
+        },
+        {
+          "id": "S-D",
+          "name": "llama-cpp-python",
+          "code_license": "MIT",
+          "cve": ["CVE-2024-34359"],
+          "affected_range": "0.2.30 - 0.2.71",
+          "fixed_version": "0.2.72",
+          "flaw_class": "unsandboxed Jinja2 chat_template from GGUF metadata leading to SSTI and RCE",
+          "windows_runnable": true,
+          "windows_entry": "pip installed python package, CPU only",
+          "adapter_fit": "WINDOWS_PYTHON_CALL, but a real GGUF exceeds the 128 KiB fixture limit",
+          "evidence_status": "PUBLIC_INFO_ONLY",
+          "gaps": ["Fixed binary and SHA-256", "Normal run configuration", "Exploitation evidence", "Realistic input size within the fixture limit"],
+          "notes": "Component level verification is easy; whole software verification needs the crafted GGUF inside the snapshot."
+        }
+      ]
+    },
+    {
+      "category": "packed_closed_source_software",
+      "slots": ["P1", "P2"],
+      "hard_constraint": "The distributed object must really be UPX packed, because UPX is the only packer the product can unpack.",
+      "local_pool_finding": {
+        "pe_files_screened": 189,
+        "upx_confirmed": 3,
+        "confirmed_objects": [
+          ".data/formal-samples/packed/iview433_setup.exe",
+          ".data/formal-samples/packed/Mediajukebox80400.exe",
+          ".data/formal-samples/packed/winamp-5.12-extracted/Plugins/lame_enc.dll"
+        ],
+        "conclusion": "Main executables of mainstream closed source freeware are rarely UPX packed; UPX appears mainly in installers, self extracting packages and a few bundled components.",
+        "evidence": ".data/verification/upx-sweep-raw.json"
+      },
+      "candidates": [
+        {
+          "id": "P-A",
+          "name": "UPX packed installers already on disk (IrfanView 4.33 setup, Media Jukebox 8.0.400 setup)",
+          "category_note": "installer as the audited object",
+          "packing": "UPX_CONFIRMED",
+          "flaw_class": "to be determined: extraction path traversal, arbitrary file placement, temporary directory hijack",
+          "adapter_fit": "WINDOWS_ORIGINAL_PE32 CLI with FILE_CREATED observer",
+          "evidence_status": "PACKING_CONFIRMED_ONLY",
+          "gaps": ["Whether an installer counts as the software under this requirement", "Vulnerability basis", "Fixed and vulnerable version pair", "Exploitation evidence"]
+        },
+        {
+          "id": "P-B",
+          "name": "Closed source command line tool pool to be downloaded and screened",
+          "pool": ["NConvert", "FastStone Image Viewer", "Honeyview", "PotPlayer", "KMPlayer", "GOM Player", "UnRAR for Windows", "Bandizip", "PowerArchiver", "UltraISO", "Format Factory"],
+          "packing": "TO_BE_TESTED",
+          "adapter_fit": "WINDOWS_ORIGINAL_PE32/PE64 CLI, SANITIZER or FILE_CREATED observer",
+          "evidence_status": "NOT_VERIFIED",
+          "gaps": ["Official source and SHA-256", "UPX packing evidence", "Normal run configuration", "Vulnerability basis", "Fixed version availability", "Exploitation evidence"]
+        },
+        {
+          "id": "P-C",
+          "name": "WinRAR before 6.23",
+          "code_license": "closed source shareware",
+          "cve": ["CVE-2023-38831"],
+          "affected_range": "< 6.23",
+          "fixed_version": "6.23",
+          "flaw_class": "archive handling leading to execution of an unintended file",
+          "packing": "UPX_NOT_DETECTED on the local 3.60 binary",
+          "adapter_fit": "uncertain: the known exploit path requires a user opening a file inside the archive, command line reproduction is unverified",
+          "evidence_status": "PUBLIC_INFO_ONLY",
+          "gaps": ["UPX packing evidence", "Command line reachability of the flaw", "Normal run configuration", "Exploitation evidence"],
+          "warning": "CVE-2022-30333 affects UnRAR on Linux and UNIX only; WinRAR is explicitly unaffected, do not use it as a Windows acceptance case."
+        }
+      ]
+    },
+    {
+      "category": "obfuscated_closed_source_software",
+      "slots": ["O1", "O2"],
+      "capability_boundary": {
+        "usable": ["string encryption", "symbol stripping", "constant obfuscation", "partial control flow flattening"],
+        "usable_tools": ["FLOSS string recovery", "built in XOR and Base64 heuristics", "D-810 constant folding"],
+        "not_usable": ["VMProtect and Themida code virtualisation", ".NET and Java bytecode obfuscation", "Electron or JavaScript bundler obfuscation"]
+      },
+      "selection_criteria_ranked": [
+        "Command line entry that accepts a file argument",
+        "String level protection visible in the binary so FLOSS recovers partial plaintext",
+        "A public parsing type flaw with a comparable fixed version",
+        "Moderate size; avoid large GUI products with strong virtualisation"
+      ],
+      "candidates": [
+        {
+          "id": "O-A",
+          "name": "Closed source freeware pool to be downloaded and screened for string level obfuscation",
+          "pool": ["GOM Player", "KMPlayer", "PotPlayer", "Honeyview", "FastStone Image Viewer", "Format Factory", "Bandizip"],
+          "obfuscation": "TO_BE_TESTED",
+          "evidence_status": "NOT_VERIFIED",
+          "gaps": ["Official source and SHA-256", "String or constant obfuscation evidence", "Vulnerability basis", "Fixed version availability", "Exploitation evidence"],
+          "notes": "Overlaps heavily with the P-B pool; one screening pass should produce both a UPX shortlist and a string protection observation."
+        },
+        {
+          "id": "O-B",
+          "name": "TeamViewer 15.64.7, Zoom, AnyDesk 9.0.4 (existing pool)",
+          "obfuscation": "NOT_ESTABLISHED",
+          "evidence_status": "EXCLUDED_RECOMMENDATION",
+          "gaps": ["Every requirement remains open"],
+          "notes": "Large size, GUI only, no command line driver, protection strength beyond the toolchain. Poor cost benefit."
+        }
+      ]
+    }
+  ],
+  "blocking_questions": [
+    "Does 具备加壳功能闭源软件 mean a packed closed source software or a closed source software that itself provides packing, such as WinRAR or Bandizip? The same question applies to 具备混淆功能.",
+    "Can a packed installer or self extracting package be the audited object for the packing requirement? If yes, two UPX confirmed objects are already on disk."
+  ],
+  "toolchain_finding": {
+    "script": "scripts/inspect_candidate_files.ps1",
+    "issue": "The script requires PowerShell 7 (#requires -Version 7.0) but this host only has Windows PowerShell 5.1, so it cannot run as written.",
+    "workaround_used": "An equivalent read only Python pipeline calling upx -t with before and after SHA-256 comparison.",
+    "recommendation": "Lower the requirement to 5.1 or port the script to Python so that clean environment acceptance does not break again."
+  }
+}

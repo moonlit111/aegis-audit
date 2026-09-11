@@ -1,0 +1,34 @@
+[
+  {
+    "id": "P1",
+    "name": "ParcelDrop",
+    "source": "parcel_drop.c",
+    "protection": "UPX",
+    "interface": "ParcelDrop.exe INBOX ENTRY_NAME PAYLOAD_FILE",
+    "purpose": "Import one named document into a flat inbox; existing files are not overwritten. 1.0.0 joins the supplied entry name onto the inbox path unchanged; 1.0.1 reduces it to a single flat name before importing."
+  },
+  {
+    "id": "P2",
+    "name": "RowVault",
+    "source": "row_vault.c",
+    "protection": "UPX",
+    "interface": "RowVault.exe RECORD.rv",
+    "purpose": "Read a record label. Format: ASCII RV1, one length byte, then the label bytes; supported labels are at most 32 bytes. 1.0.0 trusts the stored length byte; 1.0.1 truncates labels beyond the supported width."
+  },
+  {
+    "id": "O1",
+    "name": "PermitLedger",
+    "source": "permit_ledger.c",
+    "protection": "XOR_STRINGS_AND_OPAQUE_PREDICATE",
+    "interface": "PermitLedger.exe ACCOUNT USER PASSWORD ROLE ACTION RECORD OUTPUT",
+    "purpose": "Authenticate against a configured account file (user|password|role), display status, or export a restricted record. ACCOUNT and RECORD are operator configuration; the request supplies USER, PASSWORD, ROLE and ACTION. 1.0.0 authorizes the export with the requested role; 1.0.1 authorizes it with the role stored in the account file and completes without output when the request is not authorized."
+  },
+  {
+    "id": "O2",
+    "name": "TextRelay",
+    "source": "text_relay.c",
+    "protection": "XOR_STRINGS_AND_OPAQUE_PREDICATE",
+    "interface": "TextRelay.exe DOCUMENT",
+    "purpose": "Collect a document into relay.txt in the working directory. DOCUMENT is a data filename, not a command. 1.0.0 passes the name to the command interpreter; 1.0.1 copies the named file."
+  }
+]
