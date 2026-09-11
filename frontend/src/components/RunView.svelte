@@ -5,7 +5,9 @@
     ArrowLeft,
     ArrowRight,
     Download,
-    Square,
+    CircleStop,
+    CheckCircle2,
+    LoaderCircle,
     FileCode2,
     Code2,
     Search,
@@ -31,15 +33,7 @@
     RunPhase,
   } from '../gen/audit/v1/audit_pb';
   import { RunState } from '../gen/audit/v1/audit_pb';
-  import {
-    runsApi,
-    projectsApi,
-    programsApi,
-    reportsApi,
-    artifactUrl,
-    errorMessage,
-    requestId,
-  } from '../lib/api';
+  import { runsApi, projectsApi, programsApi, artifactUrl, errorMessage } from '../lib/api';
   import {
     isTerminal,
     runLabel,
@@ -59,6 +53,8 @@
   import RunProgress from './RunProgress.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
   import ReportHistory from './ReportHistory.svelte';
+  import ReportExport from './ReportExport.svelte';
+  import CancelRunDialog from './CancelRunDialog.svelte';
 
   let {
     runId,
@@ -91,10 +87,11 @@
   let notFound = $state(false);
   let loadingUnits = $state(false);
   let selectedId = $state('');
-  let reportFormat = $state('html');
-  let reportBusy = $state(false);
   let reportVersion = $state(0);
   let cancelBusy = $state(false);
+  let cancelDialogOpen = $state(false);
+  let cancelAttempted = $state(false);
+  let cancelError = $state('');
   let cursor = $state(0n);
   let alive = true;
   let loadingRun: Promise<void> | undefined;
@@ -121,6 +118,49 @@
     if (run.state === RunState.CANCELLING) return '取消已登记；只有确认工具进程回收后，任务才会结束。';
     return '分析在执行器中进行，关闭或刷新页面不会取消任务。';
   });
+  const cancellation = $derived.by(() => {
+    if (run?.state === RunState.CANCELLED)
+      return {
+        tone: 'complete',
+        title: '任务已取消',
+        detail: '执行已停止，已完成的分析结果和证据仍可查看、导出。',
+      };
+    if (run?.state === RunState.CANCELLING)
+      return {
+        tone: 'pending',
+        title: '正在取消任务',
+        detail: '取消请求已记录，正在停止当前执行。确认停止后会自动更新状态，已完成的结果会保留。',
+      };
+    if (run && isTerminal(run.state) && cancelAttempted)
+      return {
+        tone: 'complete',
+        title: `任务已结束 · ${runLabel(run.state)}`,
+        detail: '请以当前任务状态为准，已有结果仍可查看、导出。',
+      };
+    if (cancelBusy)
+      return {
+        tone: 'pending',
+        title: '正在提交取消请求',
+        detail: '正在联系控制服务，请稍候。',
+      };
+    if (cancelError)
+      return {
+        tone: 'error',
+        title: '取消请求未确认',
+        detail: `${cancelError}。可重试取消，或刷新任务状态。`,
+      };
+    return undefined;
+  });
+
+  function acceptRun(next: AuditRun | undefined) {
+    if (!next) return false;
+    // A poll started before cancellation must not undo an acknowledged stop or terminal state.
+    if (run && isTerminal(run.state) && next.state !== run.state) return false;
+    if (run?.state === RunState.CANCELLING && !isTerminal(next.state) && next.state !== RunState.CANCELLING)
+      return false;
+    run = next;
+    return true;
+  }
 
   function loadRun() {
     if (loadingRun) return loadingRun;
@@ -130,7 +170,7 @@
         if (!alive) return;
         const previousCount = run?.unitCount;
         const previousResult = parseJson<Summary>(run?.summaryJson || '', {}).result_artifact_id;
-        run = response.run;
+        if (!acceptRun(response.run)) return;
         if (run && !initialTabSelected) {
           tab =
             run.scope === 'SECURITY_AUDIT'
@@ -268,37 +308,22 @@
     }
   }
   async function cancel() {
-    if (cancelBusy) return;
+    if (cancelBusy || !run || isTerminal(run.state) || run.state === RunState.CANCELLING) return;
+    cancelDialogOpen = false;
+    cancelAttempted = true;
     cancelBusy = true;
+    cancelError = '';
     try {
-      run = (await runsApi.cancelRun({ runId })).run;
-      notify('取消请求已记录，正在确认工具进程回收');
-      await onchanged();
+      const response = await runsApi.cancelRun({ runId }, { signal: controller.signal });
+      if (!alive) return;
+      if (!response.run) throw new Error('控制服务未返回任务状态');
+      acceptRun(response.run);
+      void loadRun();
+      void onchanged();
     } catch (failure) {
-      error = errorMessage(failure);
+      if (alive) cancelError = errorMessage(failure);
     } finally {
       cancelBusy = false;
-    }
-  }
-  async function exportReport() {
-    reportBusy = true;
-    try {
-      const response = await reportsApi.createReport({ requestId: requestId(), runId, format: reportFormat });
-      const link = document.createElement('a');
-      link.href = artifactUrl(response.report!.artifactId);
-      link.download = '';
-      link.dataset.aegisDownloadNotice = response.report?.interim
-        ? '阶段报告已生成，保留导出时的进度与证据'
-        : '报告已生成，可在报告历史中再次下载';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      reportVersion += 1;
-      await loadRun();
-    } catch (failure) {
-      error = errorMessage(failure);
-    } finally {
-      reportBusy = false;
     }
   }
   onMount(() => {
@@ -334,35 +359,67 @@
 {:else}
   <a href="#/runs" class="back-link"><ArrowLeft size={14} />全部分析任务</a>
   <div class="run-heading">
-    <div>
+    <div class="run-identity">
       <div class="eyebrow">{scopeLabel(run?.scope || '')}</div>
       <h1 title={snapshot?.name}>{snapshot?.name || '程序结构分析'}</h1>
-      <p>
+      <p class="run-meta">
         <code>{runId.slice(0, 8)}</code><span>·</span>{dateTime(run?.createdAt || '')}<span>·</span
         >{projectName || '固定快照分析'}
       </p>
+      {#if run && !isTerminal(run.state)}
+        <div class="run-control">
+          <button
+            class="button cancel-run-button"
+            disabled={cancelBusy || run.state === RunState.CANCELLING}
+            aria-haspopup="dialog"
+            onclick={() => (cancelDialogOpen = true)}
+          >
+            {#if cancelBusy || run.state === RunState.CANCELLING}<LoaderCircle size={16} class="spin" />
+            {:else}<CircleStop size={16} />{/if}
+            {run.state === RunState.CANCELLING ? '正在取消…' : cancelBusy ? '提交取消中…' : '取消任务'}
+          </button>
+          <span>取消后保留已有结果</span>
+        </div>
+      {/if}
     </div>
-    <div class="run-actions">
-      {#if run && !isTerminal(run.state)}<button
-          class="button secondary"
-          disabled={cancelBusy || run.state === RunState.CANCELLING}
-          onclick={cancel}
-          ><Square size={13} />{run.state === RunState.CANCELLING ? '等待进程回收' : '取消任务'}</button
-        >{/if}
-      <div class="report-action">
-        <select aria-label="报告格式" bind:value={reportFormat}
-          ><option value="html">HTML</option><option value="pdf">PDF</option><option value="json">JSON</option
-          ><option value="markdown">Markdown</option></select
-        ><button class="button primary" disabled={reportBusy || !run} onclick={exportReport}
-          ><Download size={15} />{reportBusy
-            ? '生成中…'
-            : run && !isTerminal(run.state)
-              ? '导出阶段报告'
-              : '导出报告'}</button
-        >
-      </div>
-    </div>
+    <ReportExport
+      {run}
+      snapshotName={snapshot?.name || runId.slice(0, 8)}
+      oncreated={() => {
+        reportVersion += 1;
+        void loadRun();
+      }}
+      onhistory={() => (tab = 'reports')}
+    />
   </div>
+  {#if cancellation}
+    <div
+      class={`cancel-feedback ${cancellation.tone}`}
+      role={cancellation.tone === 'error' ? 'alert' : 'status'}
+    >
+      {#if cancellation.tone === 'pending'}<LoaderCircle size={20} class="spin" />
+      {:else if cancellation.tone === 'error'}<AlertCircle size={20} />
+      {:else}<CheckCircle2 size={20} />{/if}
+      <div>
+        <strong>{cancellation.title}</strong>
+        <p>{cancellation.detail}</p>
+      </div>
+      {#if cancellation.tone === 'error'}
+        <div class="cancel-feedback-actions">
+          <button class="button cancel-run-button small" onclick={cancel}>重试取消</button>
+          <button class="text-button" onclick={() => void loadRun()}>刷新状态</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
+  {#if cancelDialogOpen && run}
+    <CancelRunDialog
+      {run}
+      snapshotName={snapshot?.name || runId.slice(0, 8)}
+      onclose={() => (cancelDialogOpen = false)}
+      onconfirm={cancel}
+    />
+  {/if}
   {#if error}<div class="error-banner" role="alert">
       <span>{error}</span><button
         class="text-button"

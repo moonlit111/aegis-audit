@@ -222,9 +222,15 @@ test('real Ghidra run survives stream loss and refresh; explicit cancellation is
   await completedCard.getByRole('button', { name: '重新反编译', exact: true }).click();
   await expect(page.locator('.run-status')).toHaveText('分析中');
   await page.getByRole('button', { name: '取消任务', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: '取消当前任务？', exact: true })
+    .getByRole('button', { name: '确认取消', exact: true })
+    .click();
   await expect(page.locator('.run-status')).toHaveText('已取消');
+  await expect(page.locator('.cancel-feedback')).toContainText('任务已取消');
   await page.reload();
   await expect(page.locator('.run-status')).toHaveText('已取消');
+  await expect(page.locator('.cancel-feedback')).toContainText('任务已取消');
 });
 
 test('invalid ZIP paths and unrecognized binaries fail visibly without an analysis action', async ({
