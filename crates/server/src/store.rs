@@ -1352,7 +1352,17 @@ impl Store {
             unit.unit.code.clear();
             units.push(unit);
         }
-        let artifacts = self.run_artifacts(run_id).await?;
+        let mut artifacts = self.run_artifacts(run_id).await?;
+        // Export history is a delivery record, not source evidence. Otherwise every
+        // download adds previous reports to the next report's evidence inventory.
+        let previous_exports: std::collections::HashSet<String> =
+            sqlx::query_scalar("SELECT artifact_id FROM report_exports WHERE run_id=?")
+                .bind(run_id)
+                .fetch_all(&mut *tx)
+                .await?
+                .into_iter()
+                .collect();
+        artifacts.retain(|artifact| !previous_exports.contains(&artifact.id));
         let audit = self.audit_evidence(run_id).await?;
         let snapshot_at = d::now();
         let interim = aegis_application::report::is_interim(&run, &audit);

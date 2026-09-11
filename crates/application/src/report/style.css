@@ -1,0 +1,44 @@
+:root{color-scheme:light;--ink:#172638;--muted:#566779;--line:#dce3eb;--accent:#235b89}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;padding:36px 24px 64px;background:#eef2f6;color:var(--ink);font:15px/1.75 "Segoe UI","Microsoft YaHei","PingFang SC",sans-serif}
+main{max-width:1080px;margin:auto;padding:44px 54px;background:white;border:1px solid var(--line)}
+.cover{border-top:5px solid var(--accent);padding-top:24px}
+.eyebrow{font-size:12px;letter-spacing:.16em;color:var(--accent);font-weight:600}
+h1{font-size:32px;line-height:1.35;margin:10px 0 24px;overflow-wrap:anywhere}
+h2{font-size:23px;line-height:1.4;margin:0 0 18px;padding-top:20px;border-top:2px solid var(--line)}
+h3{font-size:18px;line-height:1.5;margin:0 0 16px;color:var(--accent)}
+h4,h5,h6{font-size:15px;margin:22px 0 12px}
+.chapter{margin-top:40px;scroll-margin-top:20px}.subsection{margin-top:28px;padding-top:4px}
+p{margin:12px 0}p,li,dd,td{white-space:pre-wrap;overflow-wrap:anywhere}
+.note{padding:12px 16px;background:#f0f6fb;border-left:3px solid #6c99ba;color:#344e65;font-size:13px}
+nav{display:flex;gap:8px 20px;flex-wrap:wrap;border-block:1px solid var(--line);padding:18px 0;margin-top:24px;font-size:13px}
+nav strong{color:var(--muted)}a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.fields{margin:14px 0 20px}.fields>div{display:grid;grid-template-columns:132px minmax(0,1fr);gap:16px;padding:7px 0;border-bottom:1px solid #edf0f4}
+dt{font-size:13px;font-weight:600;color:var(--muted)}dd{margin:0;min-width:0}
+.cover .fields{font-size:13px}.cover .fields>div{padding:4px 0}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 20px;border:1px solid var(--line);background:#f8fafc}
+.metrics>div{padding:16px 20px}.metrics>div+div{border-left:1px solid var(--line)}
+.metrics dd{font-size:30px;font-weight:650;line-height:1.3;font-variant-numeric:tabular-nums}.metrics dt{font-size:12px;margin-bottom:6px}
+.table-wrap{margin:16px 0;max-width:100%}table{width:100%;border-collapse:collapse;table-layout:auto;font-size:13px}
+th,td{padding:9px 10px;text-align:left;vertical-align:top;border:1px solid var(--line);overflow-wrap:anywhere;min-width:0}
+th{font-size:12px;background:#f1f5f9;color:#41566b;white-space:nowrap}tbody tr:nth-child(even){background:#fafbfd}
+pre{margin:12px 0 20px;border:1px solid var(--line);border-left:3px solid #9aabba;padding:14px 16px;background:#f8fafc;white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;font:12px/1.6 Consolas,"Microsoft YaHei",monospace}
+.code-evidence{margin:16px 0 20px}.code-evidence pre{margin:8px 0 0}figcaption{font-size:13px;overflow-wrap:anywhere;white-space:pre-wrap}
+code{font-family:Consolas,"Microsoft YaHei",monospace}ul{padding-left:22px}li{margin:8px 0}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+@media(max-width:700px){body{padding:12px}main{padding:24px 18px}.fields>div{grid-template-columns:1fr;gap:2px}.metrics>div{padding:12px}.metrics dd{font-size:25px}.table-wrap{overflow-x:auto}h1{font-size:26px}}
+@page{size:A4;margin:15mm 14mm 17mm;@bottom-right{content:counter(page) " / " counter(pages);font:9pt sans-serif;color:#64748b}}
+@media print{
+ html{scroll-behavior:auto}body{padding:0;margin:0;background:white;font-size:9.5pt;line-height:1.6}
+ main{max-width:none;border:0;margin:0;padding:0}.cover{padding-top:12px}
+ h1{font-size:24pt;margin:8px 0 16px}h2{font-size:16pt;padding-top:12px}h3{font-size:12pt}h4,h5,h6{font-size:10pt}
+ h1,h2,h3,h4,h5,h6{break-after:avoid}.chapter{margin-top:24px}.subsection{margin-top:20px}
+ nav{display:none}.cover .fields,.note,dt,footer{font-size:8.5pt}.fields>div{grid-template-columns:29mm minmax(0,1fr);gap:4mm;padding:4px 0}
+ .metrics{break-inside:avoid}.metrics>div{padding:10px 14px}.metrics dd{font-size:22pt}
+ table{font-size:8pt;table-layout:auto}.table-wrap{overflow:visible}th,td{padding:5px 6px}th{font-size:8pt}
+ thead{display:table-header-group}tr{break-inside:avoid}p,li,dd{orphans:3;widows:3}
+ pre{font-size:8pt;line-height:1.5;padding:9px 11px;break-inside:avoid;white-space:pre-wrap}
+ .code-evidence{break-inside:avoid}figcaption{font-size:8.5pt;break-after:avoid}
+ .note{break-inside:avoid}a{color:inherit}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
