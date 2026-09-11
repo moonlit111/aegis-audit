@@ -16,3 +16,9 @@ test-results/
 *.log
 __pycache__/
 *.py[cod]
+
+# Scratch RPC response dumps written to the repository root during manual probing.
+# Anchored to the root so a same-named file elsewhere in the tree is still tracked.
+/run1.json
+/runs.json
+/snap.json

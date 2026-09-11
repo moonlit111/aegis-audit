@@ -191,9 +191,9 @@ async fn save_strings(
         })
         .collect::<Vec<_>>()
         .join("\n");
-    // An empty list is a factual result, not a failure: the service rejects
-    // zero-byte uploads, so no readable-text artifact is produced and the
-    // observation below records the count instead.
+    // An empty result is valid evidence and the artifact endpoint rejects empty
+    // files, so keep the JSON record and only publish readable text when strings
+    // exist; the observation below still records the recovered count.
     if !text.is_empty() {
         let readable = ctx
             .control
@@ -209,4 +209,133 @@ async fn save_strings(
     result.observation = json!({"recovered_string_count":strings.strings.len(),"omitted":strings.omitted,"preview":strings.strings.iter().take(16).collect::<Vec<_>>()});
     result.warnings = strings.limitations.clone();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{client::Control, jobs::Tools};
+    use axum::{
+        Json, Router,
+        body::Bytes,
+        extract::Query,
+        http::StatusCode,
+        routing::{get, post},
+    };
+    use std::{
+        collections::HashMap,
+        sync::{Arc, Mutex, atomic::AtomicBool},
+    };
+    use tokio::sync::mpsc;
+    use tokio_util::sync::CancellationToken;
+
+    #[tokio::test]
+    async fn string_recovery_preserves_empty_results_without_uploading_empty_files() {
+        for (fixture, expected) in [
+            ("binary/sample-pe64.exe", "NOT_FOUND"),
+            ("deobfuscation/obfuscated.exe", "CANDIDATES"),
+        ] {
+            let input = std::fs::read(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("../../tests/fixtures")
+                    .join(fixture),
+            )
+            .unwrap();
+            let hash = d::sha256(&input);
+            let saved = Arc::new(Mutex::new(Vec::<(d::Artifact, Vec<u8>)>::new()));
+            let uploaded = saved.clone();
+            let app = Router::new()
+                .route(
+                    "/api/artifacts/input",
+                    get(move || {
+                        let input = input.clone();
+                        async move { input }
+                    }),
+                )
+                .route(
+                    "/api/uploads",
+                    post(
+                        move |Query(query): Query<HashMap<String, String>>, bytes: Bytes| {
+                            let uploaded = uploaded.clone();
+                            async move {
+                                // Match the real server's nonempty artifact contract.
+                                if bytes.is_empty() {
+                                    return (
+                                        StatusCode::BAD_REQUEST,
+                                        Json(json!({"error":"不能上传空文件"})),
+                                    );
+                                }
+                                let artifact = d::Artifact {
+                                    id: d::id(),
+                                    sha256: d::sha256(&bytes),
+                                    size: bytes.len() as u64,
+                                    name: query["name"].clone(),
+                                    media_type: query["media_type"].clone(),
+                                };
+                                uploaded
+                                    .lock()
+                                    .unwrap()
+                                    .push((artifact.clone(), bytes.to_vec()));
+                                (
+                                    StatusCode::OK,
+                                    Json(serde_json::to_value(artifact).unwrap()),
+                                )
+                            }
+                        },
+                    ),
+                );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move {
+                axum::serve(listener, app).await.unwrap();
+            });
+            let directory = tempfile::tempdir().unwrap();
+            let (progress, _events) = mpsc::channel(8);
+            let ctx = JobContext {
+                control: Control::new(&base, "fixture-token", "fixture-executor".into()).unwrap(),
+                lease: aegis_protocol::WorkLease {
+                    input_artifact_id: "input".into(),
+                    lease_token: "fixture-lease".into(),
+                    ..Default::default()
+                },
+                cancel: CancellationToken::new(),
+                tools: Tools {
+                    ghidra: None,
+                    script_dir: directory.path().into(),
+                    git: false,
+                    semgrep: None,
+                },
+                progress,
+                reaped: Arc::new(AtomicBool::new(true)),
+            };
+            let result_id = execute(&ctx, directory.path(), &json!({
+                "step":{"tool":"builtin_strings","input":"original","reason":"fixture regression"},
+                "input_sha256":hash,
+            })).await.unwrap();
+            let uploads = saved.lock().unwrap();
+            let (_, raw) = uploads
+                .iter()
+                .find(|(artifact, _)| artifact.id == result_id)
+                .unwrap();
+            let result: d::RecoveryResult = serde_json::from_slice(raw).unwrap();
+            assert_eq!(result.status, expected, "{result:?}");
+            assert_eq!(result.input_sha256, hash);
+            let (_, raw) = uploads
+                .iter()
+                .find(|(artifact, _)| artifact.id == result.strings_artifact_id)
+                .unwrap();
+            let strings: d::RecoveredStrings = serde_json::from_slice(raw).unwrap();
+            assert_eq!(strings.strings.is_empty(), expected == "NOT_FOUND");
+            assert_eq!(
+                result.readable_artifact_id.is_empty(),
+                expected == "NOT_FOUND"
+            );
+            assert_eq!(
+                result.observation["recovered_string_count"],
+                strings.strings.len()
+            );
+            assert!(uploads.iter().all(|(_, bytes)| !bytes.is_empty()));
+            server.abort();
+        }
+    }
 }

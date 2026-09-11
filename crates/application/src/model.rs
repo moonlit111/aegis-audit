@@ -143,7 +143,6 @@ impl DeepSeek {
         });
         if self.compatible {
             body.as_object_mut().unwrap().remove("thinking");
-            body.as_object_mut().unwrap().remove("response_format");
         }
         let result = self.send(&body, 64 * 1024, 300).await?;
         let content = result.response["choices"][0]["message"]["content"]
@@ -246,7 +245,8 @@ impl ModelClient for DeepSeek {
                 body["temperature"] = json!(0);
             }
             if self.compatible {
-                for key in ["thinking", "reasoning_effort", "response_format"] {
+                // JSON mode is part of the action protocol, not a vendor thinking option.
+                for key in ["thinking", "reasoning_effort"] {
                     body.as_object_mut().unwrap().remove(key);
                 }
             }
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compatible_payloads_omit_vendor_fields_and_never_follow_credential_redirects() {
+    async fn compatible_payloads_require_json_without_vendor_fields_or_credential_redirects() {
         use axum::http::HeaderMap;
         use std::sync::{
             Arc,
@@ -310,7 +310,8 @@ mod tests {
         let app = Router::new()
             .route("/v1/chat/completions", post(|headers: HeaderMap, axum::Json(body): axum::Json<Value>| async move {
                 assert_eq!(headers["authorization"], "Bearer compatible-fixture-token");
-                for field in ["thinking","reasoning_effort","response_format"] { assert!(body.get(field).is_none()); }
+                assert_eq!(body["response_format"], json!({"type":"json_object"}));
+                for field in ["thinking","reasoning_effort"] { assert!(body.get(field).is_none()); }
                 axum::Json(json!({"choices":[{"message":{"content":"{\"connected\":true}"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":1,"total_tokens":3}}))
             }))
             .route("/redirect/chat/completions", post(move || async move {

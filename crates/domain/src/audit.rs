@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub const AUDIT_SCOPE: &str = "SECURITY_AUDIT";
-pub const PROMPT_VERSION: &str = "audit-12-human-references";
+pub const PROMPT_VERSION: &str = "audit-13-json-actions";
 pub const MAX_MODEL_TIMEOUT_SECONDS: u32 = 3_600;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -16,6 +16,7 @@ struct ScriptedModel {
     invalid_verifier: bool,
     failing_role: Option<&'static str>,
     audit_tool_requests: usize,
+    malformed_before_action: usize,
     truncate_first: bool,
     delay_ms: u64,
     in_flight: Arc<AtomicUsize>,
@@ -30,6 +31,7 @@ impl ScriptedModel {
             invalid_verifier: false,
             failing_role: None,
             audit_tool_requests: 0,
+            malformed_before_action: 0,
             truncate_first: false,
             delay_ms: 0,
             in_flight: Arc::new(AtomicUsize::new(0)),
@@ -89,18 +91,22 @@ impl ModelClient for ScriptedModel {
             let tool_results = request
                 .messages
                 .iter()
-                .filter(|message| {
-                    message["role"] == "user"
-                        && message["content"].as_str().is_some_and(|text| {
-                            serde_json::from_str::<Value>(text)
-                                .ok()
-                                .is_some_and(|value| value.get("remaining_tool_requests").is_some())
-                        })
-                })
+                .filter(|m| is_tool_result(m))
+                .count();
+            let responses_since_tool = request
+                .messages
+                .iter()
+                .rev()
+                .take_while(|message| !is_tool_result(message))
+                .filter(|message| message["role"] == "assistant")
                 .count();
             let truncated = self.truncate_first && self.requests.lock().unwrap().len() == 1;
             let content = if truncated {
                 "{\"action\":".into()
+            } else if system.contains("ROLE: AUDITOR")
+                && responses_since_tool < self.malformed_before_action
+            {
+                "现在调用 inspect_target，然后继续审计。".into()
             } else if system.contains("ROLE: AUDITOR") && tool_results < self.audit_tool_requests {
                 json!({"action":"tool","name":"inspect_target","arguments":{}}).to_string()
             } else {
@@ -126,6 +132,16 @@ impl ModelClient for ScriptedModel {
         })
     }
 }
+
+fn is_tool_result(message: &Value) -> bool {
+    message["role"] == "user"
+        && message["content"].as_str().is_some_and(|text| {
+            serde_json::from_str::<Value>(text)
+                .ok()
+                .is_some_and(|value| value.get("remaining_tool_requests").is_some())
+        })
+}
+
 async fn prepared(store: &Store, config: d::AuditConfig) -> d::AuditRun {
     tokio::fs::write(store.root.join("deepseek.token"), "fixture-only-key")
         .await
@@ -860,6 +876,201 @@ async fn independent_audit_units_overlap_without_losing_coverage() {
         })
         .count();
     assert_eq!(reviewed, evidence.findings.len());
+}
+
+#[tokio::test]
+async fn response_repairs_renew_after_successful_tools_and_allow_a_valid_finish() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig {
+        max_tool_rounds: 3,
+        ..Default::default()
+    };
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.audit_tool_requests = 3;
+    model.malformed_before_action = 2;
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
+    assert_eq!(result.state, d::RunState::Completed);
+    let evidence = store.audit_evidence(&run.id).await.unwrap();
+    let auditors: Vec<_> = evidence
+        .tasks
+        .iter()
+        .filter(|task| task.role == "AUDITOR")
+        .collect();
+    assert_eq!(auditors.len(), 3); // Module plus download/login functions.
+    for task in auditors {
+        assert_eq!(task.status, "SUCCEEDED");
+        let calls: Vec<_> = evidence
+            .model_calls
+            .iter()
+            .filter(|call| call.task_id == task.id)
+            .collect();
+        // Two malformed messages then a valid action, for three tools and a finish.
+        assert_eq!(calls.len(), 12);
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call.status == "INVALID_RESPONSE")
+                .count(),
+            8
+        );
+    }
+    assert_eq!(
+        evidence.model_calls.len(),
+        model.requests.lock().unwrap().len()
+    );
+    assert!(evidence.model_calls.iter().all(|call| call.usage_available));
+    assert_eq!(evidence.findings.len(), 1);
+}
+
+#[tokio::test]
+async fn response_repairs_stop_consecutive_prose_without_executing_its_tool_intent() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig::default();
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.audit_tool_requests = 1;
+    model.malformed_before_action = usize::MAX;
+    // Exhausting the repair budget fails that audit task; the audit itself keeps
+    // covering the remaining units and reports the gap instead of aborting.
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    let evidence = store.audit_evidence(&run.id).await.unwrap();
+    assert_eq!(
+        evidence
+            .model_calls
+            .iter()
+            .filter(|call| call.status == "INVALID_RESPONSE")
+            .count(),
+        // Three attempts (initial plus two repairs) for each of the three units.
+        9
+    );
+    assert!(
+        evidence
+            .tasks
+            .iter()
+            .filter(|task| task.role == "AUDITOR")
+            .all(|task| task.status == "FAILED" && task.error.contains("响应 JSON 无效"))
+    );
+    assert!(evidence.findings.is_empty());
+    assert!(
+        model
+            .requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|request| !request.messages.iter().any(is_tool_result))
+    );
+    assert_eq!(
+        store
+            .get::<d::AuditRun>("audit_runs", &run.id)
+            .await
+            .unwrap()
+            .state,
+        d::RunState::Partial
+    );
+}
+
+#[tokio::test]
+async fn response_repairs_still_obey_global_model_and_task_tool_budgets() {
+    // A run-wide model budget stops the audit.
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig {
+        max_model_calls: 4,
+        max_tool_rounds: 3,
+        ..Default::default()
+    };
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.audit_tool_requests = 3;
+    model.malformed_before_action = 1;
+    let error = store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("模型调用预算耗尽"), "{error}");
+    store
+        .finish_audit(&run.id, Some(error.to_string()))
+        .await
+        .unwrap();
+    let evidence = store.audit_evidence(&run.id).await.unwrap();
+    let (sent, over_budget) = {
+        let requests = model.requests.lock().unwrap();
+        (
+            requests.len(),
+            requests.iter().any(|request| {
+                request
+                    .messages
+                    .iter()
+                    .filter(|message| is_tool_result(message))
+                    .count()
+                    > config.max_tool_rounds as usize
+            }),
+        )
+    };
+    assert_eq!(evidence.model_calls.len(), sent);
+    assert_eq!(sent, config.max_model_calls as usize);
+    assert!(!over_budget, "a task exceeded its tool round budget");
+    assert!(evidence.findings.is_empty());
+
+    // A per-task tool budget fails only that task; coverage continues.
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig {
+        max_tool_rounds: 2,
+        ..Default::default()
+    };
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.audit_tool_requests = 3;
+    model.malformed_before_action = 1;
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    let evidence = store.audit_evidence(&run.id).await.unwrap();
+    assert!(evidence.tasks.iter().any(|task| {
+        task.role == "AUDITOR" && task.status == "FAILED" && task.error.contains("查询轮数达到上限")
+    }));
+    assert!(evidence.findings.is_empty());
+    let stopped: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
+    assert_eq!(stopped.state, d::RunState::Partial);
 }
 
 #[tokio::test]

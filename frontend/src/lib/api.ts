@@ -32,7 +32,11 @@ const sessionHeader: Interceptor = (next) => async (request) => {
   request.header.set('x-aegis-csrf', csrf);
   return next(request);
 };
-const transport = createConnectTransport({ baseUrl: '/rpc', interceptors: [sessionHeader] });
+const transport = createConnectTransport({
+  baseUrl: '/rpc',
+  defaultTimeoutMs: 15_000,
+  interceptors: [sessionHeader],
+});
 export const projectsApi = createClient(ProjectService, transport);
 export const runsApi = createClient(RunService, transport);
 export const programsApi = createClient(ProgramService, transport);

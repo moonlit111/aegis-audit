@@ -61,12 +61,12 @@
   aria-labelledby="audit-dialog-title"
   oncancel={(event) => {
     event.preventDefault();
-    if (!busy) onclose();
+    onclose();
   }}
 >
   <div class="dialog-heading">
     <div class="icon-tile"><BrainCircuit size={22} /></div>
-    <button class="icon-button" title="关闭" aria-label="关闭审计设置" disabled={busy} onclick={onclose}
+    <button class="icon-button" title="关闭" aria-label="关闭审计设置" onclick={onclose}
       ><X size={20} /></button
     >
   </div>
@@ -130,7 +130,7 @@
           error = '';
         }}><RotateCcw size={17} /></button
       >
-      <button class="button secondary" type="button" disabled={busy} onclick={onclose}>取消</button>
+      <button class="button secondary" type="button" onclick={onclose}>取消</button>
       <button class="button primary" disabled={busy}
         >{busy ? '正在创建…' : '开始审计'}<ArrowRight size={15} /></button
       >

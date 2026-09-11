@@ -9,6 +9,8 @@ mod live_recovery_tests;
 mod native_recovery_tests;
 #[cfg(test)]
 mod native_sast_tests;
+#[cfg(all(test, windows))]
+mod state_tests;
 
 use aegis_protocol as p;
 use anyhow::{Context, Result, ensure};
@@ -125,8 +127,28 @@ fn private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let mut file = tempfile::NamedTempFile::new_in(path.parent().context("missing parent")?)?;
     file.write_all(&serde_json::to_vec_pretty(value)?)?;
     file.as_file().sync_all()?;
-    file.persist(path)?;
-    Ok(())
+    let mut retries = 0;
+    loop {
+        match file.persist(path) {
+            Ok(_) => return Ok(()),
+            Err(error) => {
+                // Windows readers/scanners may briefly deny replacement. Retry the
+                // same flushed temporary file; never truncate or delete the old state.
+                let busy = cfg!(windows) && matches!(error.error.raw_os_error(), Some(5 | 32 | 33));
+                if !busy || retries == 20 {
+                    return Err(error.error).with_context(|| {
+                        format!("无法原子保存执行器状态，原文件已保留：{}", path.display())
+                    });
+                }
+                if retries == 0 {
+                    tracing::warn!(path=%path.display(), "state file replacement is busy; retrying for at most two seconds");
+                }
+                file = error.file;
+                retries += 1;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
 }
 fn absolute(path: &Path) -> PathBuf {
     let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
@@ -139,8 +161,11 @@ fn absolute(path: &Path) -> PathBuf {
     path
 }
 async fn version(program: &str, arg: &str) -> Option<String> {
-    let output = tokio::time::timeout(
-        Duration::from_secs(5),
+    version_with_timeout(program, arg, Duration::from_secs(5)).await
+}
+async fn version_with_timeout(program: &str, arg: &str, timeout: Duration) -> Option<String> {
+    let output = match tokio::time::timeout(
+        timeout,
         Command::new(program)
             .arg(arg)
             .stdin(Stdio::null())
@@ -148,9 +173,23 @@ async fn version(program: &str, arg: &str) -> Option<String> {
             .output(),
     )
     .await
-    .ok()?
-    .ok()?;
+    {
+        Ok(Ok(output)) => output,
+        Ok(Err(error)) => {
+            tracing::warn!(program, error=%error, "tool version probe could not start");
+            return None;
+        }
+        Err(_) => {
+            tracing::warn!(
+                program,
+                timeout_seconds = timeout.as_secs(),
+                "tool version probe timed out"
+            );
+            return None;
+        }
+    };
     if !output.status.success() {
+        tracing::warn!(program, status=%output.status, "tool version probe failed");
         return None;
     }
     let bytes = if output.stdout.is_empty() {
@@ -327,14 +366,29 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
         ("upx", upx, "5.2.1"),
         ("floss", floss, aegis_application::recovery::FLOSS_VERSION),
     ] {
+        let found = path.is_some();
+        // The packaged FLOSS Python runtime can exceed five seconds on a cold start.
+        let timeout = Duration::from_secs(if name == "floss" { 30 } else { 5 });
         let detected = if let Some(path) = path {
-            version(&path.to_string_lossy(), "--version").await
+            version_with_timeout(&path.to_string_lossy(), "--version", timeout).await
         } else {
             None
         };
         let available = detected.as_ref().is_some_and(|v| v.contains(expected));
+        let readiness = if available {
+            "版本探测通过".to_owned()
+        } else if !found {
+            "未找到已配置的程序".to_owned()
+        } else if detected.is_some() {
+            "探测版本与固定版本不匹配".to_owned()
+        } else {
+            format!(
+                "已找到程序，但版本探测未成功（{} 秒时限）；请检查启动日志后复检",
+                timeout.as_secs()
+            )
+        };
         caps.push(p::ToolCapability {name:name.into(),version:detected.unwrap_or_default(),available,
-            detail:format!("Windows 原生逆向工具；固定版本 {expected}；由智能体规划后调用。安装：py -3 scripts/install_reverse_tools.py"),..Default::default()});
+            detail:format!("Windows 原生逆向工具；固定版本 {expected}；{readiness}；由智能体规划后调用。安装：py -3 scripts/install_reverse_tools.py"),..Default::default()});
     }
     caps.push(p::ToolCapability {
         name: "string-recovery".into(),
