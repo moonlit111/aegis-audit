@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'scripts'))
@@ -15,9 +16,77 @@ from configure_model import save_settings
 from windows_secrets import PREFIX, unprotect_secret
 from unittest.mock import patch
 from windows_launcher import choose_port, instance_names, ProcessOwner, Windows
+import manage
 
 
 class LauncherTests(unittest.TestCase):
+    def test_stop_refuses_a_reused_process_identity(self):
+        with patch('manage.process_identity', return_value='another process'), patch('manage.signal_break') as signal:
+            manage.stop_item({'name': 'fixture', 'pid': 42, 'identity': 'original process'})
+            signal.assert_not_called()
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows console process groups')
+    def test_stop_from_another_console_is_graceful_and_scoped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fixture = root / 'console_fixture.py'
+            fixture.write_text('''import json, os, signal, subprocess, sys, time
+from pathlib import Path
+root = Path(__file__).parent
+if len(sys.argv) > 1:
+    name = sys.argv[1]
+    def stop(signum, frame):
+        (root / (name + '.stopped')).write_text('graceful')
+        raise SystemExit(0)
+    signal.signal(signal.SIGBREAK, stop)
+    (root / (name + '.ready')).touch()
+    while True:
+        time.sleep(0.05)
+else:
+    children = []
+    try:
+        for name in ('target', 'sibling'):
+            children.append(subprocess.Popen([sys.executable, __file__, name],
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        deadline = time.monotonic() + 10
+        while not all((root / (name + '.ready')).exists() for name in ('target', 'sibling')):
+            if time.monotonic() > deadline:
+                raise RuntimeError('Fixture children did not start')
+            time.sleep(0.05)
+        (root / 'ready.json').write_text(json.dumps({'pid': children[0].pid}))
+        children[0].wait(timeout=30)
+        (root / 'result.json').write_text(json.dumps({'sibling_alive': children[1].poll() is None}))
+    finally:
+        for child in children:
+            if child.poll() is None:
+                child.send_signal(signal.CTRL_BREAK_EVENT)
+            child.wait(timeout=5)
+''', encoding='utf-8')
+            startup = subprocess.STARTUPINFO()
+            startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startup.wShowWindow = subprocess.SW_HIDE
+            owner = ProcessOwner(Windows())
+            try:
+                host = owner.spawn([sys.executable, str(fixture)],
+                                   creationflags=subprocess.CREATE_NEW_CONSOLE,
+                                   startupinfo=startup, stdin=subprocess.DEVNULL,
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                deadline = time.monotonic() + 15
+                while not (root / 'ready.json').exists():
+                    if host.poll() is not None or time.monotonic() > deadline:
+                        self.fail('Isolated console fixture did not become ready')
+                    time.sleep(0.05)
+                pid = json.loads((root / 'ready.json').read_text())['pid']
+                identity = manage.process_identity(pid)
+                self.assertTrue(identity)
+                manage.stop_item({'name': 'fixture', 'pid': pid, 'identity': identity})
+                self.assertEqual(host.wait(timeout=15), 0)
+                self.assertEqual((root / 'target.stopped').read_text(), 'graceful')
+                self.assertTrue(json.loads((root / 'result.json').read_text())['sibling_alive'])
+            finally:
+                owner.close()
+
     def test_cli_updates_shared_web_settings_and_refuses_active_model_work(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
