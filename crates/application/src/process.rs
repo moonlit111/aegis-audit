@@ -181,6 +181,12 @@ pub async fn run(
         "PATHEXT",
         "LANG",
         "LC_ALL",
+        // Windows PowerShell computes a default module path when this is
+        // absent, and on some hosts that default blocks startup indefinitely:
+        // the process runs its whole deadline, then is reaped, having written
+        // nothing to either stream. Passing the parent's value keeps the host
+        // runtime working without widening what tools can see otherwise.
+        "PSModulePath",
     ] {
         if let Some(value) = std::env::var_os(key) {
             command.env(key, value);
