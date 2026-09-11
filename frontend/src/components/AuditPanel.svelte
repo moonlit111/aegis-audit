@@ -586,7 +586,11 @@
     align-items: center;
   }
   .review-overview {
-    padding: var(--space-4) 0;
+    padding: var(--space-5) var(--space-6);
+  }
+  .review-overview h3 {
+    margin-bottom: var(--space-2);
+    font-size: var(--text-base);
   }
   .review-overview td {
     white-space: normal;
@@ -601,8 +605,9 @@
   .audit-budget-summary {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px 24px;
-    margin: 12px 0;
+    gap: var(--space-3) var(--space-6);
+    padding: 0 var(--space-6) var(--space-4);
+    margin: 0;
     font-size: var(--text-sm);
   }
   .audit-budget-summary div {
@@ -616,5 +621,21 @@
     margin: 0;
     overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 600px) {
+    .code-tabs {
+      flex-wrap: wrap;
+      row-gap: var(--space-1);
+    }
+    .code-tabs button {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .review-overview {
+      padding: var(--space-4);
+    }
+    .audit-budget-summary {
+      padding-inline: var(--space-4);
+    }
   }
 </style>

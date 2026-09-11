@@ -172,7 +172,7 @@
   });
 </script>
 
-<section class="annotations-workspace" aria-label="关键逻辑标注">
+<section class="panel annotations-workspace" aria-label="关键逻辑标注">
   <div class="panel-title">
     <h2>关键逻辑 · {annotations.length} 项</h2>
     <div class="annotation-actions">
@@ -259,30 +259,33 @@
             >{annotation.actor === 'HUMAN' ? '人工标注' : '自动标注'} · v{annotation.revision}</span
           >
         </div>
-        {#each annotation.evidence as reference}<div class="evidence-card">
-            <button class="text-button" onclick={() => onselectunit(reference.unitId)}
-              >{reference.path} · L{reference.startLine}–L{reference.endLine}{reference.address
-                ? ` · ${reference.address}`
-                : ''}</button
-            >
-            <pre>{reference.quote}</pre>
-          </div>{/each}
-        <p>{annotation.rationale}</p>
-        {#if editing === annotation.id}<form onsubmit={save} class="annotation-editor">
-            <label class="field"
-              >修订逻辑类型<select bind:value={editTag}
-                >{#each Object.entries(tags) as [value, title]}<option {value}>{title}</option>{/each}</select
-              ></label
-            >
-            <label class="field"
-              >修订标注依据<textarea bind:value={editText} required rows="3" maxlength="2000"
-              ></textarea></label
-            >
-            <div class="annotation-actions">
-              <button class="button secondary" disabled={busy || !editText.trim()}>保存标注修订</button
-              ><button type="button" class="text-button" onclick={() => (editing = '')}>取消修订</button>
-            </div>
-          </form>{:else}<button class="text-button" onclick={() => edit(annotation)}>修订标注</button>{/if}
+        <div class="annotation-body">
+          {#each annotation.evidence as reference}<div class="evidence-card">
+              <button class="text-button" onclick={() => onselectunit(reference.unitId)}
+                >{reference.path} · L{reference.startLine}–L{reference.endLine}{reference.address
+                  ? ` · ${reference.address}`
+                  : ''}</button
+              >
+              <pre>{reference.quote}</pre>
+            </div>{/each}
+          <p>{annotation.rationale}</p>
+          {#if editing === annotation.id}<form onsubmit={save} class="annotation-editor">
+              <label class="field"
+                >修订逻辑类型<select bind:value={editTag}
+                  >{#each Object.entries(tags) as [value, title]}<option {value}>{title}</option
+                    >{/each}</select
+                ></label
+              >
+              <label class="field"
+                >修订标注依据<textarea bind:value={editText} required rows="3" maxlength="2000"
+                ></textarea></label
+              >
+              <div class="annotation-actions">
+                <button class="button secondary" disabled={busy || !editText.trim()}>保存标注修订</button
+                ><button type="button" class="text-button" onclick={() => (editing = '')}>取消修订</button>
+              </div>
+            </form>{:else}<button class="text-button" onclick={() => edit(annotation)}>修订标注</button>{/if}
+        </div>
       </article>{/each}
     {#if !annotations.length && !creating}<div class="empty-panel">
         尚无关键逻辑标注，可以从上方新建人工标注。
@@ -291,9 +294,6 @@
 </section>
 
 <style>
-  .annotations-workspace {
-    padding: var(--space-4) 0;
-  }
   .annotation-actions {
     display: flex;
     align-items: center;
@@ -302,12 +302,19 @@
   }
   .annotation-note {
     color: var(--muted);
-    margin: var(--space-3) 0 var(--space-4);
+    margin: var(--space-4) var(--space-6);
   }
   .annotation-editor {
     display: grid;
     gap: var(--space-3);
     margin: var(--space-4) 0;
+  }
+  .annotation-editor.panel {
+    margin: var(--space-4) var(--space-6);
+    padding: var(--space-5);
+  }
+  .annotation-body {
+    padding: var(--space-4) var(--space-6);
   }
   .annotation-fields {
     display: grid;
@@ -328,6 +335,17 @@
   @media (max-width: 600px) {
     .annotation-fields {
       grid-template-columns: 1fr;
+    }
+    .annotation-editor.panel,
+    .annotation-note {
+      margin-inline: var(--space-4);
+    }
+    .annotation-editor.panel,
+    .annotation-body {
+      padding: var(--space-4);
+    }
+    .annotation-list {
+      padding: var(--space-4);
     }
   }
 </style>

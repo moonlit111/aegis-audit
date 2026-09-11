@@ -97,19 +97,19 @@ impl Store {
                     }
                 }
             }
-            if phase.role == "REVIEWER" {
-                if let Some(task) = tasks.iter().find(|t| {
+            if phase.role == "REVIEWER"
+                && let Some(task) = tasks.iter().find(|t| {
                     t.role == "REVIEWER" && matches!(t.status.as_str(), "RUNNING" | "INTERRUPTED")
-                }) {
-                    let row: Option<String> =
-                        sqlx::query_scalar("SELECT data FROM findings WHERE id=? AND run_id=?")
-                            .bind(&task.item_key)
-                            .bind(run_id)
-                            .fetch_optional(&self.pool)
-                            .await?;
-                    if let Some(row) = row {
-                        phase.unit_id = serde_json::from_str::<d::Finding>(&row)?.draft.unit_id;
-                    }
+                })
+            {
+                let row: Option<String> =
+                    sqlx::query_scalar("SELECT data FROM findings WHERE id=? AND run_id=?")
+                        .bind(&task.item_key)
+                        .bind(run_id)
+                        .fetch_optional(&self.pool)
+                        .await?;
+                if let Some(row) = row {
+                    phase.unit_id = serde_json::from_str::<d::Finding>(&row)?.draft.unit_id;
                 }
             }
         }

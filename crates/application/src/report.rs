@@ -87,10 +87,25 @@ pub fn render_at(
     };
     let fuzzing_status = runtime_check("FUZZ");
     let runtime_status = runtime_check("VERIFY");
-    let reviewed = audit.findings.iter().filter(|finding| audit.reviews.iter().any(|review| review.finding_id == finding.id && review.actor == "MODEL")).count();
+    let reviewed = audit
+        .findings
+        .iter()
+        .filter(|finding| {
+            audit
+                .reviews
+                .iter()
+                .any(|review| review.finding_id == finding.id && review.actor == "MODEL")
+        })
+        .count();
     let review_status = if reviewed > 0 {
-        if reviewed == audit.findings.len() { "COMPLETED".into() } else { "PARTIAL".into() }
-    } else { check("independent_review") };
+        if reviewed == audit.findings.len() {
+            "COMPLETED".into()
+        } else {
+            "PARTIAL".into()
+        }
+    } else {
+        check("independent_review")
+    };
     let checks = json!({"vulnerability_audit":check("vulnerability_audit"),"independent_review":review_status,"fuzzing":fuzzing_status,"runtime_verification":runtime_status,"exploitation":check("exploitation")});
     let note = format!(
         "{} · 数据截至 {} · 导出时任务状态 {}。漏洞审计：{}；独立复核：{}；模糊测试：{}；运行验证：{}；利用验证：{}。静态复核不代表已在目标上验证漏洞或利用影响。",

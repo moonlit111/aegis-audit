@@ -1930,6 +1930,7 @@ progress::-webkit-progress-value {
   padding: 15px 20px;
   box-shadow: 0 6px 20px rgb(15 23 42 / 0.14);
   font-size: var(--text-base);
+  width: max-content;
   max-width: 90vw;
 }
 .toast .icon-button {

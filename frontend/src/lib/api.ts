@@ -11,13 +11,24 @@ import {
 } from '../gen/audit/v1/audit_pb';
 
 let csrf = '';
-export async function establishSession(): Promise<void> {
-  const response = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' });
-  if (!response.ok) throw new Error('无法建立本机会话，请检查控制服务。');
-  const session: { csrf_token: string } = await response.json();
-  csrf = session.csrf_token;
+let establishing: Promise<void> | undefined;
+export function establishSession(): Promise<void> {
+  if (!establishing) {
+    establishing = (async () => {
+      const response = await fetch('/api/session', { credentials: 'same-origin', cache: 'no-store' });
+      if (!response.ok) throw new Error('无法建立本机会话，请检查控制服务。');
+      const session: { csrf_token: string } = await response.json();
+      if (!session.csrf_token) throw new Error('本机会话响应无效，请重新连接控制服务。');
+      csrf = session.csrf_token;
+    })().finally(() => {
+      establishing = undefined;
+    });
+  }
+  return establishing;
 }
-const sessionHeader: Interceptor = (next) => (request) => {
+const sessionHeader: Interceptor = (next) => async (request) => {
+  // Direct run links can mount children before App finishes its initial session.
+  if (establishing || !csrf) await establishSession();
   request.header.set('x-aegis-csrf', csrf);
   return next(request);
 };
@@ -45,6 +56,7 @@ export async function upload(
   onProgress: (percent: number) => void,
 ): Promise<string> {
   if (file.size > 512 * 1024 * 1024) throw new Error('单次上传上限为 512 MiB。');
+  if (establishing || !csrf) await establishSession();
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open(

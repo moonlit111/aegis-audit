@@ -118,7 +118,7 @@
 
 <style>
   .report-history p {
-    margin: var(--space-3) 0;
+    margin: var(--space-4) var(--space-6);
   }
   small {
     display: block;
@@ -128,6 +128,11 @@
   .history-pages {
     display: flex;
     gap: var(--space-3);
-    margin-top: var(--space-3);
+    padding: var(--space-4) var(--space-6);
+  }
+  @media (max-width: 600px) {
+    .report-history p {
+      margin-inline: var(--space-4);
+    }
   }
 </style>
