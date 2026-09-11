@@ -9,6 +9,9 @@ use std::{
 
 struct ScriptedModel {
     invalid_quote: bool,
+    invalid_review: bool,
+    invalid_verifier: bool,
+    failing_role: Option<&'static str>,
     audit_tool_requests: usize,
     truncate_first: bool,
     requests: Mutex<Vec<ModelRequest>>,
@@ -17,6 +20,9 @@ impl ScriptedModel {
     fn new(invalid_quote: bool) -> Self {
         Self {
             invalid_quote,
+            invalid_review: false,
+            invalid_verifier: false,
+            failing_role: None,
             audit_tool_requests: 0,
             truncate_first: false,
             requests: Mutex::new(vec![]),
@@ -31,6 +37,12 @@ impl ModelClient for ScriptedModel {
         Box::pin(async move {
             self.requests.lock().unwrap().push(request.clone());
             let system = request.messages[0]["content"].as_str().unwrap();
+            if self
+                .failing_role
+                .is_some_and(|role| system.contains(&format!("ROLE: {role}")))
+            {
+                anyhow::bail!("provider unavailable");
+            }
             let input: Value =
                 serde_json::from_str(request.messages[1]["content"].as_str().unwrap()).unwrap();
             let result = if system.contains("ROLE: PLANNER") || system.contains("ROLE: REVERSE") {
@@ -53,9 +65,9 @@ impl ModelClient for ScriptedModel {
             } else if system.contains("ROLE: REVIEWER") {
                 assert!(input.get("audit_approach").is_none());
                 assert!(input.get("original_code").is_some());
-                json!({"verdict":"VALIDATED","rationale":"original code has an unconstrained path argument","counter_evidence":"no guard in supplied code","missing_information":"external routing is not dynamically tested","evidence":input["candidate"]["evidence"],"assessments":(["INPUT_CONTROL","REACHABILITY","DEFENSE_GAP"].map(|check|json!({"check":check,"status":"SUPPORTED","rationale":"the fixture function receives and opens the supplied name without a guard","evidence":input["candidate"]["evidence"]})))})
+                json!({"verdict":"VALIDATED","rationale":"original code has an unconstrained path argument","counter_evidence":"no guard in supplied code","missing_information":"external routing is not dynamically tested","evidence":input["candidate"]["evidence"],"assessments":(["INPUT_CONTROL","REACHABILITY","DEFENSE_GAP"].map(|check|json!({"check":check,"status":if self.invalid_review && check == "INPUT_CONTROL" {"UNKNOWN"} else {"SUPPORTED"},"rationale":"the fixture function receives and opens the supplied name without a guard","evidence":input["candidate"]["evidence"]})))})
             } else if system.contains("ROLE: VERIFIER") {
-                json!({"status":"NEEDS_CONFIGURATION","rationale":"fixture test does not provide deployment input","limitations":["runtime not executed"],"config":null})
+                json!({"status":if self.invalid_verifier {"INVALID"} else {"NEEDS_CONFIGURATION"},"rationale":"fixture test does not provide deployment input","limitations":["runtime not executed"],"config":null})
             } else {
                 json!({"summary":"static fixture analysis only","recommendations":[],"limitations":["runtime not executed"]})
             };
@@ -288,7 +300,7 @@ async fn hallucinated_quotes_never_become_findings_and_calls_keep_usage() {
             &CancellationToken::new(),
         )
         .await;
-    assert!(result.is_err());
+    assert!(result.is_ok());
     store
         .finish_audit(&run.id, result.err().map(|e| e.to_string()))
         .await
@@ -313,6 +325,121 @@ async fn hallucinated_quotes_never_become_findings_and_calls_keep_usage() {
     );
     let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
     assert_eq!(result.state, d::RunState::Partial);
+    assert_eq!(
+        data.annotations.len(),
+        1,
+        "later units must still be audited"
+    );
+    assert!(
+        data.tasks
+            .iter()
+            .any(|task| task.role == "REPORTER" && task.status == "SUCCEEDED")
+    );
+    let requests = model.requests.lock().unwrap();
+    let report = requests
+        .iter()
+        .find(|request| {
+            request.messages[0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("ROLE: REPORTER")
+        })
+        .unwrap();
+    let input: Value =
+        serde_json::from_str(report.messages[1]["content"].as_str().unwrap()).unwrap();
+    assert_eq!(input["audited_units"], result.summary["audited_unit_count"]);
+    assert!(input["audited_units"].as_u64().unwrap() < input["total_units"].as_u64().unwrap());
+    assert_eq!(input["failed_tasks"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn invalid_reviews_do_not_abort_later_units_or_become_validated() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig::default();
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.invalid_review = true;
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
+    let data = store.audit_evidence(&run.id).await.unwrap();
+    assert_eq!(result.state, d::RunState::Partial);
+    assert_eq!(
+        result.summary["audited_unit_count"],
+        result.summary["eligible_unit_count"]
+    );
+    assert_eq!(result.summary["independent_review"], "PARTIAL");
+    assert_eq!(data.findings.len(), 1);
+    assert_eq!(data.findings[0].review_status, "UNREVIEWED");
+    assert_eq!(data.findings[0].verification_status, "NOT_RUN");
+    assert!(data.reviews.is_empty());
+    assert_eq!(data.annotations.len(), 1);
+    assert_eq!(
+        data.model_calls
+            .iter()
+            .filter(|call| call.role == "REVIEWER")
+            .count(),
+        3,
+        "failed reviews must not be retried for each later unit"
+    );
+    assert!(!data.tasks.iter().any(|task| task.role == "VERIFIER"));
+    assert!(
+        data.tasks
+            .iter()
+            .any(|task| task.role == "REPORTER" && task.status == "SUCCEEDED")
+    );
+    assert_eq!(result.summary["incomplete_agent_tasks"], 1);
+}
+
+#[tokio::test]
+async fn invalid_verifier_output_remains_partial_but_provider_errors_stop_work() {
+    for failing_role in [None, Some("REVIEWER"), Some("VERIFIER")] {
+        let directory = tempfile::tempdir().unwrap();
+        let store = Store::open(directory.path()).await.unwrap();
+        let config = d::AuditConfig::default();
+        let run = prepared(&store, config.clone()).await;
+        let mut model = ScriptedModel::new(false);
+        model.invalid_verifier = true;
+        model.failing_role = failing_role;
+        let outcome = store
+            .drive_audit_with_model(
+                &run.id,
+                "fixture-model",
+                &config,
+                &model,
+                &CancellationToken::new(),
+            )
+            .await;
+        assert_eq!(outcome.is_err(), failing_role.is_some());
+        store
+            .finish_audit(&run.id, outcome.err().map(|error| error.to_string()))
+            .await
+            .unwrap();
+        let result: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
+        let data = store.audit_evidence(&run.id).await.unwrap();
+        assert_eq!(result.state, d::RunState::Partial);
+        assert_eq!(
+            data.tasks.iter().any(|task| task.role == "REPORTER"),
+            failing_role.is_none()
+        );
+        assert_eq!(
+            data.model_calls
+                .iter()
+                .filter(|call| call.status == "INVALID_RESPONSE")
+                .count(),
+            if failing_role.is_none() { 3 } else { 0 }
+        );
+    }
 }
 
 #[tokio::test]

@@ -188,7 +188,7 @@ impl Store {
         for id in order.iter().take(config.max_units as usize) {
             let input = json!({"focus":corpus.focus(id)?,"audit_approach":plan.approach,
                 "instructions":"Audit this focus unit even if no lexical clues exist. Query relevant code when evidence is incomplete."});
-            context.execute("AUDITOR", id, input).await?;
+            context.execute_item("AUDITOR", id, input).await?;
             // Review immediately so findings remain useful when a later unit reaches a budget.
             let evidence = self.audit_evidence(context.run_id).await?;
             for finding in evidence.findings {
@@ -196,6 +196,11 @@ impl Store {
                     .reviews
                     .iter()
                     .any(|r| r.finding_id == finding.id && r.actor == "MODEL")
+                    || evidence.tasks.iter().any(|task| {
+                        task.role == "REVIEWER"
+                            && task.item_key == finding.id
+                            && task.status == "FAILED"
+                    })
                 {
                     continue;
                 }
@@ -219,7 +224,7 @@ impl Store {
                 }
                 let input = json!({"candidate":finding.draft,"original_code":originals,"review_scope":"COMPONENT",
                     "verification_status":"NOT_RUN","instructions":"Independently check this claim against the original code; the auditor conversation is not provided."});
-                context.execute("REVIEWER", &finding.id, input).await?;
+                context.execute_item("REVIEWER", &finding.id, input).await?;
             }
         }
         // Planning uses a fresh context and cannot assign an execution verdict.
@@ -233,22 +238,24 @@ impl Store {
             let input = json!({"candidate":finding.draft,"target":corpus.target,
                 "original_code":corpus.view(&finding.draft.unit_id,None,None)?,
                 "instructions":"Produce a bounded local regression recipe or state what configuration is missing. Execution has not occurred."});
-            if let Err(error) = context.execute("VERIFIER", &finding.id, input).await {
-                // A bad recipe must not discard completed audits/reviews or skip all later
-                // findings and the factual report. Global cancellation/budgets still apply.
-                let run: d::AuditRun = self.get("audit_runs", context.run_id).await?;
-                ensure!(
-                    !shutdown.is_cancelled() && run.state == d::RunState::Running,
-                    "审计已取消或服务停止"
-                );
-                tracing::warn!(finding_id=%finding.id, error=%error, "verification planning failed; retaining static evidence");
-            }
+            context.execute_item("VERIFIER", &finding.id, input).await?;
         }
         let evidence = self.audit_evidence(context.run_id).await?;
         let rows:Vec<_>=evidence.findings.iter().take(100).map(|f|json!({"id":f.id,"title":f.draft.title,"category":f.draft.category,
             "review_status":f.review_status,"verification_status":f.verification_status,"recommendation":f.draft.recommendation})).collect();
+        let audited = evidence
+            .tasks
+            .iter()
+            .filter(|task| task.role == "AUDITOR" && task.status == "SUCCEEDED")
+            .count();
+        let failures: Vec<_> = evidence
+            .tasks
+            .iter()
+            .filter(|task| task.status == "FAILED")
+            .map(|task| json!({"role":task.role,"item_key":task.item_key,"error":task.error}))
+            .collect();
         let report = json!({"findings":rows,"findings_truncated":evidence.findings.len()>100,
-            "audited_units":order.len().min(config.max_units as usize),"total_units":order.len(),
+            "audited_units":audited,"total_units":order.len(),"failed_tasks":failures,
             "static_review_only":true,"dynamic_execution":"NOT_RUN","structure_warnings":corpus.target["structure_warnings"]});
         context.execute("REPORTER", "report", report).await?;
         if corpus.target["kind"] == "BINARY" {
@@ -453,6 +460,10 @@ impl Store {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("{0}")]
+struct InvalidAgentResponse(String);
+
 struct AgentContext<'a> {
     store: &'a Store,
     run_id: &'a str,
@@ -463,6 +474,23 @@ struct AgentContext<'a> {
     corpus: &'a Corpus,
 }
 impl AgentContext<'_> {
+    async fn execute_item(&self, role: &str, key: &str, input: Value) -> anyhow::Result<()> {
+        if let Err(error) = self.execute(role, key, input).await {
+            // Invalid local output leaves a failed task, not a verdict. Provider,
+            // storage, cancellation and run-wide budget errors still stop the run.
+            if error.downcast_ref::<InvalidAgentResponse>().is_none() {
+                return Err(error);
+            }
+            let run: d::AuditRun = self.store.get("audit_runs", self.run_id).await?;
+            ensure!(
+                !self.shutdown.is_cancelled() && run.state == d::RunState::Running,
+                "审计已取消或服务停止"
+            );
+            tracing::warn!(role, item_key=key, error=%error, "invalid agent output retained; continuing independent tasks");
+        }
+        Ok(())
+    }
+
     async fn execute(&self, role: &str, key: &str, input: Value) -> anyhow::Result<d::AgentTask> {
         let task = self.store.begin_agent_task(self.run_id, role, key).await?;
         if task.status == "SUCCEEDED" {
@@ -535,10 +563,12 @@ impl AgentContext<'_> {
                         messages.push(json!({"role":"user","content":"No tool requests remain. This request was not executed. Finish now using available evidence, and list missing evidence as limitations."}));
                         continue;
                     }
-                    ensure!(
-                        tools < tool_budget,
-                        "智能体查询轮数达到上限；未完成的分析保留为缺口"
-                    );
+                    if tools > tool_budget {
+                        return Err(InvalidAgentResponse(
+                            "智能体查询轮数达到上限；未完成的分析保留为缺口".into(),
+                        )
+                        .into());
+                    }
                     tools += 1;
                     let result = if task.role == "REVERSE" {
                         match name.as_str() {
@@ -594,12 +624,15 @@ impl AgentContext<'_> {
             };
             self.store.invalid_model_call(call, &validation).await?;
             if repairs == 2 {
-                bail!("智能体响应再次未通过校验：{validation}");
+                return Err(InvalidAgentResponse(format!(
+                    "智能体响应再次未通过校验：{validation}"
+                ))
+                .into());
             }
             repairs += 1;
             messages.push(json!({"role":"user","content":format!("Your response failed validation: {validation}. Correct the JSON/schema or exact code citations using the supplied original code. Do not invent references. {} correction attempt(s) remain. Return only the complete JSON object, with no commentary.", 3-repairs)}));
         }
-        bail!("智能体达到有限重试上限")
+        Err(InvalidAgentResponse("智能体达到有限重试上限".into()).into())
     }
     async fn cancelled(&self) {
         loop {
