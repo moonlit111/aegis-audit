@@ -9,6 +9,8 @@ mod live_recovery_tests;
 mod native_recovery_tests;
 #[cfg(test)]
 mod native_sast_tests;
+#[cfg(all(test, windows))]
+mod state_tests;
 
 use aegis_protocol as p;
 use anyhow::{Context, Result, ensure};
@@ -125,8 +127,28 @@ fn private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let mut file = tempfile::NamedTempFile::new_in(path.parent().context("missing parent")?)?;
     file.write_all(&serde_json::to_vec_pretty(value)?)?;
     file.as_file().sync_all()?;
-    file.persist(path)?;
-    Ok(())
+    let mut retries = 0;
+    loop {
+        match file.persist(path) {
+            Ok(_) => return Ok(()),
+            Err(error) => {
+                // Windows readers/scanners may briefly deny replacement. Retry the
+                // same flushed temporary file; never truncate or delete the old state.
+                let busy = cfg!(windows) && matches!(error.error.raw_os_error(), Some(5 | 32 | 33));
+                if !busy || retries == 20 {
+                    return Err(error.error).with_context(|| {
+                        format!("无法原子保存执行器状态，原文件已保留：{}", path.display())
+                    });
+                }
+                if retries == 0 {
+                    tracing::warn!(path=%path.display(), "state file replacement is busy; retrying for at most two seconds");
+                }
+                file = error.file;
+                retries += 1;
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
+    }
 }
 fn absolute(path: &Path) -> PathBuf {
     let path = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
