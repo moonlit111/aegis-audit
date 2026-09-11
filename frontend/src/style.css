@@ -1076,7 +1076,8 @@ tbody tr:last-child td {
   padding: 3px var(--space-2);
 }
 .snapshot-run-empty,
-.snapshot-run-more {
+.snapshot-run-more,
+.snapshot-run-history summary {
   font-size: var(--text-sm);
   color: var(--muted);
 }

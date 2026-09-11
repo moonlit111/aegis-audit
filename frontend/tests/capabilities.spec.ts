@@ -59,7 +59,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.getByRole('button', { name: '导入并创建快照', exact: true }).click();
   const card = page.locator('.snapshot-card').filter({ hasText: 'capability-fixture.zip' });
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
-  await card.getByRole('button', { name: '开始结构分析', exact: true }).click();
+  await card.getByRole('button', { name: '仅结构分析', exact: true }).click();
   await expect(page.locator('.run-status')).toHaveText('分析完成');
   await page.getByRole('tab', { name: '关键逻辑', exact: true }).click();
   await page.getByRole('button', { name: '新建人工标注', exact: true }).click();
@@ -220,11 +220,7 @@ test('binary audit retains real recovery and displays the same typed plan with a
   await expect(plan).toContainText('从实际恢复的第一个函数');
   await expect(plan.locator('small')).toContainText('0x');
   await page.screenshot({ path: testInfo.outputPath('binary-audit-plan.png'), fullPage: true });
-  await page
-    .locator('.workflow-progress li')
-    .filter({ hasText: '逆向与代码恢复' })
-    .getByRole('button')
-    .click();
+  await page.locator('.workflow-progress li').filter({ hasText: '逆向与反编译' }).getByRole('button').click();
   await expect(page.locator('.recovery-panel')).toContainText('Ghidra 反编译');
   await expect(page.locator('.recovery-panel')).toContainText('工具已完成');
   await page.screenshot({ path: testInfo.outputPath('binary-recovery.png'), fullPage: true });

@@ -31,7 +31,8 @@ pub fn phase_definitions(scope: &str, binary: bool) -> Vec<RunPhase> {
         entries = vec![("RUNTIME", "动态执行与进程回收")];
     } else if scope == AUDIT_SCOPE {
         if binary {
-            entries.push(("RECOVERY", "逆向与代码恢复"));
+            entries = vec![("PREPARATION", "目标准备")];
+            entries.push(("RECOVERY", "逆向与反编译"));
         }
         entries.extend([
             ("PLANNING", "审计策略与优先级"),
@@ -57,7 +58,9 @@ pub fn phase_definitions(scope: &str, binary: bool) -> Vec<RunPhase> {
 /// A later role closes the interleaved audit/review loop; a budget is not a percentage.
 pub fn workflow_phases(run: &AuditRun, binary: bool, tasks: &[AgentTask]) -> Vec<RunPhase> {
     let mut phases = phase_definitions(&run.scope, binary);
-    let structure_done = run.summary["result_artifact_id"].is_string();
+    let preparation = binary && run.scope == AUDIT_SCOPE;
+    let structure_done = run.summary["result_artifact_id"].is_string()
+        || (preparation && run.summary["preparation_artifact_id"].is_string());
     let last_started = tasks
         .iter()
         .filter_map(|t| phases.iter().position(|p| p.id == role_phase(&t.role)))
@@ -70,8 +73,9 @@ pub fn workflow_phases(run: &AuditRun, binary: bool, tasks: &[AgentTask]) -> Vec
         let later = last_started.is_some_and(|last| last > index);
         if index == 0 {
             phase.status = if structure_done {
-                if run.summary["structure_partial"].as_bool() == Some(true)
-                    || (run.scope != AUDIT_SCOPE && run.state == RunState::Partial)
+                if !preparation
+                    && (run.summary["structure_partial"].as_bool() == Some(true)
+                        || (run.scope != AUDIT_SCOPE && run.state == RunState::Partial))
                 {
                     "PARTIAL"
                 } else {
@@ -85,6 +89,14 @@ pub fn workflow_phases(run: &AuditRun, binary: bool, tasks: &[AgentTask]) -> Vec
                 "RUNNING"
             }
             .into();
+            if preparation && structure_done {
+                phase.detail = if run.summary["analysis_reuse"].is_object() {
+                    "已复用同一快照的反编译结果，后续按需补充逆向恢复"
+                } else {
+                    "目标信息已准备；代码恢复与反编译在下一阶段执行"
+                }
+                .into();
+            }
         } else if rows.is_empty() {
             if later {
                 phase.status = "SKIPPED".into();

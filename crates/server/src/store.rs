@@ -7,7 +7,7 @@ use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -425,6 +425,35 @@ impl Store {
         if !["READY", "PARTIAL"].contains(&snapshot.state.as_str()) {
             return Err(AppError::Precondition("快照导入尚未完成或已失败".into()));
         }
+        // The transaction also serializes independent controller connections. A fresh
+        // request id is a new HTTP submission, not permission to duplicate active work.
+        let active: Option<String> = sqlx::query_scalar("SELECT data FROM audit_runs WHERE snapshot_id=? AND state IN ('QUEUED','WAITING_EXECUTOR','RUNNING','CANCELLING') AND json_extract(data,'$.scope') IN ('STRUCTURE_ANALYSIS','SECURITY_AUDIT') ORDER BY created_at,id LIMIT 1")
+            .bind(snapshot_id).fetch_optional(&mut *tx).await?;
+        if let Some(data) = active {
+            let existing: d::AuditRun = serde_json::from_str(&data)?;
+            let same_options = if existing.scope == scope && scope == d::AUDIT_SCOPE {
+                let workflow =
+                    sqlx::query("SELECT config,config_hash FROM audit_workflows WHERE run_id=?")
+                        .bind(&existing.id)
+                        .fetch_one(&mut *tx)
+                        .await?;
+                serde_json::from_str::<d::AuditConfig>(&workflow.get::<String, _>("config"))?
+                    == config
+                    && workflow.get::<String, _>("config_hash")
+                        == settings.as_ref().unwrap().fingerprint()
+            } else {
+                existing.scope == scope
+            };
+            if !same_options {
+                return Err(AppError::Conflict(format!(
+                    "此快照已有分析任务 {} 正在执行或等待回收，请查看该任务；结束后可重新运行并调整设置",
+                    existing.id
+                )));
+            }
+            record_request(&mut tx, "CreateRun", request, &hash, &existing.id).await?;
+            tx.commit().await?;
+            return Ok(existing);
+        }
         let capability = if snapshot.kind == "BINARY" && scope == d::AUDIT_SCOPE {
             "import"
         } else if snapshot.kind == "BINARY" {
@@ -432,7 +461,8 @@ impl Store {
         } else {
             "tree-sitter"
         };
-        let available = self.executors().await?.iter().any(|e| {
+        let executors = self.executors().await?;
+        let available = executors.iter().any(|e| {
             e.capabilities
                 .iter()
                 .any(|c| c.name == capability && c.available)
@@ -470,7 +500,11 @@ impl Store {
             &run.id,
             "RUN_CREATED",
             if available {
-                "结构分析已排队"
+                if snapshot.kind == "BINARY" && scope == d::AUDIT_SCOPE {
+                    "目标准备已排队，随后由逆向智能体规划恢复与反编译"
+                } else {
+                    "结构分析已排队"
+                }
             } else {
                 "等待具有所需工具的执行器"
             },
@@ -479,6 +513,10 @@ impl Store {
             0,
         )
         .await?;
+        if snapshot.kind == "BINARY" && scope == d::AUDIT_SCOPE {
+            self.reuse_binary_structure(&mut tx, &mut run, &snapshot, &work, &executors)
+                .await?;
+        }
         record_request(&mut tx, "CreateRun", request, &hash, &run.id).await?;
         tx.commit().await?;
         self.changed.notify_waiters();
@@ -681,6 +719,8 @@ impl Store {
                     "RUN_STARTED",
                     if row.get::<String, _>("kind") == "RECOVER" {
                         "执行器开始智能体规划的逆向步骤"
+                    } else if run.scope == d::AUDIT_SCOPE && payload["kind"] == "BINARY" {
+                        "执行器开始准备目标信息"
                     } else {
                         "执行器开始程序结构分析"
                     },
@@ -1010,86 +1050,22 @@ impl Store {
                         .artifact_bytes(&snapshot.manifest_artifact_id, 32 * 1024 * 1024)
                         .await?,
                 )?;
-                result.validate(&manifest).map_err(AppError::Invalid)?;
-                let ids: HashMap<String, String> = result
-                    .units
-                    .iter()
-                    .map(|u| {
-                        (
-                            u.key.clone(),
-                            format!(
-                                "u_{}",
-                                &d::sha256(format!("{run_id}:{}", u.key).as_bytes())[..32]
-                            ),
-                        )
-                    })
-                    .collect();
-                for unit in &result.units {
-                    let value = d::ProgramUnit {
-                        id: ids[&unit.key].clone(),
-                        run_id: run_id.clone(),
-                        snapshot_id: snapshot_id.clone(),
-                        artifact_id: result_id.into(),
-                        unit: unit.clone(),
-                    };
-                    sqlx::query("INSERT INTO program_units(id,run_id,snapshot_id,name,path,language,data) VALUES(?,?,?,?,?,?,?)").bind(&value.id).bind(run_id).bind(&snapshot_id).bind(&unit.name).bind(&unit.path).bind(&unit.language).bind(serde_json::to_string(&value)?).execute(&mut *tx).await?;
-                }
-                for edge in &result.edges {
-                    let value = d::ProgramEdge {
-                        source_id: ids[&edge.source_key].clone(),
-                        target_id: ids.get(&edge.target_key).cloned().unwrap_or_default(),
-                        target_name: edge.target_name.clone(),
-                        kind: edge.kind.clone(),
-                        certainty: edge.certainty.clone(),
-                        line: edge.line,
-                        address: edge.address.clone(),
-                    };
-                    sqlx::query("INSERT INTO program_edges(run_id,source_id,target_id,data) VALUES(?,?,?,?)").bind(run_id).bind(&value.source_id).bind(if value.target_id.is_empty(){None}else{Some(&value.target_id)}).bind(serde_json::to_string(&value)?).execute(&mut *tx).await?;
-                }
-                for tool in &result.tools {
-                    sqlx::query(
-                        "INSERT INTO tool_runs(id,work_item_id,run_id,data) VALUES(?,?,?,?)",
-                    )
-                    .bind(d::id())
-                    .bind(work)
-                    .bind(run_id)
-                    .bind(serde_json::to_string(tool)?)
-                    .execute(&mut *tx)
-                    .await?;
-                }
                 let mut run: d::AuditRun = load(&mut tx, "audit_runs", run_id).await?;
-                run.state = if result.partial() {
-                    d::RunState::Partial
-                } else {
-                    d::RunState::Completed
-                };
-                run.finished_at = d::now();
-                run.unit_count = result.units.len() as u64;
-                let audit_config = run.summary.get("audit_config").cloned();
-                run.summary = json!({"metadata":result.metadata,"files":result.files,"warnings":result.warnings,"tools":result.tools,"exclusions":manifest.exclusions,"unit_count":run.unit_count,"function_count":result.units.iter().filter(|u|u.metadata["kind"]=="function").count(),"edge_count":result.edges.len(),"unresolved_calls":result.edges.iter().filter(|e|e.target_key.is_empty()).count(),"result_artifact_id":result_id,"vulnerability_audit":"NOT_RUN","verification":"NOT_RUN"});
-                if let Some(config) = audit_config {
-                    run.summary["audit_config"] = config;
-                }
-                if run.scope == d::AUDIT_SCOPE {
-                    run.summary["structure_partial"] = json!(result.partial());
-                    run.summary["vulnerability_audit"] = json!("QUEUED");
-                    run.state = d::RunState::Running;
-                    run.finished_at.clear();
-                    sqlx::query("UPDATE audit_workflows SET state='QUEUED' WHERE run_id=?")
-                        .bind(run_id)
-                        .execute(&mut *tx)
-                        .await?;
-                }
-                update_run(&mut tx, &run).await?;
+                self.persist_analysis(&mut tx, &mut run, &manifest, &result, result_id, work)
+                    .await?;
                 event(
                     &mut tx,
                     run_id,
-                    if run.scope == d::AUDIT_SCOPE {
+                    if run.scope == d::AUDIT_SCOPE && snapshot.kind == "BINARY" {
+                        "PREPARATION_COMPLETED"
+                    } else if run.scope == d::AUDIT_SCOPE {
                         "STRUCTURE_COMPLETED"
                     } else {
                         "RUN_COMPLETED"
                     },
-                    if run.scope == d::AUDIT_SCOPE {
+                    if run.scope == d::AUDIT_SCOPE && snapshot.kind == "BINARY" {
+                        "目标信息已准备，等待逆向智能体规划恢复与反编译"
+                    } else if run.scope == d::AUDIT_SCOPE {
                         "结构解析已完成，进入智能体审计与独立复核"
                     } else if run.state == d::RunState::Partial {
                         "结构分析完成，存在覆盖缺口"

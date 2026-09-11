@@ -81,6 +81,7 @@
   let query = $state('');
   let language = $state('');
   let tab = $state('program');
+  let initialTabSelected = false;
   let runtimeFinding = $state('');
   let viewer = $state('code');
   let events = $state<RunEvent[]>([]);
@@ -130,6 +131,15 @@
         const previousCount = run?.unitCount;
         const previousResult = parseJson<Summary>(run?.summaryJson || '', {}).result_artifact_id;
         run = response.run;
+        if (run && !initialTabSelected) {
+          tab =
+            run.scope === 'SECURITY_AUDIT'
+              ? 'audit'
+              : ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope)
+                ? 'runtime'
+                : 'program';
+          initialTabSelected = true;
+        }
         phases = response.phases;
         notFound = false;
         error = '';
@@ -213,9 +223,13 @@
     while (alive) {
       try {
         streamStatus = cursor > 0n ? '游标重连中' : '连接中';
+        // timeoutMs: 0 disables the transport's 15s default deadline. WatchRun is
+        // a long-lived stream that the server only ends when the run is terminal,
+        // so the default deadline would abort it every 15s and surface as a
+        // permanent "connection interrupted, reconnecting" while an audit runs.
         for await (const message of runsApi.watchRun(
           { runId, afterSeq: cursor },
-          { signal: controller.signal },
+          { signal: controller.signal, timeoutMs: 0 },
         )) {
           if (!alive) return;
           streamStatus = '实时连接';
@@ -392,6 +406,10 @@
       </div>
     </div>
     {#if run.error}<div class="error-banner"><AlertCircle size={18} /><span>{run.error}</span></div>{/if}
+    {#if summary.analysis_reuse}<p class="footnote">
+        已复用此快照的反编译结果（Ghidra {summary.analysis_reuse.tool_version}）。
+        <a class="text-button" href={`#/runs/${summary.analysis_reuse.source_run_id}`}>查看来源任务</a>
+      </p>{/if}
     <RunProgress
       {phases}
       runState={run.state}
@@ -405,6 +423,7 @@
         } else if (phase.id === 'RECOVERY') tab = 'recovery';
         else if (phase.id === 'RUNTIME') tab = 'runtime';
         else if (phase.id === 'STRUCTURE') tab = 'program';
+        else if (phase.id === 'PREPARATION') tab = 'events';
         else tab = 'audit';
       }}
     />

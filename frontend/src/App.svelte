@@ -43,6 +43,7 @@
   } from './lib/format';
   import ImportDialog from './components/ImportDialog.svelte';
   import AuditDialog from './components/AuditDialog.svelte';
+  import SnapshotWorkflow from './components/SnapshotWorkflow.svelte';
   import DownloadDialog from './components/DownloadDialog.svelte';
   import RunView from './components/RunView.svelte';
   import ModelConnectionPanel from './components/ModelConnectionPanel.svelte';
@@ -65,6 +66,7 @@
   let importProject = $state('');
   let pendingDownload = $state<{ url: string; label: string; artifactId: string; notice?: string }>();
   let creatingIds = $state<Record<string, boolean>>({});
+  const analysisRequests = new Map<string, string>();
   let refreshing: Promise<void> | undefined;
   let toastTimer: ReturnType<typeof setTimeout>;
   const project = $derived(projects.find((item) => item.id === projectId));
@@ -209,10 +211,28 @@
   }
   async function analyze(snapshot: Snapshot, scope = 'STRUCTURE_ANALYSIS') {
     if (creatingIds[snapshot.id]) return;
+    const active = runs.find(
+      (run) =>
+        run.snapshotId === snapshot.id &&
+        ['STRUCTURE_ANALYSIS', 'SECURITY_AUDIT'].includes(run.scope) &&
+        !isTerminal(run.state),
+    );
+    if (active) {
+      location.hash = `/runs/${active.id}`;
+      return;
+    }
     actionError = '';
     creatingIds = { ...creatingIds, [snapshot.id]: true };
     try {
-      const response = await runsApi.createRun({ requestId: requestId(), snapshotId: snapshot.id, scope });
+      const key = `${snapshot.id}:${scope}`;
+      if (!analysisRequests.has(key)) analysisRequests.set(key, requestId());
+      const response = await runsApi.createRun({
+        requestId: analysisRequests.get(key)!,
+        snapshotId: snapshot.id,
+        scope,
+      });
+      analysisRequests.delete(key);
+      runs = [response.run!, ...runs.filter((run) => run.id !== response.run!.id)];
       actionError = '';
       location.hash = `/runs/${response.run!.id}`;
       await refresh();
@@ -473,54 +493,30 @@
                             <span>{run.id.slice(0, 8)} · {scopeLabel(run.scope)}</span>
                             <span class={`badge ${tone(run.state)}`}>{runLabel(run.state)}</span>
                           </a>{/each}
-                        {#if snapshotRuns.length > 2}<span class="snapshot-run-more"
-                            >+{snapshotRuns.length - 2}</span
-                          >{/if}
+                        {#if snapshotRuns.length > 2}<details class="snapshot-run-history">
+                            <summary>查看其余 {snapshotRuns.length - 2} 次分析</summary>
+                            {#each snapshotRuns.slice(2) as run}<a
+                                class="snapshot-run"
+                                href={`#/runs/${run.id}`}
+                              >
+                                <span>{run.id.slice(0, 8)} · {scopeLabel(run.scope)}</span>
+                                <span class={`badge ${tone(run.state)}`}>{runLabel(run.state)}</span>
+                              </a>{/each}
+                          </details>{/if}
                       {:else}<span class="snapshot-run-empty">尚未创建分析任务</span>{/if}
                     </div>
-                    <div class="snapshot-actions">
-                      {#if snapshot.manifestArtifactId}<a
-                          class="text-button"
-                          href={artifactUrl(snapshot.manifestArtifactId)}
-                          >快照清单<ArrowUpRight size={13} /></a
-                        >{:else}<span></span>{/if}<button
-                        class="button secondary small"
-                        disabled={creatingIds[snapshot.id] ||
-                          !connected ||
-                          ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state) ||
-                          !availableTools.includes(
-                            snapshot.kind === TargetKind.BINARY ? 'ghidra' : 'tree-sitter',
-                          )}
-                        onclick={() => analyze(snapshot)}
-                        >{creatingIds[snapshot.id]
-                          ? '正在创建…'
-                          : snapshot.kind === TargetKind.BINARY
-                            ? '开始反编译'
-                            : '开始结构分析'}<ArrowRight size={14} /></button
-                      >
-                      <button
-                        class="button primary small"
-                        disabled={creatingIds[snapshot.id] ||
-                          ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state) ||
-                          !capabilities?.modelConnection?.configured ||
-                          !availableTools.includes(
-                            snapshot.kind === TargetKind.BINARY ? 'import' : 'tree-sitter',
-                          )}
-                        title={capabilities?.modelConnection?.configured
-                          ? '解析代码后进行语义审计与独立复核'
-                          : '请先在执行环境配置模型连接'}
-                        onclick={() => {
-                          auditSnapshot = snapshot;
-                        }}>开始漏洞审计<ArrowRight size={14} /></button
-                      >
-                      {#if !capabilities?.modelConnection?.configured}<a
-                          class="text-button"
-                          href="#/environment">先配置模型连接</a
-                        >{:else if !availableTools.includes(snapshot.kind === TargetKind.BINARY ? 'ghidra' : 'tree-sitter') || !availableTools.includes(snapshot.kind === TargetKind.BINARY ? 'import' : 'tree-sitter')}<a
-                          class="text-button"
-                          href="#/environment">先启动所需执行器</a
-                        >{/if}
-                    </div>
+                    <SnapshotWorkflow
+                      {snapshot}
+                      runs={snapshotRuns}
+                      {connected}
+                      tools={availableTools}
+                      modelConfigured={Boolean(capabilities?.modelConnection?.configured)}
+                      busy={Boolean(creatingIds[snapshot.id])}
+                      onanalyze={() => analyze(snapshot)}
+                      onaudit={() => {
+                        auditSnapshot = snapshot;
+                      }}
+                    />
                   </article>{/each}
               </div>
             </section>
@@ -652,9 +648,17 @@
     onclose={() => {
       auditSnapshot = undefined;
     }}
-    oncreated={(id) => {
+    activeRun={runs.find(
+      (run) =>
+        run.snapshotId === auditSnapshot?.id &&
+        ['STRUCTURE_ANALYSIS', 'SECURITY_AUDIT'].includes(run.scope) &&
+        !isTerminal(run.state),
+    )}
+    previousRun={runs.find((run) => run.snapshotId === auditSnapshot?.id && run.scope === 'SECURITY_AUDIT')}
+    oncreated={(created) => {
+      runs = [created, ...runs.filter((run) => run.id !== created.id)];
       auditSnapshot = undefined;
-      location.hash = `/runs/${id}`;
+      location.hash = `/runs/${created.id}`;
       void refresh();
     }}
   />{/if}

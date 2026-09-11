@@ -1,4 +1,5 @@
 pub mod agents;
+mod analysis;
 pub mod audits;
 pub mod convert;
 pub mod error;
