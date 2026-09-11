@@ -1,0 +1,13 @@
+diff --git a/llama_cpp/llama.py b/llama_cpp/llama.py
+index 49c98fd..40b1837 100644
+--- a/llama_cpp/llama.py
++++ b/llama_cpp/llama.py
+@@ -445,7 +445,7 @@ class Llama:
+         """
+         assert self.model is not None
+         output = b""
+-        size = 8
++        size = 16
+         buffer = (ctypes.c_char * size)()
+         for token in tokens:
+             n = llama_cpp.llama_token_to_str_with_model(

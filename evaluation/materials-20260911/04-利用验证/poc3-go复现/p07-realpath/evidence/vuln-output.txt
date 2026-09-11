@@ -1,0 +1,6 @@
+服务 CWD         : C:\Users\乔旭乾\AppData\Local\Temp\poc07-3033525832\server-cwd
+Modelfile 所在目录: C:\Users\乔旭乾\AppData\Local\Temp\poc07-3033525832\models
+Modelfile 参数    : "secret.txt"
+realpath 解析     : C:\Users\乔旭乾\AppData\Local\Temp\poc07-3033525832\server-cwd\secret.txt
+os.Open 读取成功，内容 = "SECRET-OUTSIDE-MODEL-DIR"
+判定: 相对路径越出 Modelfile 目录、按进程 CWD 解析并读取成功

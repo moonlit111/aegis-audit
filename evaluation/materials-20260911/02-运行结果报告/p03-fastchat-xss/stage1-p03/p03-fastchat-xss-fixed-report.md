@@ -1,0 +1,457 @@
+# AegisAudit 分析报告
+
+项目：对照池评测 20260911-073500
+
+任务：b72d6039-613c-490c-8af0-3ef25cdb65be
+
+状态：Completed
+
+目标 SHA-256：6733abe3a11878f8a02097e47b8427a6762d420064d442d65920a493ab600fa2
+
+结果快照 · 数据截至 2026-09-11T07:42:20.643Z · 导出时任务状态 COMPLETED。漏洞审计：COMPLETED；独立复核：COMPLETED；模糊测试：NOT\_RUN；运行验证：NOT\_RUN；利用验证：NOT\_RUN。静态复核不代表已在目标上验证漏洞或利用影响。
+
+| 程序单元 | 文件 | 位置 / 地址 | 解析质量 |
+| --- | --- | --- | --- |
+| \_\_init\_\_ | fastchat/serve/gradio\_patch.py | L27–L73 | PARSED |
+| \_process\_chat\_messages | fastchat/serve/gradio\_patch.py | L98–L120 | PARSED |
+| fastchat/serve/gradio\_patch.py | fastchat/serve/gradio\_patch.py | L1–L168 | PARSED |
+| get\_config | fastchat/serve/gradio\_patch.py | L75–L80 | PARSED |
+| postprocess | fastchat/serve/gradio\_patch.py | L122–L153 | PARSED |
+| style | fastchat/serve/gradio\_patch.py | L155–L168 | PARSED |
+| update | fastchat/serve/gradio\_patch.py | L83–L96 | PARSED |
+
+## 审计策略与优先级
+
+目标仅一个 Python 模块 fastchat/serve/gradio\_patch.py（Gradio Chatbot 组件的补丁实现），共 7 个单元。按“外部输入→处理→输出外发”的信任边界排序：优先审查 postprocess（最终 HTML 输出）与 \_process\_chat\_messages（Markdown 渲染、媒体路径/元数据），再依次审查构造/配置/样式等次要逻辑。所有线索仅作定位，不作漏洞判定；本角色只做优先级规划，不逐函数定论。
+
+1. u\_642e1dcfb2bad521f91ed509657a4a8b：postprocess 是数据外发边界：第147-149行仅对 message\_pair\[0\] 做 nh3.clean，而第150行的 message\_pair\[1\]（模型/服务端回答）走 \_process\_chat\_messages 的 Markdown→HTML 路径，未见同等级净化；需核实这两条输出在 Gradio 前端是否被转义，判断是否存在 HTML/脚本注入不对称。
+2. u\_62ec847a7397c1558e65545ee4cf6f71：\_process\_chat\_messages 是核心转换逻辑：第118行用 markdown2 直接渲染字符串并返回 HTML（第117行原渲染被注释），第103-111行对 tuple/list 直接取下标 \[0\]/\[1\] 作为 name/mime\_type 并标记 is\_file=True，未校验路径/URL 来源；需确认返回值是否被下游当作可信 HTML 或用于文件读取。
+3. u\_cc88e073f1d4f29cf52db9ae10b16e53：\_\_init\_\_ 建立组件状态与渲染器（第55行 Markdown 的 extras 配置、第63-73行传入 value/kwargs），是输入进入该组件的入口点；需核实 value 可调用对象与 \*\*kwargs 透传是否引入不可信数据到渲染链。
+4. u\_6beb55e7e8035e0361422710aafb3c8b：get\_config 将 self.value 与 selectable 直接序列化进组件配置（第76-80行），属于对外暴露面；需判断配置中是否可能带回外部可控内容。
+5. u\_aef4ae493707104e3dd482173bbc3f11：update 静态构造返回给前端的配置字典（第89-95行），包含 value/label/visible；需确认该更新路径是否绕过 postprocess 的净化直接下发内容。
+6. u\_2d6b0562a9c105d7d394b39fb35750cd：style 将调用方给定的 height 写入 self.\_style（第159-160行），是次要配置写入面；需确认是否影响输出模板或存在类型/注入问题。
+
+规划限制：目标为单文件、仅 6 个函数，且 call\_graph\_complete=false，文件内无调用方与被调用方记录，无法确证 postprocess/\_process\_chat\_messages 的实际数据来源（模型输出、用户输入还是插件数据）以及前端是否二次转义。
+
+规划限制：run\_config 未识别构建系统、入口、输入接口与依赖清单；未构建、未运行、未执行漏洞验证，所有结论均为静态结构判断。
+
+规划限制：未准备 Windows 原生 Semgrep，仅使用内建线索，本目标 clues 为空，未做词法匹配；不得据函数名或库名推断漏洞。
+
+规划限制：第三方库 markdown2/nh3/gradio 的版本与语义（如 nh3.clean 的默认白名单、markdown2 对原始 HTML 的处理）不在目标源码内，未做版本查询，属于未知缺口。
+
+规划限制：recovery 为 null，无二进制、无解包/反混淆转换记录，不适用逆向恢复质量评估。
+
+规划限制：人类标注为空，无需交叉验证的标注主张；证据验证与人工复核要求仍适用于后续审计阶段。
+
+## 发现与复核
+
+静态结论范围：COMPONENT
+
+### Chatbot 输出助手消息经 Markdown 渲染且未做 HTML 消毒，用户消息却已 nh3.clean（潜在 XSS）
+
+CWE-79 · MEDIUM · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：postprocess 第二元素 message\_pair\[1\]（助手回复字符串，可由提示注入、检索文档或上游用户可控数据影响）
+
+危险操作：U0006:150 调用 self.\_process\_chat\_messages\(message\_pair\[1\]\)，进入 U0005:118 的 self.md.convert\(chat\_message\) 生成 HTML 并原样返回前端
+
+防护缺口：对 \[1\] 未调用 nh3.clean（对比 \[0\] 已消毒），且 U0001:55 构造 Markdown 解析器时未启用 safe\_mode/未配置 HTML 消毒，markdown2 默认透传原始 HTML
+
+前提：攻击者能影响助手输出文本（间接提示注入/检索内容），且前端将返回值作为 HTML 插入而非纯文本
+
+影响：在受害者浏览器上下文中执行任意 JavaScript，窃取会话或界面数据、伪造聊天内容
+
+修复：对 markdown 渲染结果同样做 nh3.clean（或使用 markdown2 的安全/转义选项），使两条消息走统一的消毒管线；不要依赖单侧消毒
+
+- 证据：fastchat/serve/gradio\_patch.py L147–150 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：                    &#39;&lt;pre style=&quot;font-family: var\(--font\)&quot;&gt;&#39;                     + nh3.clean\(message\_pair\[0\]\)                     + &quot;&lt;/pre&gt;&quot;,                     self.\_process\_chat\_messages\(message\_pair\[1\]\),
+- 证据：fastchat/serve/gradio\_patch.py L116–118 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：        elif isinstance\(chat\_message, str\):             # return self.md.render\(chat\_message\)             return str\(self.md.convert\(chat\_message\)\)
+- 证据：fastchat/serve/gradio\_patch.py L54–55 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：        # self.md = utils.get\_markdown\_parser\(\)         self.md = Markdown\(extras=\[&quot;fenced-code-blocks&quot;, &quot;tables&quot;, &quot;break-on-newline&quot;\]\)
+
+复核 v2（MODEL，INCONCLUSIVE）：组件内确实存在不对称处理：postprocess 对 message\_pair\[0\] 调用 nh3.clean 后包入 &lt;pre&gt;（U0006:144-149），而 message\_pair\[1\] 直接交给 \_process\_chat\_messages；该函数在字符串分支执行 str\(self.md.convert\(chat\_message\)\)（U0005:116-118）并原样返回。构造 Markdown 解析器时只给了 extras=\[&quot;fenced-code-blocks&quot;, &quot;tables&quot;, &quot;break-on-newline&quot;\]（U0001:55），未启用转义/安全选项，因此组件边界上助手文本中的原始 HTML 会随渲染结果进入返回的 HTML 字符串。这构成组件级输入控制与消毒缺口，但断言其为 XSS 还依赖组件外的消费方式：返回值是否以未再消毒的 HTML 插入 DOM。该条件在快照内不可见，故不定为 VALIDATED。
+
+反证：考虑了：\(1\) 本文件内未发现对 \[1\] 的其它消毒，\[1\] 分支只做 str\(dict\) 或 md.convert；\(2\) \[0\] 分支的 nh3.clean 是真实防线，但只覆盖 \[0\]，也未对 md.convert 的输出统一清洗；\(3\) Markdown 渲染本身是期望的富文本能力，但 markdown2 默认透传原始 HTML，能力边界超出 Markdown 语义；\(4\) 未看到 safe\_mode/escape 参数或调用方在本组件之外再过滤的证据。
+
+待补信息：消费该组件返回值的前端是否把 HTML 直接插入 DOM 或先做二次消毒（快照内不可见）；assistant 文本最终来源（模型输出/提示注入/检索内容）；所用 markdown2 版本对原始 HTML 的具体处理。
+静态结论范围：COMPONENT
+
+### Chatbot 媒体消息的首元素文件路径/URL 未加校验即取 MIME 并回传前端
+
+UNKNOWN · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：postprocess 传入的 message\_pair\[1\]，其 tuple/list 形式的首元素（字符串文件路径或 URL）
+
+危险操作：U0005:104 processing\_utils.get\_mimetype\(chat\_message\[0\]\) 以及 U0005:106 返回字典的 &quot;name&quot; 字段（交前端加载）
+
+防护缺口：未校验路径是否位于允许目录、未限制 URL 协议/来源、未做 realpath 归一化
+
+前提：助手/上游输出可被攻击者影响，且前端会按 name 读取或请求该资源
+
+影响：可能造成本地文件存在性/内容探测或使前端加载非预期外部资源（信息泄露/资源加载面扩大）
+
+修复：对媒体路径做白名单目录与协议校验，规范化路径并拒绝越界或远程 URL；渲染前确认 MIME 探测不触发不必要的文件读取
+
+- 证据：fastchat/serve/gradio\_patch.py L103–104 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：        elif isinstance\(chat\_message, \(tuple, list\)\):             mime\_type = processing\_utils.get\_mimetype\(chat\_message\[0\]\)
+- 证据：fastchat/serve/gradio\_patch.py L105–108 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：            return {                 &quot;name&quot;: chat\_message\[0\],                 &quot;mime\_type&quot;: mime\_type,                 &quot;alt\_text&quot;: chat\_message\[1\] if len\(chat\_message\) &gt; 1 else None,
+- 证据：fastchat/serve/gradio\_patch.py L150–150 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：                    self.\_process\_chat\_messages\(message\_pair\[1\]\),
+
+复核 v2（MODEL，INCONCLUSIVE）：在 COMPONENT 边界上，\_process\_chat\_messages 确实把参数 chat\_message 的 tuple/list 首元素 chat\_message\[0\] 同时用于 get\_mimetype\(chat\_message\[0\]\)（U0005:104）并写入返回给前端的字典字段 &quot;name&quot;（U0005:105-107），postprocess 亦将该分支结果直接放入输出（U0006:150）。该函数自身不打开文件、不解析 URL，也未做路径/协议校验：局部接口层面缺少允许目录与协议约束属实。但候选所主张的&quot;危险操作&quot;（本地文件读取/存在性探测、前端加载外部资源）发生在本组件之外：get\_mimetype 的实现与语义在本快照中缺失（search\_code 对 def get\_mimetype 无结果），前端按 &quot;name&quot; 请求资源的行为亦不在快照内。因此仅能确认参数到 get\_mimetype 与返回字段的数据流，无法在该组件内证明构成路径穿越这一具体缺陷，结论为 INCONCLUSIVE 而非 VALIDATED。
+
+反证：本组件未见任何路径白名单、realpath 归一化或 URL 协议限制，即缺少防御；同时 U0005:108 对长度做了条件判断，U0005:109 说明 data 字段由前端填充，说明该函数仅做消息形态规范化，实际文件访问不在其内部。
+
+待补信息：processing\_utils.get\_mimetype 是否会因任意路径/URL 触发文件系统读取或网络访问；前端是否按 &quot;name&quot; 直接请求/读取该资源；助手输出是否可被攻击者影响（上游可控性）。以上均未在本快照中提供。
+静态结论范围：COMPONENT
+
+### 助手侧消息经 Markdown 渲染为未消毒 HTML（与用户侧 nh3.clean 处理不一致）
+
+CWE-79 · HIGH · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：postprocess 传入的 message\_pair\[1\]（模型/后端回复文本，可能受用户提示词或模型输出内容间接控制），经 U0006:150 调用 \_process\_chat\_messages
+
+危险操作：self.md.convert\(chat\_message\)（第 118 行，Markdown 实例配置见 U0001:55，未启用任何 HTML 过滤），返回值作为聊天记录 HTML 交给前端
+
+防护缺口：对字符串分支的渲染结果缺少 HTML 消毒（如 nh3.clean/Bleach），也没有 safe\_mode 等 Markdown 安全选项；同一函数所在的 postprocess 仅对用户消息做了 nh3.clean
+
+前提：恶意或受污染的文本进入助手消息字段；Markdown 解析器将内联/块级 HTML 透传（默认行为）；前端以 HTML 方式插入返回内容
+
+影响：若前端按 HTML 注入渲染，攻击者可经模型回复内容在访客浏览器中注入任意标记/脚本，形成（存储型或间接）跨站脚本，窃取会话或伪造界面
+
+修复：对字符串分支输出统一走 nh3.clean（或等价白名单消毒）后再包装展示；保持用户侧与助手侧消毒策略一致；如需保留富文本，明确限制允许的标签与属性，并避免前端 innerHTML 直插
+
+- 证据：fastchat/serve/gradio\_patch.py L116–118 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：        elif isinstance\(chat\_message, str\):             # return self.md.render\(chat\_message\)             return str\(self.md.convert\(chat\_message\)\)
+- 证据：fastchat/serve/gradio\_patch.py L146–150 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：                    # self.\_process\_chat\_messages\(message\_pair\[0\]\),                     &#39;&lt;pre style=&quot;font-family: var\(--font\)&quot;&gt;&#39;                     + nh3.clean\(message\_pair\[0\]\)                     + &quot;&lt;/pre&gt;&quot;,                     self.\_process\_chat\_messages\(message\_pair\[1\]\),
+- 证据：fastchat/serve/gradio\_patch.py L54–55 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：        # self.md = utils.get\_markdown\_parser\(\)         self.md = Markdown\(extras=\[&quot;fenced-code-blocks&quot;, &quot;tables&quot;, &quot;break-on-newline&quot;\]\)
+
+复核 v2（MODEL，INCONCLUSIVE）：组件边界内可静态确认的只是一处防御不对称：postprocess（U0006）对 message\_pair\[0\] 在 148 行执行 nh3.clean 白名单消毒，而 message\_pair\[1\] 在第 150 行直接进入 \_process\_chat\_messages；后者在字符串分支（U0005:116-118）把入参交给 self.md.convert 生成 HTML 字符串返回，U0001:55 构造的 Markdown 实例仅启用 fenced-code-blocks/tables/break-on-newline，未设置任何 HTML 过滤或安全模式。因此“入参文本 → 未消毒 HTML 输出”这一本地数据流成立，且与用户侧消毒策略不一致。但 XSS 的成立还依赖组件之外的下游行为（返回值以 HTML 语义注入 DOM 而非转义文本），该环节在本快照中不可见，无法证实浏览器执行，故不能判为 VALIDATED，按规则保守记为 INCONCLUSIVE。
+
+反证：已考虑：\(1\) 同一 postprocess 对用户消息调用 nh3.clean（U0006:148），说明项目具备可复用的消毒能力，仅未应用于助手侧分支；\(2\) \_process\_chat\_messages 的 dict/None/媒体元组分支只做直通或包装，不产出 HTML，注入面仅限字符串分支（U0005:110-120）；\(3\) U0006:132 已将返回值契约定为 “string of HTML”，说明展示层被期望按 HTML 处理，但这属契约事实、仍不等于攻击者可执行脚本；\(4\) 未发现构造参数中启用 safe\_mode，反证不存在。以上均不能消除助手侧缺消毒的缺口，但也不足以独立证明可执行 XSS。
+
+待补信息：\(1\) 下游消费方（Gradio 前端）对返回 HTML 字符串的插入方式未知——innerHTML 注入、沙箱 iframe 或转义文本节点会得到完全不同的后果，本快照无从判断；\(2\) 所用 markdown 库版本对原始 HTML 块与 javascript: 链接的具体透传行为未验证，本结论只依赖“构造函数未配置任何过滤参数”这一静态事实；\(3\) 助手文本被外部内容影响的具体链路（提示词回显、上传文档文本等）位于组件之外，未证实；\(4\) 未运行代码，无任何运行时观察。
+静态结论范围：COMPONENT
+
+### 消息元组中的路径/URL 未校验即作为媒体名下发并用于 MIME 探测
+
+CWE-22 · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：chat\_message\[0\]（tuple/list 形式的聊天消息，来自用户输入或上游内容）
+
+危险操作：processing\_utils.get\_mimetype\(chat\_message\[0\]\)（第 104 行），随后将同一路径写入返回字典的 &quot;name&quot; 字段（第 106 行）交给前端加载
+
+防护缺口：未对路径做规范化/白名单校验（如限制为受控目录、拒绝 ../ 与绝对路径/本地协议），也未限制为 http\(s\) URL
+
+前提：攻击者可让聊天消息以 \(path, alt\_text\) 元组形式进入该分支；前端会依据 name 字段取值加载；get\_mimetype 会对本地路径做读取探测
+
+影响：可能造成本地文件路径信息泄露（MIME 探测的成功/失败差异）、前端按任意路径/URL 发起内容加载，扩大攻击面
+
+修复：对媒体路径建立白名单或前缀校验，规范化后拒绝目录穿越与本地绝对路径；对远程 URL 限制协议与域名；不将未经验证的路径直接作为前端资源地址下发
+
+- 证据：fastchat/serve/gradio\_patch.py L103–106 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：        elif isinstance\(chat\_message, \(tuple, list\)\):             mime\_type = processing\_utils.get\_mimetype\(chat\_message\[0\]\)             return {                 &quot;name&quot;: chat\_message\[0\],
+
+复核 v2（MODEL，INCONCLUSIVE）：在 U0005 组件边界内，元组/列表分支确实把符号参数 chat\_message\[0\] 送入 processing\_utils.get\_mimetype（第 104 行），并把同一值写入返回字典的 &quot;name&quot; 字段（第 106 行），且该分支没有任何路径规范化、前缀白名单或协议限制（第 103-111 行）。但该组件自身不执行任何文件打开/读取：真正可能触碰文件系统的是外部 gradio.processing\_utils.get\_mimetype，其实现不在本快照内，无法确认它会对路径做本地读取、更无法确认会回显文件内容；即便读取，MIME 探测也只产生类型/存在性级信息，而非 CWE-22 意义上的任意文件内容披露。返回字典的 &quot;name&quot; 由前端后续加载，属于组件之外的行为，无法在本边界内证明。调用方 postprocess 仅以 message\_pair\[1\] 调用本方法（U0001 第 150 行），也未提供额外约束或利用链。因此既不能证实也不能从源码层面排除该遍历主张。
+
+反证：本组件内不存在 open/read/send\_file 等文件系统 sink，chat\_message\[0\] 只被传给 get\_mimetype 并写入字典；无任何本地文件内容回显路径。处理后字典交由前端，属于组件外信任边界。
+
+待补信息：需要 gradio processing\_utils.get\_mimetype 的实现以确认其是否对传入路径做本地文件读取、是否受目录/协议限制，以及前端是否以该 &quot;name&quot; 值解析并加载任意本地路径或非 http\(s\) 协议。
+静态结论范围：COMPONENT
+
+### 媒体消息的文件路径/URL 未经校验即作为 is\_file 字段下发前端
+
+UNKNOWN · LOW · 复核 REJECTED · 验证 NOT\_RUN
+
+输入：postprocess 传入的 message\_pair 中形如 \(filepath\_or\_url, alt\_text\) 的元组元素 chat\_message\[0\]
+
+危险操作：构造返回字典 {&quot;name&quot;: chat\_message\[0\], &quot;is\_file&quot;: True, ...} 交由前端解析并填充 data（本地文件/URL 拉取）
+
+防护缺口：未校验路径是否位于允许目录、是否为本地路径或内网地址，也未限制协议（如 file://、http://127.0.0.1 等）
+
+前提：上游数据流可被外部输入影响（例如模型输出、插件或检索结果中嵌入的媒体路径），且前端/文件服务按 name 加载资源
+
+影响：可能读取进程可访问的本地文件、向内部地址发起请求或加载非预期资源，造成信息泄露或 SSRF 类影响；若仅渲染远端 URL 则退化为内容注入面
+
+修复：对媒体字段做白名单校验（允许的根目录、协议与主机），使用 gradio 提供的受控文件访问机制，拒绝绝对路径/traversal 序列与内网地址
+
+- 证据：fastchat/serve/gradio\_patch.py L105–111 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：            return {                 &quot;name&quot;: chat\_message\[0\],                 &quot;mime\_type&quot;: mime\_type,                 &quot;alt\_text&quot;: chat\_message\[1\] if len\(chat\_message\) &gt; 1 else None,                 &quot;data&quot;: None,  # These last two fields are filled in by the frontend                 &quot;is\_file&quot;: True,             }
+- 证据：fastchat/serve/gradio\_patch.py L150–150 ；产物 8505f399-0e68-4d9b-b820-ba22181cc811；引用：                    self.\_process\_chat\_messages\(message\_pair\[1\]\),
+
+复核 v2（MODEL，REJECTED）：在组件边界内，\_process\_chat\_messages 对 tuple/list 输入只做数据整形：读取 chat\_message\[0\] 作为 name，附 mime\_type、alt\_text、data=None、is\_file=True 后返回字典（U0005 103-111）。该单元内没有任何文件打开、路径拼接、目录遍历或网络请求操作，所谓 sink 只是返回给调用方的纯数据字段；调用方 postprocess 将其放入返回元组（U0006 150）后即 return，实际的本地文件解析/媒体加载不在本快照内，属 gradio 前端与文件服务组件。且接受“文件路径或 URL”本身是该接口的文档化契约（U0006 128-133：“first element is a string filepath or URL to an image/video/audio”），因此本边界不存在缺失的路径/协议校验所导致的遍历操作，缺少保护性校验的判断在本组件内不成立。
+
+反证：未发现单元内有 os.path/open/requests 等解析或访问调用；data 字段显式置 None 并注明由前端填充，说明资源解析被有意委托给下游前端；docstring 明确该字段语义为媒体 filepath/URL，即通过契约而非校验处理该值；postprocess 对 message\_pair\[0\] 使用 nh3.clean 做 HTML 净化，但未对 message\_pair\[1\] 做路径处理，与本组件职责一致。
+
+待补信息：快照中不含 gradio 前端与 /file 类文件服务实现，无法证实在该下游是否存在目录约束、协议白名单或符号链接防护；也未提供上游是否由外部输入（模型输出、插件、检索结果）控制 media 路径，以及该 Chatbot 是否处于不可信输入可达的部署形态。这些是部署/下游条件，非本组件可断言的运行时事实。
+
+## 覆盖与错误
+
+```json
+{
+  "audit_config": {
+    "max_model_calls": 240,
+    "max_output_tokens": 0,
+    "max_tool_rounds": 8,
+    "max_units": 20,
+    "model_timeout_seconds": 900,
+    "reasoning_effort": "high",
+    "timeout_seconds": 1800
+  },
+  "audit_narrative": {
+    "limitations": [
+      "全部结论为静态审查结果，dynamic_execution=NOT_RUN、static_review_only=true，无任何运行时或真实利用证据。",
+      "5 条发现中 4 条 review_status=INCONCLUSIVE，1 条 review_status=REJECTED，且所有 verification_status 均为 NOT_RUN；未发现被确认（confirmed）的漏洞。",
+      "词法线索与危险函数名本身不构成漏洞，已保存发现仍属待验证假设，缺少对动态调度与部署配置的确认。",
+      "human_annotations 为空，无人工批注或独立复核材料可供交叉印证。",
+      "coverage 限于所提供快照中的 7 个单元；未覆盖的调用方、第三方库行为与部署环境差异仍为已知缺口。"
+    ],
+    "recommendations": [
+      "对助手侧与用户侧消息统一走同一消毒管线（nh3.clean 或等价白名单），不要依赖单侧消毒；明确限制允许的标签与属性，并避免前端直接 innerHTML 插入。",
+      "针对媒体/路径字段建立白名单校验：规范化路径、限定允许根目录与协议/主机，拒绝目录穿越序列、本地绝对路径与内网地址。",
+      "梳理消息元组到前端的完整数据流，确认 MIME 探测等操作是否会触发非预期的文件读取或资源下发，并改用受控的文件访问机制。",
+      "在被拒绝或被标为 INCONCLUSIVE 的发现上补齐运行时验证（构造受控输入观察实际渲染与文件访问行为），以区分误报与真实缺陷。"
+    ],
+    "summary": "本目标为静态审查（static_review_only=true，dynamic_execution=NOT_RUN），共覆盖 7 个受审单元（total_units=7），产出 5 条已保存发现，均未被任何评审提升为已确认漏洞。类别分布为 4 条 INJECTION/PATH_TRAVERSAL 混合相关发现（其中 4 条 review_status=INCONCLUSIVE、verification_status=NOT_RUN）与 1 条 review_status=REJECTED 的 PATH_TRAVERSAL 发现。核心主题集中在 Chatbot 消息展示链路：(a) 注入类：助手侧输出经 Markdown 渲染为 HTML 时未见消毒，而用户侧消息已使用 nh3.clean，两侧处理不一致，可能形成未消毒 HTML 的下游风险（发现 ee7cb6d1、259991a0）；(b) 路径类：消息元组/媒体字段中的文件路径或 URL 未加校验即被用于 MIME 探测或作为媒体名/is_file 字段下发前端（发现 c7765385、6a08eff9，以及被拒绝的 d407d4e7）。这些均为基于静态代码线索与调用图的假设，缺少运行时证据，不能据此判定真实可利用性。human_annotations 为空，未提供额外佐证或人工复核结论。"
+  },
+  "audited_unit_count": 7,
+  "edge_count": 20,
+  "eligible_unit_count": 7,
+  "exclusions": [],
+  "files": [
+    {
+      "language": "python",
+      "path": "fastchat/serve/gradio_patch.py",
+      "reason": "",
+      "status": "PARSED",
+      "unit_count": 7
+    }
+  ],
+  "finding_count": 5,
+  "function_count": 6,
+  "fuzzing": "NOT_RUN",
+  "incomplete_agent_tasks": 0,
+  "independent_review": "COMPLETED",
+  "metadata": {
+    "analysis_scope": "STRUCTURE_ANALYSIS",
+    "call_graph_complete": false,
+    "code_file_count": 1,
+    "function_count": 6,
+    "module_count": 1,
+    "semgrep": {
+      "reason": "执行器未准备 Windows 原生 Semgrep 1.176.1；使用内建线索并进行独立语义审计",
+      "status": "UNSUPPORTED"
+    },
+    "target_sha256": "6733abe3a11878f8a02097e47b8427a6762d420064d442d65920a493ab600fa2",
+    "verification": "NOT_RUN",
+    "vulnerability_audit": "NOT_RUN"
+  },
+  "model_usage": {
+    "calls": 79,
+    "cost_cny": null,
+    "measured_tokens": 318288,
+    "unknown_usage_calls": 0
+  },
+  "result_artifact_id": "8505f399-0e68-4d9b-b820-ba22181cc811",
+  "reviewed_finding_count": 5,
+  "structure_partial": false,
+  "tools": [
+    {
+      "command": [],
+      "details": {
+        "execution": "IN_PROCESS",
+        "max_source_bytes": 2097152,
+        "per_file_timeout_ms": 1000
+      },
+      "exit_code": null,
+      "finished_at": "2026-09-11T07:35:40.915Z",
+      "log_artifact_id": "",
+      "name": "tree-sitter",
+      "started_at": "2026-09-11T07:35:40.913Z",
+      "terminated": false,
+      "version": "0.25 (grammars pinned in Cargo.lock)"
+    }
+  ],
+  "unit_count": 7,
+  "unresolved_calls": 20,
+  "verification": "NOT_RUN",
+  "vulnerability_audit": "COMPLETED",
+  "warnings": []
+}
+```
+
+任务错误：
+
+## 证据产物
+
+- aegis-report-b72d6039-613c-490c-8af0-3ef25cdb65be.html；ID：f5d4a639-38b5-4177-8a3d-8a68af8bee59；SHA-256：c48c3f5cd7c1e3ca2f53dc15702516134aa15e343b3844be7e97e53e1f201588
+- aegis-report-b72d6039-613c-490c-8af0-3ef25cdb65be.json；ID：a9e3cb89-0e66-4498-882d-433a72d8fbec；SHA-256：2805e79c2aa08ca7f57df30e912de06f51ebc92ac967b85142dea9ea5731eaa2
+- agent-AUDITOR-0126188c-8d21-4887-ae57-e7b7802f2a3f.json；ID：be14dbf2-48c0-42ed-bd98-703d443b727d；SHA-256：69589b7f7677634bfb2c6a366ebaba8846f0bbadc14540656f42bba2adf6bb76
+- agent-AUDITOR-12dd0f06-3a7f-4cfe-b5ae-72eac0f5111e.json；ID：df0b6e9c-ed0d-423a-afdd-c4aa931bf753；SHA-256：85574a38dda7a0f603cb754e857bc8d3c2e53f4754096017a51a0c923d266dc3
+- agent-AUDITOR-4c18976a-f55c-4ac7-aecb-bc84b71edb98.json；ID：54c79979-a9d3-4822-a206-b862d17a2770；SHA-256：ca4da6c099be39f6e3805cf16cf5d77329caf9cb82d99a3f3b08be0c90d5ee57
+- agent-AUDITOR-96a1d6c6-3a2e-457b-b073-95d2c59c0937.json；ID：71aecb7f-b687-4b90-bb42-15b641649e4e；SHA-256：193f02064d3c207798cd8314765e0829e7b954b2774ba3ae1b0db0862e57ea9b
+- agent-AUDITOR-98508da8-50c2-4171-a1e0-d276dbd55004.json；ID：645c46f4-689e-42b3-b833-a94135652e62；SHA-256：a7d12b250e9e213fc33b2dbb79cbf2b2cd596425213685eb84a41272f94eb2b6
+- agent-AUDITOR-9937064f-5392-4321-abe9-fe2fbc7eef33.json；ID：f29562f4-3991-4db7-b4d3-9ecb4140db32；SHA-256：17fdf9a2cf33cf794d282a386d0d7e6b749759c061a88f4421e1ff1e880025aa
+- agent-AUDITOR-bf663f25-4cd7-4157-8f46-079ff26695f4.json；ID：ecad8802-9bfb-4d19-9eac-2494ae58970f；SHA-256：a94fcf52af0da76c4b1f69d0804b67c2f2f68960fa0692f49745ae19c4c1c77a
+- agent-PLANNER-64063a0e-b4ad-487b-9d75-65ad42a34884.json；ID：43434516-58a8-45a6-859b-3114771c0b20；SHA-256：ab10c9a92eb0f0f73c78cd7ee53e389f2e89646e258a749d3c5d68316bdc08b5
+- agent-REPORTER-90bf8c99-2a51-4f55-8f18-b829d8aa472e.json；ID：8cc41934-66e9-4b27-88cd-c63cb300db56；SHA-256：f4b6699acd39e33f44a48e682a4647aef1c3d9e12dfc27d76b5eb92e36bfdc8a
+- agent-REVIEWER-06bbb6bc-3d25-46d8-bfe9-a1e0ae9428cf.json；ID：c2d4ca90-2d78-46be-ac40-c637dd5575dc；SHA-256：baffc26cbda78023b05e7f888aec9774723941133a9b618732f3ae10783fba6d
+- agent-REVIEWER-37ef259a-a540-4934-8553-da2d2ba68694.json；ID：2e1e64a8-eac1-4213-aa59-22ec4a54295e；SHA-256：c2eb06361b58dc35e67fdc9e286f3ada5317e2fab02d4f801ff9a0f5cf10f02d
+- agent-REVIEWER-4fc271f4-109f-4204-82f4-86248c7cde21.json；ID：f953e6f8-eb18-435a-8b35-f6bfca839812；SHA-256：5b9e5546590b4583dbef3633b695ade99ef9cb620e2627c0fe519dd14a6a02af
+- agent-REVIEWER-e4bf2344-456f-49ed-acc1-3e00686d4cd5.json；ID：de732b67-9f31-4a60-a2a1-9a89c8bc897a；SHA-256：8cf3773dc9481afbf609bed173e4b724a8199024811dc90ba3170b9d267a6a3f
+- agent-REVIEWER-f058d222-0916-44d4-b313-ff240b0eef5a.json；ID：112046ea-08e3-4001-87c7-c505d7fa9ec9；SHA-256：4708df61908a0e35b680071bb6bbda2303dfef8f318f82e737899fb3f353a559
+- analysis-result.json；ID：8505f399-0e68-4d9b-b820-ba22181cc811；SHA-256：c9b5f05e25ce431ca27790aa736cf8de828fab3e584441c63743930c996f17d2
+- model-request-04590eed-ebdd-4901-96c8-fabd9dbc27d6.json；ID：81b1224d-85fa-4a78-b9c5-a920b20e3017；SHA-256：c86ff35bfc0b26e1800497290f08551abebf03190eaa73990b9b45d5ded5aadf
+- model-request-072d48c8-d6fb-4f32-afe8-2c57a7df69a5.json；ID：f59bb1b6-2a47-4149-b601-c18fc60b019c；SHA-256：9275be129f80423eb5bb250efbb0eb96cede2b9f7107736d8fa1f6d7a66b76d7
+- model-request-08bf835d-24a3-4362-887c-5b50235d825a.json；ID：4e946619-943a-4ac8-ac37-e41467a05de4；SHA-256：d2c92e89b4ef85e022cc36c9b3bf380e361f1b5a8ca868c6a1a124865ba354ab
+- model-request-0b60c426-1be5-45a4-b57f-204d678dbec8.json；ID：a29c7878-6653-404f-88e8-727d11cd5320；SHA-256：a4c9333885efbcdef724a41c3419065dea1e3ef04fd5fdadfada344f424017ea
+- model-request-0d7e4660-160d-4d16-93bc-d1a457d5a10d.json；ID：edaf6300-3a5b-4019-a659-2b2fb793ef0f；SHA-256：ce901346f15aebb3ffa6f85e2e5c970b2e1d6d6368fd223d00f4450636050acb
+- model-request-10fac2ce-307d-4dbc-9601-da974b37dfcc.json；ID：a9ce3635-06bb-426f-a5e1-40caaed145da；SHA-256：875faacf257b2404ee6b7bd2fe9b678d1607e2cb32a9ea62c2a426b0da780123
+- model-request-13899a5f-9763-4be0-b84b-0f2abda2a167.json；ID：eb0549c1-f276-4c7a-aff4-e6548f8b96ee；SHA-256：22cfa16472fef6501cf7575c33a35e8de3da1c6f818a7b1162267cb49889aa64
+- model-request-14a2c2e1-5fd3-4591-be56-5395f6c2bf51.json；ID：93cac801-0107-486d-8515-95917f0f3de5；SHA-256：6d0d18e6f8095b0275f5944a70527840319f46d31ee2e718285fa6bdadcc9912
+- model-request-17d26fc7-4bde-43c1-9e1f-11cac0663a43.json；ID：d5a00bd8-3dfd-4896-abf7-c52f6b16180c；SHA-256：13c7a025569876cda0cbb7b666ed125f0330382764e9b8b8099d7a30374724d8
+- model-request-1a37d327-8adc-401b-9990-cb9c70b69c24.json；ID：68545901-6926-4c1d-b202-5ea4884eaca6；SHA-256：24b0396c0744966ee15eb49b9a77b867d5d75a067b4a2b86bbbf0cce47dc7839
+- model-request-2481c543-0601-42a6-9977-f53ee2bf8008.json；ID：ece2b8cb-2af7-4f40-98a7-b1f8f1b29f03；SHA-256：bf463ab45ac66d85540ad5d50945f375c0cc1ea96bc252199050937712d09c18
+- model-request-25b48d53-bf02-4764-a0e8-f59e0f1ac7e9.json；ID：4eda734b-d7d6-44e0-88c3-cecf03e44e4f；SHA-256：972b178f58528a39cb0b5c596932b92508529b2116287cc339a95fcc24df4828
+- model-request-269fa4a0-a3f4-4ea0-b3c7-3584372f7d84.json；ID：d6bc6b15-a47e-4738-a9a7-e3ca188ce23d；SHA-256：5a7392b2c5dc2a880dcca6e84088ac64b702ebbf46614507adee95cebe8ec111
+- model-request-2a3b1361-0e54-4728-aede-4019558134bb.json；ID：c104e42b-d166-49e2-9bdc-44f017a2c4aa；SHA-256：502ff76d509437a50d8584f478c4ea5aea5ec1f0d6c2874e6080af01221e81b0
+- model-request-2f79ab47-7dc4-4008-93ed-3266491a4005.json；ID：42792d80-a485-4beb-804c-d688170cc63b；SHA-256：ae39ad58c5abda8361b16f18499535f51ff46b5193b9bd942c5c25c48b369329
+- model-request-31b59861-57cd-4024-ae39-644f553cceeb.json；ID：27939a87-4bb6-4f42-afd5-8db3ee35c8d5；SHA-256：b3d51e5f33a47362455b8ec5d83100477b36d1d489634057664297e3862f4ac3
+- model-request-3400ffc2-c271-40ce-8677-5472d6371f44.json；ID：9a2a4f85-5012-4ddd-80ce-2443aabcb7b1；SHA-256：e7319a7d5fb4c72b82abfaddb6273379dfeb03adcdb040179292c07cc9f4a504
+- model-request-34a5477f-84b3-41e0-b8a9-d8c66f35a13b.json；ID：8ee3c9b5-7602-45e1-a834-98f3e46a5fce；SHA-256：33936c4898db026308dcf566da60a8b3420476b5e0f67d291a5054ec77fffc9e
+- model-request-37a4c40d-145e-40f8-ab48-eb10d3984c4f.json；ID：c040ada1-b358-46fe-80fe-20d59180eca4；SHA-256：c9e3e1b042a44ebab493944b4ff28c1d86a8c4fb0421de265699b9b436d81c27
+- model-request-394f3123-6022-4ac5-a6bd-37915740d451.json；ID：d281f78f-7821-47b2-a667-26d2f955f8e3；SHA-256：679f57dd415608e43761043b8ba77b87a6149081fece7f12a7259dce1123ae19
+- model-request-39dadd25-b1cf-43f6-b769-00f179f99d47.json；ID：bbb02f3c-4da5-4af4-8ebc-4e9a7db1e7fa；SHA-256：e63fbacaa04bb2edea7f1271ad9a3b7426a33a3df198cc347febcb27a45b3df5
+- model-request-3a1c5858-8014-4ff7-9444-d8cbe6d10fbe.json；ID：4a24ade0-de84-4533-be4f-70137ad3112d；SHA-256：b6dd90bbc219e9ff3d2208ea7d98e991dfe1e9ae90bb3129fedbfd5903f07dac
+- model-request-403b8bbd-4d8e-47d3-83b9-89473ae22749.json；ID：9e34d2ea-e9ad-47e6-9fd3-6185f489c3c5；SHA-256：859d763c022e6676e6a1f4938eb32afcafe675a84f1ddf3aa6144a36cd58cf1d
+- model-request-460c3238-1f78-46e0-b0fd-b42e5ac68ba2.json；ID：d836f5cf-59b9-43ce-a75e-69655ba6d566；SHA-256：7ff29cda28834fbeb0e21763087338beebdde3979dd8f091e673ce6bc1eeed9b
+- model-request-4c48642b-2334-41a8-8986-c850f8e127da.json；ID：57b05186-543d-4f97-b723-04f44aa074e6；SHA-256：90b5e57d945a013d75e4b86ef243534f1558f20d1c3ff7772680552817c4846f
+- model-request-4d2b3633-8dd2-43d2-b1ca-4864ccb6da48.json；ID：fb5ac37b-1864-4216-8291-f34fe221dd79；SHA-256：5d49463f6ba5cb888a46acd044dcad0154e055a823edd5a8f5937ef1433c7b9c
+- model-request-50d89eee-a695-4e89-93d6-2c8c2e199296.json；ID：08ad772c-70c4-446e-ac56-9158a078b64c；SHA-256：ec6498eb5326d868f35e247d8dca97635cf03da577d23458290ee35bd9725179
+- model-request-5314f491-b2fe-4e6d-a838-f6be973c4192.json；ID：e18ad815-ab3f-4821-8fd9-7a88771de578；SHA-256：851cdf4438dc6ad36f5ceef5601ef79b6d982dd0270005fdadcd8160578dfd9f
+- model-request-5a1e42e0-ffa8-4f87-aef0-04d0e2426595.json；ID：cf63cafb-e89d-47df-8f09-31e2781f2eb2；SHA-256：c9d23a41fda05b8d2bc3e3afb8295a21a22850f36bdf56692781677766862b77
+- model-request-5d9703ee-b303-4037-ab05-45b2e264d595.json；ID：cfdb1a12-64d4-4e6b-8d1c-d4f4ec051786；SHA-256：b44070e75647e221b8d8216331fb59f0ebd34293cf73e006215025213d520ba7
+- model-request-61271b59-d727-43bc-a09a-17d38113e93d.json；ID：e86c69ad-a51d-4c6c-a034-2186eeef59f3；SHA-256：7c1421df2cc6044b2d76995121be52e1a7e2912adf3975c5a595b5907760cb6d
+- model-request-64a473ce-52ed-4825-84a3-7f75c5ab8655.json；ID：fbadac31-37d4-4f9c-9998-e128f4e917e4；SHA-256：3ce7f3a56d400ab0c3d0c3fececf57e1bdfef65a813175312c62a2e590e5cd94
+- model-request-64d9d530-17f0-4204-af4d-4b410da5f887.json；ID：32909eb0-06b7-420f-85bd-47a39408f1ec；SHA-256：032ccb3f0a5e74baaacf3547474147cdcba3b59f137dcc2d2b602b90405b493d
+- model-request-66f25248-9e53-4db5-bbc0-d7608b9b2cfc.json；ID：122233bc-e26b-49d4-a60b-e19b858cf8fa；SHA-256：7b50de5a8fd300df75df2fda0afd4a718d21c14ef2dff5f9692cd2cc96b167eb
+- model-request-678cef7e-7f12-44d3-b427-2262f217a98f.json；ID：b34d18ab-5f70-4556-b0df-b28f4f3197c2；SHA-256：48d632994b190b459e73d07ffe0e0a0c71a647cc4408180fe82dc06b7b867fe6
+- model-request-79bc6833-7557-4ab5-8b78-67a9e8563226.json；ID：50ddd550-da0d-4f2f-b732-6cfeae3b932c；SHA-256：5cc8a58c0daf2a813d8c9a60add038b84d9a1869da1a894c1dfce29b554d3470
+- model-request-857bb602-ed2d-4484-ace4-9996c04a6685.json；ID：209d2909-c0db-4ad6-badb-0bf0c3239fed；SHA-256：846f9b980f69216255bbff5819ffb900fc5caa933c9b53212e47f4706f69ade6
+- model-request-87e7cb2c-c4ff-4822-8df0-875f9c6b6b57.json；ID：ed555c34-d17b-4beb-aa3a-5e1bf5a0d952；SHA-256：960f4287267024453046dec68ec20557e217d38e427988019bc9860caaa78c42
+- model-request-8af67288-8a32-48fb-bce2-8599143ece26.json；ID：79ceeac8-2ea5-4c9f-b196-923514b81cae；SHA-256：1f210a5c550318454354b50e616b94ec05329039d27a10c80ed848ccb7254663
+- model-request-8b9694cf-d024-4fed-9c08-9ff7e658cd7d.json；ID：a4f1aec1-02d5-4820-854d-0acad0dd4898；SHA-256：86d4ec23f7319402de53b31d8ea4d45b23ce06ede5271ae82eb8f0255e59d5f8
+- model-request-8c1de5f3-1b7b-40e3-9994-9501bbbfef7e.json；ID：053ffff7-5fd4-4de1-86c4-8bcf25c6ed83；SHA-256：055b4da6cff990611512da774cbf51a486bb39ed7fd40b8ef65e7fc2ab73e33d
+- model-request-945032a2-61b0-4669-872a-cd147c0a64f4.json；ID：713afa36-00e2-4be8-a647-152cd4c8cf51；SHA-256：ed82e912da16039eed680856fe1c38e8831c400227b4bc16fbdf8e75fbfbe431
+- model-request-94ae9be4-5944-4ab4-acce-b5270c37fef6.json；ID：a7143ff0-6783-4ec0-9533-7e0fd3b7cc19；SHA-256：f3b7e48cd270542e025108b22763f7db1ab1272738e9d70d59d8551756b873b4
+- model-request-95e508d6-fa28-4a55-9771-6f01d9d35342.json；ID：f6f35073-3e36-484a-a5b6-eefb43089d76；SHA-256：e9fb486713bdae38329a73b50c872bbb4703e78b88e8a99c56da18ed7fce6f37
+- model-request-98ad72d0-2e6e-4ef6-aa89-992195d6320c.json；ID：e38c3102-5785-4e80-8d08-9c742b8aed6e；SHA-256：d40241c7b838d717c61313726d011cc5221d77b85a602cf93dc6c812ddd70a96
+- model-request-98e26541-0706-4897-b897-8c3c8ad0ac38.json；ID：59d11a48-1776-4cc2-b1c7-594b6b1bc3ba；SHA-256：72770729d460dc2773c8d854eaeb659465516f660d187d5cf63452d96ef9a07c
+- model-request-9f174e0a-30e9-41cd-9bd3-2d96cab2c8c7.json；ID：3a00cd41-5860-48a4-ae80-e34008017d91；SHA-256：f2e396aa766fe1d3401663463c0b4ba27b550cf93b01240f825624ecfabcef52
+- model-request-a684828d-b993-414e-8f30-0bb641bbafd5.json；ID：c422426b-1417-4b7c-8deb-aa337425bc0d；SHA-256：32f8265a695a4e500ad7bfdaa5682b76f22bd2145547d01303a676360e13f208
+- model-request-a8c451c6-6b08-4d4c-8869-023bb16dcded.json；ID：62338d4a-748f-4be0-a07f-2dad1fc02481；SHA-256：372882d210e3a322f272df18a4541f3951bb7bca8dcae2b147a53c2754e79919
+- model-request-aa6ada47-c8c7-4d3a-b790-036bef2182fb.json；ID：b27edff1-82e5-4120-8836-d545bef8a3c0；SHA-256：1fd1f81230d809cb0a8276c8e4e1def9bbee8c57715c3c4f2df2728ce4c71396
+- model-request-af3db0d7-c55a-4561-a39e-c744878b600a.json；ID：303a99de-69af-44e8-8725-379b5845b9b2；SHA-256：7eab07c1564cd07914b0182504026a15dc0e36b10f849fddfb8111921b80da14
+- model-request-b028588c-988f-4dc5-894d-52a61690a164.json；ID：76c71bb1-18ba-4d96-b95a-64a6652d702f；SHA-256：cd1fa44a8898f133d38bb8a6fd1bde7db2e784e0c3c7d14d517671e100e5a2a7
+- model-request-b09624a6-79a1-4849-934c-60da9489d416.json；ID：91ad8e79-692b-4482-9a25-5f4dd03363d0；SHA-256：687fa1a0210980c1a11f85ba26d08c20881c540d69d9382269e47a31089d8b2a
+- model-request-b32a8443-c8d9-475a-9e07-03239d8a296f.json；ID：0aeec400-b9ed-42e7-bda8-844fff99eff0；SHA-256：a48df6f5d78023dee4bc005e17c6a53be8da70916bd8eeab916c0b9402a8be74
+- model-request-b34a3ef8-2296-40e2-b5e6-2ef6555fb5ab.json；ID：b6b18d99-f309-4cf9-a7b5-676ab13f2162；SHA-256：28607709d02e3e86f06f6481c38a29ddd37c2e974e3f9dafd271dc248a21ce53
+- model-request-b35e3613-6881-49fb-a4f1-c099f905fa02.json；ID：6a1c6d5c-fe2a-4e9c-803e-cbdc6c659a96；SHA-256：4f835be17e5ad0cc1e50132e58d3344ef31b6236f4f79553b7d965c383af75bf
+- model-request-b68e9e41-4efd-447d-9037-ecbe96bc8f8d.json；ID：60d7ebb0-b3d1-486c-84a8-01fc8ce924ad；SHA-256：830a4424b56cfe93157569c06acc570f01335158e9cca51cebceb4d23ac3f056
+- model-request-bcd7cd36-0842-4be6-8fca-7b86ccd00ab9.json；ID：e54d8bd3-cf33-47f6-a505-87a768712807；SHA-256：2602b9a1a9075735ce38eeaddbfcf259eaf809ed735fb04a5df647043e80b7bc
+- model-request-bf626b03-df68-48ff-8b73-9cbfa538987c.json；ID：15685e23-83a0-4733-a813-70897066bb10；SHA-256：cc01d59bbe0a57543e0889742d09a8af41569f68718840e55c654728a0991092
+- model-request-c94cf705-247f-486a-a783-c1fd4b57ec20.json；ID：9aba4e77-d432-43b7-b11a-96791e2e7d8f；SHA-256：ac0417a07778a7e8271e093de18d67c1c602a0d3489f7d96b198851bb4f80c39
+- model-request-cab8a3d0-dd4c-4a54-8c33-f5ae5514195a.json；ID：14e44b77-ca3b-4f11-8c1d-18f79aebe1b3；SHA-256：1253b92040efe04c362a3c00b319ce42f70a99a38ce0b593049cad5dca6fb264
+- model-request-caca4b6e-c40b-4ebe-ac6e-b7177bd1fdee.json；ID：bd8d9dbb-6edf-43c7-9264-b0c6816df41d；SHA-256：d00768997c8c772a9e91f349facf4e30851853f7c56e374e29c7e780131162d7
+- model-request-cb4208f3-e79f-4ca0-9753-022f5827a025.json；ID：e6d46dc6-5e61-40ba-b197-b58ab95757e9；SHA-256：091f352cb875a538666b3c83d9440faf6402327e480768b96c4eaf60c202040d
+- model-request-cd17e837-e469-4729-984f-89666d831eef.json；ID：e02a4a48-fcc3-4243-aca6-fbefba6c5310；SHA-256：55f50ba77328eb83185db2be2c09b439d70d6bd4b7e0afd8e4fa9561fa43b9cb
+- model-request-d2b86e63-474b-4669-94ad-d54c8cc87b71.json；ID：bd911339-be16-4326-83ee-0bdb5a9dbbac；SHA-256：a8532527b15d723f1de77f1b06339b218cd5fab2c7ca732f04c101ae9453cbc2
+- model-request-d75b00b5-e490-48d1-a8be-e8667e98b45c.json；ID：93b7b222-ca8d-4c62-a795-c3b65b579d26；SHA-256：27f4845aa500a8a9ef58eda56441c58fa9e318ac8b31dd0042052bea87a88196
+- model-request-df287eff-3ab5-4842-9ee6-9c13289e49c9.json；ID：fc2366e3-0036-40f8-9b8f-68c8aafe5eeb；SHA-256：466ec0871a248a8fe628b1e5caf7d3c283ec8bb340b5510891a4908ed237f6d1
+- model-request-df48a363-ea7d-4c8d-be9a-6694dc25aa61.json；ID：099a63d9-fa45-432b-90c7-af6f7608f60f；SHA-256：b15af26287c96f309a4d5694a39fa48eb47335d616ab7b28815d3c842b3bf520
+- model-request-e3332220-9a1b-4320-8c5f-b0b00ce04c06.json；ID：8c34c967-9e7d-4831-87b5-a9365b998547；SHA-256：f44a7c139614ebda5d92c63fbff209c33dfc46b53b56409c64b7b6a929d38716
+- model-request-e4fe9c78-bdfc-4614-9dfd-106e037a2959.json；ID：3a164da1-e038-45c5-a368-dffc1090fa45；SHA-256：210194004d288e3ee2b0841c8cb4544320dbd9bf2e8a7990a2ab10365c1d0bf1
+- model-request-e6d00813-7c2c-4987-acee-1934184f4619.json；ID：40f8b545-75e8-4025-833a-71ebc3c291fb；SHA-256：1fdbad880c2933018384981694cb9110f6e1e88a03bee3623aa9217ae003d7cd
+- model-request-e8fa5876-1d59-45ee-a32a-783d127c2b2b.json；ID：527eefd5-e05a-44e9-b8ac-90aa65669d77；SHA-256：491e57b35f20590f8636acc63c4452efd151c258085c6a5b5eab584cc5ba74cf
+- model-request-ec3422bb-aa08-4295-8ab0-e25f0edf7a89.json；ID：9fa7a115-e26c-41fe-b30e-3a5079e15527；SHA-256：5870c90f38aed82589021008c993eb535fb6624f9926961fcea9c02541f31e9a
+- model-request-edecf567-8d76-4868-a1ab-5c4218d6480c.json；ID：8c7e07b6-6790-4c48-848a-87162a35dd70；SHA-256：664f1da784d471ea61cd8045f0ded648f48d3d777da03f56b3d43c3f9e0bd43f
+- model-request-f213058c-83a6-403b-b263-ee1183565421.json；ID：06ab351e-e26e-48c7-9f82-a81d0b7e977a；SHA-256：6060ed4d3cef73f423e45dfffe0ef963eb3d8599045d5a15e784eee124a103f4
+- model-request-f524aa70-5783-4b06-8ee2-79cbb6ae75f8.json；ID：555f3a51-3ae4-4b8f-820c-744d7263d60d；SHA-256：93a6f8d0525892e0ebea02b7f5438543564d22098fd301944de3c146c3264c1d
+- model-request-f56e228d-5aa2-42fa-9943-b0bf8c8d2b48.json；ID：837e0d34-cd75-4695-9e1a-1c3f1d206e53；SHA-256：b1c7969a85d08e8cd2b927d5c7df11710c9f83ed0135b853f42ad9eb35b657d7
+- model-request-fa76098b-cc42-4f35-bcf0-3509194af3c5.json；ID：b28ef800-6570-40d3-b82b-1cb6931d027a；SHA-256：493cd73b4497d5787893948ed16ce7c6601659194f91630ba279138efea6f09b
+- model-request-fc0b6d8a-d7da-40bd-9872-c86615011e0b.json；ID：29625d4c-ea1f-4e41-8f2d-42170c459311；SHA-256：ee4f49a555bf79cf9d8055c7ab2612806a09026cfc165be82ebcf6a7528c8b2f
+- model-response-036e9bf9-a4f1-43ad-a5f4-adb305b2bc46.json；ID：cb20f2a6-1406-4e66-a6dc-65cfe1c463d1；SHA-256：39ee417f636b8e456373bb576acef584b2060222e175ee82721e3acf268e1369
+- model-response-04c2e3dd-0de2-41e4-a634-d92e2a6c51d4.json；ID：cf74e396-cf91-4946-9c2d-64f2b17ee3d0；SHA-256：348b19db12b646ed081c029c14c4b18e6dd8f6dfd9f160f179df7df41480bec6
+- model-response-05af1b0b-3b2c-49d4-acd9-3a10c00e3358.json；ID：ec053c79-bb5c-408d-8319-5bfd4fc02507；SHA-256：5eebdb76ec3f4c10150bc65a94aa26dc07ffec5760b1d8ba457820e74b85710e
+- model-response-0659b47c-4512-4c59-bb66-88c1cb0ff746.json；ID：75af391b-b388-469f-b8d3-979e1d7b8fd4；SHA-256：9415f7d1bd1c4c0cf9c288a932b6571bc6445f75232effdb8324dcdbdd5e25f8
+- model-response-0ffb0644-4fa3-4573-8499-47dd92c4f5c0.json；ID：de575806-9788-4ea5-85b9-797535b48b8b；SHA-256：ae060cc4950e8f541d78409f7200cd50ef42722656e459d626c8e13f3cd963e5
+- model-response-14ae962f-4d90-43f1-a7c4-252c267b67ba.json；ID：c38e2e85-3994-4546-b066-f1af41c699ba；SHA-256：00aeede8470b9c4ff411302f1043f3fd24b87b80eec50e643c37db850566735e
+- model-response-162564de-ad26-4992-ba34-6f19e4b5569b.json；ID：25b5945f-2c79-4029-92eb-9cea29dc098e；SHA-256：c39798db4d3add083691cf198264e6b336a0ca048e9fe4e1b8b573d601a8b316
+- model-response-17cce7e0-c848-47aa-a6b2-dd9aa5cc8634.json；ID：651a8cfc-064d-405a-aa10-e719265e48ac；SHA-256：9004f749b66bdb4f4120694fb1cba04f6befe5fa3184974f3edc6de22adab536
+- model-response-19f6a9bc-ffae-457a-be1d-0012a17486b4.json；ID：5b854d20-8b31-468b-ad66-79737abe8791；SHA-256：e2660375bb534bc7f9550e936247791204dfb464bed18e0bd9e275b36ea8c330
+- model-response-1b4795a8-aaaf-4c80-b961-0b0a8e40995a.json；ID：a39fc3ef-bb53-41dc-a3e5-03bed87cb198；SHA-256：07cf93d87c904e0da9eee9440785f713f5e881cd16adadae1969a59e62bce572
+- model-response-1c1c7c44-aaed-4a5c-addd-db36ce5658e0.json；ID：80397336-c28d-4565-afc1-e4dcac85079d；SHA-256：78480385c72b30691e0d4e33978c91d4f12a51e9505cd0c443e83262962c69b5
+- model-response-21cdac3b-164b-4b8c-bfe3-31377ef92452.json；ID：b0ec3f84-2c80-4ff1-85e5-7a0e6d403a8b；SHA-256：06a9cc127920f89b55ca78a8f6bb4be308dd607d299d6ea0699fbf3931f01bb3
+- model-response-22ba2dc4-d4fa-4f03-88a2-29f2ebc0e910.json；ID：be21eb22-973d-4cb5-bf8a-0f34169d6bd4；SHA-256：3b201f30a4500e48536909c326d9b5320137683b4210e91015ada0c61bb6ac52
+- model-response-27508a05-a9fa-4c51-a24d-4eee65c8b426.json；ID：5fb4d801-045b-4e23-ab23-9cd0ad4be271；SHA-256：268c862cd96084a5356e78213bba53be3ec0c30e463883e0a17b15e92bad460e
+- model-response-2d666b28-7200-4ed2-9eed-51cba10977bb.json；ID：3c66aaff-4d86-4e13-b7a8-bf28b158cece；SHA-256：66e57dda514da0f3c633ec92d6d9843512fcafbcb46f91186ede9760df5a609d
+- model-response-330fa606-4ca0-484f-9bd8-1213af204e95.json；ID：6533d5c8-7892-4035-b4f9-745e7b818a4b；SHA-256：034597d041e85007712e45aef071026bf6a26688d1be4dbbc84d39004af48759
+- model-response-39b71fc2-3855-4799-98ac-9b298f39b862.json；ID：30642421-22d5-4555-a92d-72d52d4d771c；SHA-256：36161fb641dc32efdb59043ece7006c9621c4912986134b2150159539c5b09c7
+- model-response-39f6fe30-be52-44c9-b085-e69c8c191184.json；ID：1fadd55e-8b12-452a-8dfa-ee6767d84751；SHA-256：a262d4da45c4b9e81aae8a173ebf5156c9836e51f47807bf89e09a502337cb0a
+- model-response-3c54e49f-6cce-4b8e-9ee2-202119a849a4.json；ID：f1a3f02a-0bf0-47e3-8f92-36824ccc4428；SHA-256：ea9a2d3804c861e43a905450e849078df1ff88d8ed9001ed2948f0212edefdfc
+- model-response-403633de-df20-4087-ad01-d5184a9ea9a9.json；ID：343a13ff-a454-43be-af5e-6fa3a091e386；SHA-256：0f531ad3be9b0d4d1a1283b5177a2495305ac358607ab4c96a183ad38e5a4f10
+- model-response-44e9edfd-7afa-4caf-9f29-e4586a086d55.json；ID：6cac70a8-6352-4ccf-81a3-b5867eaada37；SHA-256：9d35328a782e07b94df20c369e233e1d02c9a1914a08f5133f965ae0f41c858a
+- model-response-487aa2cd-247d-472c-a295-60698a43b2e3.json；ID：c2e91897-6fca-47fb-a95b-6e8025a599de；SHA-256：d79d1cbea911b047f4ac6b69f894bd1d7ec0a80c59986ad08c40006ccbcec7f4
+- model-response-4cab0c68-e2fc-4bea-88da-c2fdfdce5d13.json；ID：77554b95-c3f9-447f-b1a1-c5a8c9d9938b；SHA-256：a91c32f49dee25f6e9294fe102379802203cd9274730cc5791a347d6f8eeae88
+- model-response-4fd6d3d2-5a44-4d76-8c9f-62a91037782a.json；ID：befa3829-0131-43a0-b4e6-19364dcec052；SHA-256：73ab126b661934297240d804da06768031ff73f5f29ff3a7acaf0ad810831ae4
+- model-response-585529be-8b69-4e4f-832f-fbee91bf9659.json；ID：439e56c5-6c5e-4044-9107-f6f2182757ef；SHA-256：c03df3b0edf54cef4ac363206bb5c78ff93e8610fe8cd010b8845486ef2e1c6a
+- model-response-5998f3c6-1b27-4019-a8e0-ba27e034ec2d.json；ID：4d204d34-5085-4ae1-baf2-6f1699282bc3；SHA-256：77aae7eb9b69977d37b5b2542ecd3eb77d72fdf521ca276c288d3deada4115e2
+- model-response-5d1c6506-068b-4273-8425-c982b62156b6.json；ID：dfaa84e8-87ce-4f8b-af06-f7c46680a97b；SHA-256：d54b5ed680c396b5f36dd2b578dd40f145e596e2b0275644e354e69eac1584e9
+- model-response-6910e3e3-8892-446b-a563-992a21428267.json；ID：bfa518b6-02a6-4774-a069-39221e5054b3；SHA-256：4311819a013f934bf9fadb621e2e695465f71ba48918f311d122fe8b26c0df37
+- model-response-69570263-0d9a-44fa-b95d-398f5d58d84a.json；ID：7acffffc-c97e-4969-95c7-f41804f45713；SHA-256：1d3c82ef73f84f1efa3dcc3ea04b75246c0df36e334127202f788f6a040a6e5e
+- model-response-73337459-1f02-4ba2-aa4c-53ebf80d63e7.json；ID：4cc5157a-8162-4651-b46c-124f338bc2c7；SHA-256：7c06d832331a8cb2ea9d754586ebdb57423071b22094aa13615c80b7b039fd33
+- model-response-7747ce0d-96ef-473a-81a8-dcbf5c7861b0.json；ID：bfbff532-bbd6-4feb-8d4f-d18850b46e2d；SHA-256：27ae64bf27f6d2045a57af3fdc2f6c3a4ac88cfd9cd9008923ac8a8d3f6177ea
+- model-response-7b385049-26f1-41cc-8285-711e2539a399.json；ID：d7a1b181-19a8-45ff-8542-dd014067ac1a；SHA-256：24de0d8f776fdd576a0c3c6e760632ccb3438c2ce840d7871f2ef97b39935ac0
+- model-response-7d635b89-7182-43d7-bdba-d04968a2484d.json；ID：3d89da94-c646-4302-ad7b-7c58f1972a0f；SHA-256：4f09a42507154b0df93e012d319436f85e3cae66369239585fb3963e0b5d8ffd
+- model-response-8660d671-0c89-47f8-8bf5-8cd25beaf786.json；ID：eaa22169-a1bf-497f-9bca-692f03385cfa；SHA-256：a77f0687426a9c934ec94ba7e21bc56d337ad4b66901a5d540fbf8f88333f0f7
+- model-response-86fbc661-3df7-4504-9c38-f8c9b0583316.json；ID：6ae84e4a-c319-4c90-af76-0970053e36ac；SHA-256：0f7191f17312773325e1161678b55068615cfb199ecab27f48b2886a5589c4f5
+- model-response-8bd31527-a0bf-4d40-84ee-9d95c1e2fbeb.json；ID：02e80688-c9b2-4204-9b76-56eb773661ec；SHA-256：a0f46966ccad1161a6b92de146efe0a0e2ed3a20ec1a1de957e5324030370fff
+- model-response-8fa34163-943c-448e-a322-398d4ad2e009.json；ID：ffb573ec-eb4e-4970-935d-1111b296888e；SHA-256：6bf9ef6cc404b811455379ab8f030d20dcc890237d48238fb5c52568f40c132a
+- model-response-9989b915-552d-4aa5-a768-4627f03c9f9a.json；ID：9c6aa746-88a4-4574-8e4a-b59f6a8e9b4a；SHA-256：330ab8a309239c0d1f38427822ee44c48c2359cb3534d3a6cf4b7982c3a24f94
+- model-response-a0dc5195-f1cd-4059-9a20-ded3ec892bce.json；ID：f993ab4d-2b6e-4455-90a8-bab59c8d5759；SHA-256：79c39f5b8aa6a69d9937c8f88f79c90f9c1fa3ede6a21239f046b32a2a3e03d3
+- model-response-a4f50eb8-71b0-40d3-bef1-a09a21ea06a5.json；ID：a2fe988d-3357-4984-a240-c15050618d74；SHA-256：3e8650780b99d220bed7dd16738751db45212518853e076a3a1b354cd1e6085c
+- model-response-aa8fa8f4-0ec4-422b-86ed-98d662ac5154.json；ID：1a5d0ecd-f15e-49a7-a48d-055517c74108；SHA-256：ecbe5fcff3c18541904683c1709e22b1b2914537c4b4daa3d253cb6df8e4e207
+- model-response-b04d931a-8248-46ab-8c98-6daac76937c6.json；ID：8d69ec45-a567-4e28-95f0-4a05e53db57e；SHA-256：a7a9f61897e61b537892da3e65e104b84186020ce5f2846dcd2ac8c6dffd7492
+- model-response-b09fada1-8f48-4d9a-afe6-bea7feb34672.json；ID：ade2bc36-bd2b-4367-9b06-b93bce9555b6；SHA-256：af59ef70f10958ded1b61faed66554d685ee461aabb952f38aeb54445175a2c8
+- model-response-b16d3bce-f548-40f5-9df1-10e9108fb428.json；ID：6981a133-4042-49c4-85b7-96d584d6c1dd；SHA-256：6e5f4c196c273918e307d47464382efa2a30324b68bd60603c4b9f4f16001e92
+- model-response-b2a02d89-6896-4594-ba7f-157545f4ace1.json；ID：02a0445a-0fe9-44fa-912d-a665f5f1bf50；SHA-256：b5b3d684b6c8fe520539147da245269d89b3f7e262a43b390c726331e564dc27
+- model-response-b7dccfc8-224d-4a7f-a53c-d8e44a227cff.json；ID：609948df-160c-49d9-b5ec-91a1b9ff0cb1；SHA-256：be67978e10a47bd2512ecaa053f17531238e5f10ce38bbfbb5b663e62e2082d9
+- model-response-baae2854-37b8-46b7-a8ed-78e18485de09.json；ID：39e9733e-68be-48b3-b5dc-a7f091f163bd；SHA-256：a93f3db9666b4c24d3ca7d1d8077b0d6d6d5a6b95e9d3de5d25769e63d446b88
+- model-response-bb868b4e-11ae-456e-a175-148b23500806.json；ID：60756992-d357-4e86-8cbd-b1e78ac0f87d；SHA-256：3c3c591da73d14655431bb851ae21436e2687ad7132f44652e7bc0e5131b7c4d
+- model-response-bb9ef24d-f45f-48ed-a1f9-44b6405e4ea6.json；ID：a795e81f-0fa8-4a2e-bcbf-9a6965c3b61e；SHA-256：49020c4dcf5fd48c636d7c84ab89d34054a04c8ea486a3accb68f23edbad0f1a
+- model-response-be88f263-2a9a-41d7-b912-6809804cd8fa.json；ID：bd1a57b2-1c87-4200-b372-912a6581e2ff；SHA-256：4167889bb0070370a648951854ad664145e0b745ef04811bcc4f1155d36fe923
+- model-response-c2173a87-255f-4571-b9e1-dca1c7445266.json；ID：e0973f28-ea33-48df-9e72-7b4b33d73ceb；SHA-256：0b120d99bad33054a4e1d6557a08d4593cc412b779392c3153f10b8419a6ae21
+- model-response-c3318e53-392d-4b31-b2d1-4a75a42958af.json；ID：8fbca462-5df3-42ad-8cfd-579d05fd7f12；SHA-256：9dc526821d9d664fc7caf1e45884fed095e9de6ab08b429fffc5ea5ccb83bb4a
+- model-response-c53cbd01-4c02-4230-8c27-9a5e04c5c61c.json；ID：e9160446-bf4f-4500-b142-ae316a4549f5；SHA-256：a0a3d0bba2f8799aec5e8789f5156bb4278a4c9c9481579fad3ccd42937579cc
+- model-response-c617e05c-023d-49a9-b4bd-be6d89d5018d.json；ID：2f05e376-a3d0-4036-b2fb-4314530d4686；SHA-256：a20853d8cd1140affe0297f15741bf0a2a023be6d6b09781e80f7adff2dbb74a
+- model-response-ccfecee4-6876-4a5d-8701-3dd15e7940a4.json；ID：174157a8-c65f-43fd-94e3-130c95fe9d40；SHA-256：0e14631508b899d9ee6aa3666d2dee918d4677e983edcc677b5c9d8fdf6da02d
+- model-response-cd8cda68-18f6-46e3-bb25-1d1d0e72c2db.json；ID：d015192d-880c-4b07-a62e-2b09e5a2d54f；SHA-256：abb6766940b96faca13e6947fd5a3b60567188962846be8f78bdbb4bde8e77bb
+- model-response-ce7f6fa3-0982-48f3-b580-f85d1a33d131.json；ID：4f9eb060-9748-4e2c-9653-7a3c444d3cbc；SHA-256：b4fe7b729ad0659a720b46a35b27a7b0e5bcaf32f9f336f44c8c736dc614fb41
+- model-response-cf5964de-3630-4168-b376-89fe43b9d8f8.json；ID：a441e3a4-e2b9-47f9-a997-77ef7b7c84d5；SHA-256：1df6d8d90a870e929c16f7daaa0dc0a21a03be7f7724ee8dd7036e1cec8bfafc
+- model-response-d2af3ca8-eba3-4332-a7b9-c45ab0e94aee.json；ID：1ec13177-6693-4d81-917f-550e52c690cc；SHA-256：c059727f02faeed6907b9ac891578ef7fca75357ef3fe4762827c4e21e6928aa
+- model-response-d9f46aed-2566-421e-8c1f-5ff2b0219bfc.json；ID：a37bdd0d-0f47-4afe-9bc9-038a20e214d3；SHA-256：701f1b6aeef64425a0b35d6308307f06382fcce4b316efd6d247b6e75a247d32
+- model-response-dadbfef7-44eb-45fa-bcf2-9c1f396ef5d0.json；ID：92741f4a-e43c-4ecf-a97d-abd72c272118；SHA-256：eac483cfe17044ce3cfe5eedc658d35cea1fb3f06fb0214bd4d5eccd62614dcb
+- model-response-dba67f2f-c33a-4972-bcaf-02ac412088c3.json；ID：ba9426e4-ed67-4ed9-80a2-54feda44f064；SHA-256：17bc6c2742037f0bc6d3d424e08b8dd34f1a74a0306e396178cfba6ebfcab6dc
+- model-response-de3e3804-3b95-45a6-8da9-cab1d60b4bc2.json；ID：a87e09e6-59c9-4fa6-9c36-77ea92bf0e99；SHA-256：b2858b334a7918aa77b6dcdfaae0c4b791dc8cc5c6d77900533950358ab95ebc
+- model-response-de7c375a-22e9-40b1-a2b4-38b9328e505a.json；ID：6d967c26-c9e0-4c37-9ace-a1c13620fbbe；SHA-256：bc4f7e818b3762bed87944bf1bbd7d026891f1d79195db454a2c018b1bbea0e6
+- model-response-de96158c-8b6f-4245-b2d7-c24b9854f4ef.json；ID：01095097-99f7-4bf5-bc1a-739c3d397b95；SHA-256：f103d8911a37a387d078f6929714a07fe0bbfbd86b7771691b29959622259618
+- model-response-df07736d-0cd3-4dbb-bc93-cae92fa97c18.json；ID：0ea0746c-ca8f-4a51-a7ff-118cde686b91；SHA-256：5e67c6f9a7ae781b694d55fea82238cf47c77acd268e5ea4cef6024f69735671
+- model-response-dfbc0620-f622-4277-993d-0f56a7cebd40.json；ID：c12a2fc7-93bb-4e22-be85-5943ce8f5992；SHA-256：083924cf735fcba989ae38826cddc80a3209c45eff41f634bbd32fe1b4c11e34
+- model-response-e1b7fa52-a013-4aae-8b7c-a4fdcd11e57b.json；ID：092201b4-0039-4eed-99c2-64fd2addea42；SHA-256：418f736a74315016fea5c2d9474af7c679844cca3c9c6b13a6a2facaab87d1d1
+- model-response-e7485bb1-10c1-47a4-a64a-729582cb8830.json；ID：9cd39fc8-0bb5-4c0d-9d4e-723ad8a998c9；SHA-256：87a019f6335423a2861b119645bd57cb9f07d26295164f1528b405b6a2d19bd3
+- model-response-e7e07086-07f4-44a2-b8ec-1e3cdaa5cbbc.json；ID：e27fe5f4-c57d-42e8-a058-48282c88ce19；SHA-256：7ec10bf30e4312a553b1a51964322dffbf0141bf9b8bdad66de8b64a5d63305c
+- model-response-ea91ca06-5de3-4505-874f-9fb7527672d3.json；ID：460c3161-fa4c-43ec-8dc0-f82f2269e69d；SHA-256：67e4401fcf926ed08f4024d91602b42d77468ef95e60ed447cfc3320f54fb43d
+- model-response-eb6e1ade-28d2-4017-ad6d-39a1a327ec61.json；ID：0d959f2e-d13a-46c0-8aeb-548647e69638；SHA-256：407744841c9aba17de94ee765ce2905125f49dba286f96a629a335c7731b5b68
+- model-response-edb18d9b-747a-4a80-9134-13e2995de11e.json；ID：75faa94e-08f6-4cd9-bc8f-a506470ae4af；SHA-256：ee02c68f18d6b9be98343b730cd0925de4ca670788d03d810648bd5075a5f0d3
+- model-response-f019cff4-1d18-4c69-bbee-7f993941ed79.json；ID：0a84c07c-c877-41e7-b43f-d9e971f78e15；SHA-256：6c9460491d7f2d401644ded42912f33728cc8b1baf3019382f6e4f267338d52f
+- model-response-f3b3b2d1-6606-4fdf-ac56-163ce74c3b63.json；ID：1ca6e98b-d535-4873-b630-02268916035e；SHA-256：d6df93dfa986490b352eb17d62c4e0c84a56dc0c31d93553c0129e966e7cc5c7
+- model-response-f6ce4ef6-496b-4091-93ca-2095e1424682.json；ID：61390e42-383c-46fd-9094-a089a88768f9；SHA-256：c6357f25c7d0216ad60aa4f44d766e878cad403ff62d0b448fe023318a71e856
+- model-response-f7f8b6d0-94ee-4978-9aab-1e2ab83b7906.json；ID：92079b5c-500c-4c28-bed1-cba35b6c1ab5；SHA-256：88663ea76b9195ac0950da5a17490fc599c031cb0056a7aaccc8c03c1bf04b5b
+- model-response-f91fff18-8abc-477e-ab49-4369f96fbad7.json；ID：ca595358-a869-47c4-8e17-d250bf865137；SHA-256：79026231ca02bdebfba11241e624f16d01d961e9a6e34d27d80ddaddb077bf2c
+- model-response-fd8a834d-3fb0-4806-9fff-2d8239732e62.json；ID：7af53941-695c-4786-a0a7-1fef97cc1c13；SHA-256：015de2367f22bc44e1ce0d6d43ef65e60795ca5e37dd1cc7c8fc204fd84cb780
+- p03-fastchat-xss-fixed.zip；ID：87eb1a3c-fcc7-4c7a-be6a-1588fb35e4a6；SHA-256：b4aa1d90e7ff0ff0cacd27e4ad9091aadb0e14bf0f3844a89bc31f8b8203a6c2
+- snapshot-manifest.json；ID：7bfc949a-5582-4181-b49b-751442143c40；SHA-256：53752e695fca544430002f978e7b70b6cdee847a2c20fa2802df8a356d19116c
+- source-snapshot.zip；ID：ec80db4e-2048-42f0-bf00-7cbe9a598b3b；SHA-256：6733abe3a11878f8a02097e47b8427a6762d420064d442d65920a493ab600fa2

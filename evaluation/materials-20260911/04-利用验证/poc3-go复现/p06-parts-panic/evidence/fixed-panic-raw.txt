@@ -1,0 +1,5 @@
+=== RUN   TestPreparePanicRaw
+    poc_test.go:69: POC_RESULT=NO_PANIC  Prepare 正常返回 err=nil
+--- PASS: TestPreparePanicRaw (0.00s)
+PASS
+ok  	github.com/ollama/ollama/server	0.472s

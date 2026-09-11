@@ -1,0 +1,5 @@
+=== RUN   TestPrepareMissingContentLength
+    poc_test.go:38: POC_RESULT=NO_PANIC  Prepare 正常返回 err=<nil>
+--- PASS: TestPrepareMissingContentLength (0.00s)
+PASS
+ok  	github.com/ollama/ollama/server	(cached)

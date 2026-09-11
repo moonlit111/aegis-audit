@@ -1,0 +1,124 @@
+{
+  "batch": "stage2-p06",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7341",
+  "generated_at": "2026-09-11T07:59:42.936920+00:00",
+  "budget": {
+    "max_units": 40,
+    "max_model_calls": 400,
+    "max_tool_rounds": 12,
+    "timeout_seconds": 3600
+  },
+  "results": [
+    {
+      "short": "p06-ollama-parts",
+      "pair_id": "ollama-download-parts-index-out-of-range",
+      "repo": "ollama/ollama",
+      "file": "server/download.go",
+      "lines": 500,
+      "stage": 2,
+      "expected_category": "MEMORY_BOUNDS",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "63f0269f7f9f6256ff92ff6a11b032df01ffba5f",
+      "fixed_rev": "d8932c55e72f919cd92d0d019fb7fd0e01d857cd",
+      "packages": {
+        "vuln": {
+          "run_id": "4b5d2ae3-1313-41e0-9006-d9afd4be1010",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 148,
+            "cost_cny": null,
+            "measured_tokens": 893186,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "5e752d3d-575f-4af1-89cf-3aa9b7c9a07c",
+            "html": "c48938da-f5df-431b-b3a6-85c51a07535f",
+            "markdown": "5949dcac-e8b9-4535-b4b3-1ba1e7159aa8"
+          },
+          "verdict": "命中",
+          "audited_unit_count": 5,
+          "target_covered": true,
+          "findings_total": 9,
+          "hits": [
+            {
+              "id": "ae458da2-980e-4470-bcd8-8a0619c92647",
+              "title": "HEAD 响应 Content-Length 未校验导致 Parts 为空并越界索引 panic",
+              "category": "MEMORY_BOUNDS",
+              "cwe": "CWE-129",
+              "severity": "MEDIUM"
+            }
+          ],
+          "pending": [
+            {
+              "id": "c17b371f-9f73-47ae-b9ff-b37246f86e1b",
+              "title": "未校验的 Digest 长度导致切片越界 panic（可被短摘要/损坏元数据触发）",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "91f50d03-6422-4956-bea2-66445e3d59b5",
+              "title": "重定向信任策略仅比较主机名（忽略协议与端口），且分片下载未复用该策略",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "46c87e85-0821-49c3-a609-48cda991c626",
+              "title": "日志中按固定下标切分 Digest（b.Digest[7:19]），缺少长度校验",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "6f704026-2591-40cb-89ed-901e7c4be130",
+              "title": "分块长度/偏移由磁盘 partial 元数据直接计算，缺少 0<=Completed<=Size 一致性校验",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "3dff0a06-bdc1-46c3-b071-3cd292b07d04",
+              "title": "部件文件名由注册表可控的 digest 派生，写入时以 O_TRUNC 打开，缺少可见的路径与 digest 校验",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "6530490a-bd81-4813-80ea-480dc918b338",
+              "title": "部件编号取自内存切片长度，重复编号会以 O_TRUNC 覆盖已有部件文件",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "c92a39b4-992a-4b79-9127-582a925a57f5",
+              "title": "分片状态 JSON 反序列化后未做范围/一致性校验即用于下载偏移与文件长度计算",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "110e1ebd-574b-4534-a3ab-47c1ea16b7c5",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 8,
+            "cost_cny": null,
+            "measured_tokens": 53289,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "ef59b5cc-fdee-44a5-9a44-a185ba355840",
+            "html": "bc51f89e-9bb3-4e9e-a274-c63fba0e89ff",
+            "markdown": "32ab2547-d99d-4bd3-9a44-f7b73f502346"
+          },
+          "verdict": "未覆盖",
+          "audited_unit_count": 0,
+          "target_covered": false,
+          "findings_total": 0,
+          "hits": [],
+          "pending": [],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}

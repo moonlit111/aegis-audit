@@ -1,0 +1,3 @@
+[结果] vuln: 抛异常 TypeError: data must be str, not NoneType
+[结果] fixed: 抛异常 SecurityError: access to attribute '__class__' of 'tuple' object is unsafe.
+[判定] 漏洞版执行了模板代码并写出 marker；修复版被沙箱拒绝、未生成 marker。

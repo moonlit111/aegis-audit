@@ -1,0 +1,104 @@
+{
+  "batch": "stage1-p03",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7343",
+  "generated_at": "2026-09-11T07:42:20.704237+00:00",
+  "budget": {
+    "max_units": 20,
+    "max_model_calls": 240,
+    "max_tool_rounds": 8,
+    "timeout_seconds": 1800
+  },
+  "results": [
+    {
+      "short": "p03-fastchat-xss",
+      "pair_id": "fastchat-gradio-xss-unsanitized-user-input",
+      "repo": "lm-sys/FastChat",
+      "file": "fastchat/serve/gradio_patch.py",
+      "lines": 169,
+      "stage": 1,
+      "expected_category": "INJECTION",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "1c9ccbabbd9d51561e54604162ad0262d0147b14",
+      "fixed_rev": "74cfa20529cbc164f628efedfccabb77dd0516ff",
+      "packages": {
+        "vuln": {
+          "run_id": "2d239400-1b70-4364-a76b-8bb86cd64e5f",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 7,
+            "cost_cny": null,
+            "measured_tokens": 30894,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "706554d7-e87b-4e03-9ad5-b2465984541a",
+            "html": "3cc9674c-8509-4ec0-a748-43dc1c0dee03",
+            "markdown": "25ef5692-cc37-4245-a9c9-70ac1b120d2b"
+          },
+          "verdict": "未覆盖",
+          "audited_unit_count": 0,
+          "target_covered": false,
+          "findings_total": 0,
+          "hits": [],
+          "pending": [],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "b72d6039-613c-490c-8af0-3ef25cdb65be",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 79,
+            "cost_cny": null,
+            "measured_tokens": 318288,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "a9e3cb89-0e66-4498-882d-433a72d8fbec",
+            "html": "f5d4a639-38b5-4177-8a3d-8a68af8bee59",
+            "markdown": "1098aa8e-cfab-48c3-9746-406d4bf2270c"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 7,
+          "target_covered": true,
+          "findings_total": 5,
+          "hits": [],
+          "pending": [
+            {
+              "id": "ee7cb6d1-30d7-49c8-a2d5-32a2a3d15508",
+              "title": "Chatbot 输出助手消息经 Markdown 渲染且未做 HTML 消毒，用户消息却已 nh3.clean（潜在 XSS）",
+              "category": "INJECTION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "c7765385-f1d4-4541-9767-14cca4499098",
+              "title": "Chatbot 媒体消息的首元素文件路径/URL 未加校验即取 MIME 并回传前端",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "259991a0-088f-4d2a-aa20-603cd9388e85",
+              "title": "助手侧消息经 Markdown 渲染为未消毒 HTML（与用户侧 nh3.clean 处理不一致）",
+              "category": "INJECTION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "6a08eff9-4c71-46f9-bfb0-ae64c73060eb",
+              "title": "消息元组中的路径/URL 未校验即作为媒体名下发并用于 MIME 探测",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "d407d4e7-3e6c-4923-82cb-294f2e8b617a",
+              "title": "媒体消息的文件路径/URL 未经校验即作为 is_file 字段下发前端",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "REJECTED"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}

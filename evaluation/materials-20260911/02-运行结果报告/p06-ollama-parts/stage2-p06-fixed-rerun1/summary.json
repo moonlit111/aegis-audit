@@ -1,0 +1,78 @@
+{
+  "batch": "stage2-p06-fixed-rerun1",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7344",
+  "generated_at": "2026-09-11T09:40:34.098094+00:00",
+  "budget": {
+    "max_units": 40,
+    "max_model_calls": 400,
+    "max_tool_rounds": 12,
+    "timeout_seconds": 3600
+  },
+  "results": [
+    {
+      "short": "p06-ollama-parts",
+      "pair_id": "ollama-download-parts-index-out-of-range",
+      "repo": "ollama/ollama",
+      "file": "server/download.go",
+      "lines": 500,
+      "stage": 2,
+      "expected_category": "MEMORY_BOUNDS",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "63f0269f7f9f6256ff92ff6a11b032df01ffba5f",
+      "fixed_rev": "d8932c55e72f919cd92d0d019fb7fd0e01d857cd",
+      "packages": {
+        "fixed": {
+          "run_id": "d73387b7-cca6-4c53-a135-ab7717316cf5",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 59,
+            "cost_cny": null,
+            "measured_tokens": 322951,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "77c74b51-a41c-4d50-8f53-03032832e825",
+            "html": "73cb97e0-0f76-4721-bb43-ee03cb3361dd",
+            "markdown": "fa991dc2-9407-4a2f-ab30-2e60f8df79c9"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 2,
+          "target_covered": true,
+          "findings_total": 4,
+          "focus_line_count": 2,
+          "hits": [],
+          "hits_on_change_point": [],
+          "pending": [
+            {
+              "id": "1b2e88e8-2d28-4ccb-bbc0-6f1924d98796",
+              "title": "未校验长度的 digest 直接用于切片索引，可触发数组越界 panic",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "464aabef-3176-4cf4-bf89-b51be7f46daf",
+              "title": "digest 未校验即用于本地文件路径与注册表 URL 拼接（路径穿越/SSRF 信任边界）",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "002c2fc2-223f-4e35-86d1-a1be6d380e8d",
+              "title": "Prepare 忽略 strconv.ParseInt 错误，未校验的 Content-Length 直接充当下载总量",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "UNREVIEWED"
+            },
+            {
+              "id": "0ad00ecd-518a-41de-b7be-ea6e7ad7b0a8",
+              "title": "Prepare 日志分支对 Digest 做固定下标切片，未校验长度可能越界 panic",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": null
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+== vuln 版本
+  A 用户消息输出: <pre style="font-family: var(--font)"><img src=x onerror="document.title='XSS-USER'"></pre>
+  B 助手消息输出: <p><img src=x onerror="document.title='XSS-ASSISTANT'"></p>
+
+  user 页面浏览器标题: 'XSS-USER' -> 脚本已执行(注入成功)
+  assistant 页面浏览器标题: 'XSS-ASSISTANT' -> 脚本已执行(注入成功)
+  C 非字符串消息: 抛 TypeError: can only concatenate str (not "dict") to str
+== fixed 版本
+  A 用户消息输出: <pre style="font-family: var(--font)"><img src="x"></pre>
+  B 助手消息输出: <p><img src=x onerror="document.title='XSS-ASSISTANT'"></p>
+
+  user 页面浏览器标题: 'BEFORE' -> 未执行(被拦截/无注入)
+  assistant 页面浏览器标题: 'XSS-ASSISTANT' -> 脚本已执行(注入成功)
+  C 非字符串消息: 抛 TypeError: 'dict' object is not an instance of 'str'

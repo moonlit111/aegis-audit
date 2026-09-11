@@ -1,0 +1,19 @@
+func realpath(p string) string {
+	abspath, err := filepath.Abs(p)
+	if err != nil {
+		return p
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return abspath
+	}
+
+	if p == "~" {
+		return home
+	} else if strings.HasPrefix(p, "~/") {
+		return filepath.Join(home, p[2:])
+	}
+
+	return abspath
+}

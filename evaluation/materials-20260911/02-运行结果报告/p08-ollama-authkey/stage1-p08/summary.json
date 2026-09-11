@@ -1,0 +1,117 @@
+{
+  "batch": "stage1-p08",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7341",
+  "generated_at": "2026-09-11T07:45:09.358817+00:00",
+  "budget": {
+    "max_units": 20,
+    "max_model_calls": 240,
+    "max_tool_rounds": 8,
+    "timeout_seconds": 1800
+  },
+  "results": [
+    {
+      "short": "p08-ollama-authkey",
+      "pair_id": "ollama-private-key-file-type-and-readability",
+      "repo": "ollama/ollama",
+      "file": "auth/auth.go",
+      "lines": 118,
+      "stage": 1,
+      "expected_category": "AUTHORIZATION",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "ceac416ec279c8324b770af380621f9ef26dd767",
+      "fixed_rev": "eb0a5d44598b1ad29431e7574de187340bd3cf34",
+      "packages": {
+        "vuln": {
+          "run_id": "08f949c0-9d27-4dc8-a278-020a016bf8a0",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 51,
+            "cost_cny": null,
+            "measured_tokens": 186626,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "f25a9833-bcaa-442d-9787-173db639c544",
+            "html": "d7ef103c-e440-4ebb-a8f8-349c4a9f1121",
+            "markdown": "2ea851e2-c542-4b13-8183-ecef0dde20b8"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 5,
+          "target_covered": true,
+          "findings_total": 3,
+          "hits": [],
+          "pending": [
+            {
+              "id": "06a5f421-5d8c-45cf-be1b-6f80c6fccf85",
+              "title": "Sign 使用主机身份私钥对任意调用方提供的字节签名，且无作用域/授权校验",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "0f754ec4-e4e0-4018-b22a-59ad2ced0796",
+              "title": "NewNonce 未校验 length，负值导致 panic、超大值导致内存耗尽",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "ac097260-d9f0-4615-8b22-7f816449a5e6",
+              "title": "读取私钥文件前缺少文件权限/所有者校验（密钥机密性依赖部署）",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "e34911f0-8b85-4a15-a73e-422ad41e7bc3",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 59,
+            "cost_cny": null,
+            "measured_tokens": 244895,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "7c8de113-81d6-461d-a46d-6550028c3f63",
+            "html": "ff783264-8760-4a43-9dd4-1f944022aa89",
+            "markdown": "f0aa0bb9-5e2f-4d4f-85a2-491f116ad3ce"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 5,
+          "target_covered": true,
+          "findings_total": 5,
+          "hits": [],
+          "pending": [
+            {
+              "id": "6a112af8-6d01-43c0-93c9-a9c84877b86d",
+              "title": "keyPath 回退分支返回未经文件类型/链接校验的私钥路径（符号链接跟随与 TOCTOU）",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "a86731c1-c169-453d-ac6d-7150b17cbafd",
+              "title": "私钥文件读取仅依赖固定路径与可读性检查，缺少所有权/符号链接与 TOCTOU 防护",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "e64be840-7b98-40d0-9091-23482aeacd92",
+              "title": "Sign 对调用方提供的原始字节直接签名，ctx 完全未使用，缺少 context/会话绑定与签名用途分离",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "790c8648-f4e2-4773-95a0-67f188bff205",
+              "title": "Sign 重新定位并读取私钥文件缺少路径/句柄校验，keyPath 探测与 os.ReadFile 之间存在 TOCTOU 与符号链接跟随",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "batch": "stage1-p03-rerun1",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7343",
+  "generated_at": "2026-09-11T08:01:38.389320+00:00",
+  "budget": {
+    "max_units": 20,
+    "max_model_calls": 240,
+    "max_tool_rounds": 8,
+    "timeout_seconds": 1800
+  },
+  "results": [
+    {
+      "short": "p03-fastchat-xss",
+      "pair_id": "fastchat-gradio-xss-unsanitized-user-input",
+      "repo": "lm-sys/FastChat",
+      "file": "fastchat/serve/gradio_patch.py",
+      "lines": 169,
+      "stage": 1,
+      "expected_category": "INJECTION",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "1c9ccbabbd9d51561e54604162ad0262d0147b14",
+      "fixed_rev": "74cfa20529cbc164f628efedfccabb77dd0516ff",
+      "packages": {
+        "vuln": {
+          "run_id": "97fb7551-533f-40be-94ca-17b09fd17076",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 74,
+            "cost_cny": null,
+            "measured_tokens": 383616,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "b7ce72a7-84f8-4c27-9384-20b10cec9c43",
+            "html": "9bf0cc76-e485-4511-9a8a-53e9547537a5",
+            "markdown": "5a38453c-97cf-430b-8530-a629d865bd12"
+          },
+          "verdict": "命中",
+          "audited_unit_count": 7,
+          "target_covered": true,
+          "findings_total": 4,
+          "hits": [
+            {
+              "id": "25a30cc0-2932-4b7f-aac6-3ec833b9dbcf",
+              "title": "_process_chat_messages 使用未开启 safe_mode 的 markdown2 将消息字符串直接转成 HTML",
+              "category": "INJECTION",
+              "cwe": "CWE-79",
+              "severity": "MEDIUM"
+            },
+            {
+              "id": "c4680eda-27fe-4aa4-a58d-5962b4228a9b",
+              "title": "postprocess 将消息对第一项原样拼进 <pre> HTML，未做转义",
+              "category": "INJECTION",
+              "cwe": "CWE-79",
+              "severity": "MEDIUM"
+            }
+          ],
+          "pending": [
+            {
+              "id": "29a7837b-712e-4f30-9ff2-35182730f16b",
+              "title": "元组消息被转换为前端媒体引用字典，文件路径未做校验",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "63b1a0a2-3926-4956-82af-199ba736502d",
+              "title": "postprocess 使用 assert 做输入校验，且假设 message_pair[0] 为字符串",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "d1341ab4-1c50-455f-9250-c5aa217d6ca1",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 69,
+            "cost_cny": null,
+            "measured_tokens": 326854,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "b72f0250-b59d-45e3-952e-8fdcda6adb23",
+            "html": "029d581b-1151-47b6-94cf-c0fe67c9c99d",
+            "markdown": "472bdaa1-8c31-4423-b7e1-48a9a9d31092"
+          },
+          "verdict": "命中",
+          "audited_unit_count": 7,
+          "target_covered": true,
+          "findings_total": 5,
+          "hits": [
+            {
+              "id": "0d8a26e2-68da-41f8-be5d-6946661ad58f",
+              "title": "助手/模型消息经 markdown2 渲染且未净化，可注入原始 HTML（前端渲染时形成 XSS）",
+              "category": "INJECTION",
+              "cwe": "CWE-79",
+              "severity": "MEDIUM"
+            },
+            {
+              "id": "0b42e2e8-a2e8-480f-ab7d-f31cd33347c3",
+              "title": "用户消息直接传入 nh3.clean，非字符串（tuple/list/dict）输入会抛出未处理异常",
+              "category": "INJECTION",
+              "cwe": "CWE-20",
+              "severity": "LOW"
+            }
+          ],
+          "pending": [
+            {
+              "id": "3ba70d3e-6274-42d4-b1a0-7a71d85c3900",
+              "title": "非字符串消息（dict）原样透传，缺少字段白名单与类型约束",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "30cf6d58-9f8a-4b52-8604-3fc64475ff1f",
+              "title": "get_config 直接回传 self.value 原始消息，绕过 postprocess 的净化/类型归一化",
+              "category": "INJECTION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "39055a75-0362-47bd-bee5-dd165038258d",
+              "title": "postprocess 对非字符串用户消息无条件调用 nh3.clean，缺少类型校验",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}

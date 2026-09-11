@@ -1,0 +1,21 @@
+=== RUN   TestPreparePanicRaw
+--- FAIL: TestPreparePanicRaw (0.00s)
+panic: runtime error: index out of range [0] with length 0 [recovered, repanicked]
+
+goroutine 20 [running]:
+testing.tRunner.func1.2({0x7ff6aea35628, 0x8837a536348})
+	D:/kechngsheji/tools/go/src/testing/testing.go:2123 +0x239
+testing.tRunner.func1()
+	D:/kechngsheji/tools/go/src/testing/testing.go:2126 +0x329
+panic({0x7ff6aea35628?, 0x8837a536348?})
+	D:/kechngsheji/tools/go/src/runtime/panic.go:859 +0x125
+github.com/ollama/ollama/server.(*blobDownload).Prepare(0x8837a55e230, {0x41?, 0x7ff6ae656d20?}, 0x8837a560120, 0x7ff6aea49520?)
+	D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p06-parts-panic/vuln/server/download.go:175 +0x3b9
+github.com/ollama/ollama/server.TestPreparePanicRaw(0x8837a57a200)
+	D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p06-parts-panic/vuln/server/poc_test.go:65 +0x155
+testing.tRunner(0x8837a57a200, 0x7ff6aea476c8)
+	D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0xc3
+created by testing.(*T).Run in goroutine 1
+	D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x4b4
+FAIL	github.com/ollama/ollama/server	0.568s
+FAIL

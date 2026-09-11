@@ -1,0 +1,189 @@
+{
+  "batch": "stage1-p09",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7342",
+  "generated_at": "2026-09-11T07:56:39.536393+00:00",
+  "budget": {
+    "max_units": 20,
+    "max_model_calls": 240,
+    "max_tool_rounds": 8,
+    "timeout_seconds": 1800
+  },
+  "results": [
+    {
+      "short": "p09-ollama-zerolen",
+      "pair_id": "ollama-zero-length-image-unvalidated",
+      "repo": "ollama/ollama",
+      "file": "llama/runner/image.go",
+      "lines": 184,
+      "stage": 1,
+      "expected_category": "MEMORY_BOUNDS",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "771fab1dd8ca1040377400731bffa728845e6cb2",
+      "fixed_rev": "c2e8cbaa140986b6a27f2c795e2fb9b38e74f094",
+      "packages": {
+        "vuln": {
+          "run_id": "fa67ca7d-fcf5-4f73-9003-416b043e3b96",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 94,
+            "cost_cny": null,
+            "measured_tokens": 468126,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "9c85294b-8199-466b-9bff-b7b6357b347c",
+            "html": "b6bbca85-4423-4730-b5d6-b79c54de0098",
+            "markdown": "b4c8900a-de5b-481f-8161-027ccd4ab577"
+          },
+          "verdict": "命中",
+          "audited_unit_count": 5,
+          "target_covered": true,
+          "findings_total": 8,
+          "hits": [
+            {
+              "id": "81226f7c-e235-43d9-8151-16f140ff6b06",
+              "title": "hashImage 在未持有 c.mu 的情况下复用共享 maphash.Hash 实例（并发 NewEmbed 时数据竞争）",
+              "category": "MEMORY_BOUNDS",
+              "cwe": "CWE-362",
+              "severity": "MEDIUM"
+            },
+            {
+              "id": "997d53bb-367d-4599-9bf5-f50632d15761",
+              "title": "hashImage 在未持有 c.mu 的情况下复用并改写共享 maphash.Hash，与并发 NewEmbed 构成数据竞争",
+              "category": "MEMORY_BOUNDS",
+              "cwe": "CWE-362",
+              "severity": "MEDIUM"
+            }
+          ],
+          "pending": [
+            {
+              "id": "2a8ae8bc-926d-43db-829d-0218b6e9708b",
+              "title": "嵌入缓存键仅取图像字节的 64 位非加密哈希，未包含 aspectRatioId/后端类型（跨请求键语义不完整，碰撞时暴露他图嵌入）",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "6cdb9a0f-735a-410d-ab2b-a90b054fae3a",
+              "title": "图像嵌入缓存仅以 64 位非加密哈希为键且不校验原始数据与宽高比",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "f3c2ece9-f42d-4db8-be7f-b906f2990d47",
+              "title": "Free 未持锁释放视觉上下文，与并发 NewEmbed 构成释放后使用/数据竞争",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "15752a29-a811-42ae-b9e1-769b9d094306",
+              "title": "hashImage 以非加密 64 位哈希作为图像→嵌入缓存键，且命中后无原像/字节校验，碰撞即返回他图嵌入",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "0f0c7f78-2f22-4d5f-a77e-a3aa08ad6f89",
+              "title": "图像缓存键仅由图像字节哈希构成，未纳入 aspectRatioId 等嵌入生成参数，导致跨请求嵌入错配",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "UNREVIEWED"
+            },
+            {
+              "id": "368116e6-cff4-44f3-b5f0-c74637a4398f",
+              "title": "addImage 直接以 bestImage 下标访问切片且不校验缓存长度，空缓存时可触发越界 panic",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "d00a0c6b-35e0-473b-88e8-422770c527a3",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 136,
+            "cost_cny": null,
+            "measured_tokens": 584799,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "a02db377-2448-4a4a-964c-92fbd4ff8b8b",
+            "html": "33615f39-d3a9-48cc-9148-3ed634fffdfa",
+            "markdown": "55a2fa56-e4e2-46ed-8ed9-69febc89b6f9"
+          },
+          "verdict": "命中",
+          "audited_unit_count": 10,
+          "target_covered": true,
+          "findings_total": 10,
+          "hits": [
+            {
+              "id": "af38bd02-b289-47a2-b6a5-019ce2ee3b2b",
+              "title": "hashImage 在互斥锁保护范围之外读写共享 maphash.Hash，并发请求造成数据竞争与缓存键串用",
+              "category": "MEMORY_BOUNDS",
+              "cwe": "CWE-362",
+              "severity": "MEDIUM"
+            },
+            {
+              "id": "7c2da3d8-f8fb-4a1b-805a-e59ba0fd83a0",
+              "title": "hashImage 在互斥区之外操作共享 maphash.Hash，并发请求下产生数据竞争与错误缓存键",
+              "category": "MEMORY_BOUNDS",
+              "cwe": "CWE-362",
+              "severity": "MEDIUM"
+            }
+          ],
+          "pending": [
+            {
+              "id": "45e050e4-1bcf-47d4-ad0b-5aec2308929c",
+              "title": "缓存键使用 64 位非加密 maphash，抗碰撞性不足",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "97b2a968-7c25-49bd-bd9e-750b5660b061",
+              "title": "缓存键在互斥锁之外计算：hashImage 并发访问共享 maphash.Hash 造成数据竞争",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "a4208a32-8b48-453f-bbc2-5d88a3a51517",
+              "title": "图像缓存键忽略 aspectRatioId（及上下文标识），导致不同宽高比请求复用同一嵌入",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "260db39b-6042-4eb3-9e46-6ccc16b47310",
+              "title": "LRU 缓存写入使用默认索引 0 且未校验缓存切片非空，存在越界索引风险",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "48538ccd-4516-4ff6-96fe-01fdd321fbf0",
+              "title": "图像缓存命中判定未区分未初始化条目：零键槽位被当作有效命中并返回空嵌入",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "39448e46-3d5d-4ce3-b474-a3fc3dbdaed9",
+              "title": "跨请求共享的图像缓存仅以非加密 64 位散列作为唯一身份，命中路径无内容或来源复核",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "a005b821-1b6e-442c-9be3-04086e77df4a",
+              "title": "Free 未持锁且未失效化状态，可导致原生上下文竞争释放/重复释放（UAF/双重释放）",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "0b841efe-66c4-4b01-93d2-32357f5063dc",
+              "title": "EmbedSize 回退分支未校验 llamaContext，可能解引用空指针",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}

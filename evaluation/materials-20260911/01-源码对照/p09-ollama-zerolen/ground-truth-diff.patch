@@ -1,0 +1,15 @@
+diff --git a/llama/runner/image.go b/llama/runner/image.go
+index 1cb898d3f..700582900 100644
+--- a/llama/runner/image.go
++++ b/llama/runner/image.go
+@@ -68,6 +68,10 @@ func (c *ImageContext) NewEmbed(llamaContext *llama.Context, data []byte, aspect
+ 		return nil, nil
+ 	}
+ 
++	if len(data) <= 0 {
++		return nil, errors.New("received zero length image")
++	}
++
+ 	hash := c.hashImage(data)
+ 
+ 	c.mu.Lock()

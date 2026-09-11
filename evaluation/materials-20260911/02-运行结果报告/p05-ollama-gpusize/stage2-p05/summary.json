@@ -1,0 +1,123 @@
+{
+  "batch": "stage2-p05",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7331",
+  "generated_at": "2026-09-11T09:53:49.353522+00:00",
+  "budget": {
+    "max_units": 40,
+    "max_model_calls": 400,
+    "max_tool_rounds": 12,
+    "timeout_seconds": 3600
+  },
+  "results": [
+    {
+      "short": "p05-ollama-gpusize",
+      "pair_id": "ollama-gpu-size-index-out-of-range",
+      "repo": "ollama/ollama",
+      "file": "llm/server.go",
+      "lines": 1111,
+      "stage": 2,
+      "expected_category": "MEMORY_BOUNDS",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "a14f76491d694b2f5a0dec6473514b7f93beeea0",
+      "fixed_rev": "81d55d3e4d3e18404414900dd341438aad329656",
+      "packages": {
+        "vuln": {
+          "run_id": "9f90c5ad-2c3a-4d4b-ac8f-d7052a21c8bf",
+          "state": "RUN_STATE_CANCELLED",
+          "usage": {
+            "calls": 217,
+            "cost_cny": null,
+            "measured_tokens": 1357645,
+            "unknown_usage_calls": 1
+          },
+          "reports": {
+            "json": "66d0ec22-7249-425e-b550-e172243c485f",
+            "html": "1beb4833-e3ee-46ea-829e-28cdee192335",
+            "markdown": "fc885125-54c0-4b89-9e59-f98b683fff56"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 14,
+          "target_covered": true,
+          "findings_total": 11,
+          "focus_line_count": 1,
+          "hits": [],
+          "hits_on_change_point": [],
+          "pending": [
+            {
+              "id": "53abff09-455d-49ea-84e1-ea6e223ef040",
+              "title": "子进程通过外部目录优先的 LD_LIBRARY_PATH/PATH 启动可执行文件，缺少完整性校验",
+              "category": "INJECTION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "fcd98e3f-9dcc-4146-90a3-7c41cf8f79c0",
+              "title": "从外部输入直接构造的子进程参数未做路径校验（模型/适配器/投影器路径转发给 llama 子进程）",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "f71c2dba-0198-4486-9516-2fa31ff0395e",
+              "title": "LoadModel 直接以调用方提供的路径打开文件，缺少模型目录约束（输入来源未在目标内确认）",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "2b5f0f29-f9ca-459b-80e2-4e9e11c73916",
+              "title": "Embedding 响应体无读取上限且依赖无超时的 DefaultClient，源自本地 runner 的畸形/超大响应可耗尽内存或长期占用信号量",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "70b9ee96-ec87-402e-a6e2-56f743872889",
+              "title": "Detokenize 未校验 token id 即传入 TokenToPiece 进行词表索引",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "176f8218-b92e-4a0b-b97f-2b189eade45b",
+              "title": "llama 子进程库搜索路径前置拼接，目录可被临时目录清理/替换影响",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "51eb15e4-24d2-4104-8f21-2576db13142e",
+              "title": "Detokenize 对本地 runner 的 HTTP 请求无任何身份/来源校验",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "3e9d3c7f-0280-446c-9651-58fa86a82dad",
+              "title": "环回健康检查缺少对端身份校验，状态可被本地冒名进程伪造",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "7a9e55dc-051f-4550-9a22-5632e69af33a",
+              "title": "健康检查响应体无大小上限读取导致内存耗尽",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "c124ed81-501c-4cf2-8e69-886abbe93f4f",
+              "title": "parseDurationMs 对格式化后的毫秒浮点数解析失败时直接 panic（不可恢复的进程级拒绝服务）",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "0ddff58c-22e9-4e06-8885-71aaa92fc7ee",
+              "title": "EstimatedVRAMByGPU 中 gpus 与 estimate.GPUSizes 索引未做长度校验，可能越界 panic",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "error": "<urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>"
+        }
+      },
+      "pass": false
+    }
+  ]
+}

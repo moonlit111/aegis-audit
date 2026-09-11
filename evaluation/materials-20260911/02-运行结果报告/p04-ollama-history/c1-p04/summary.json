@@ -1,0 +1,189 @@
+{
+  "batch": "c1-p04",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7331",
+  "generated_at": "2026-09-11T07:52:06.325033+00:00",
+  "budget": {
+    "max_units": 20,
+    "max_model_calls": 240,
+    "max_tool_rounds": 8,
+    "timeout_seconds": 1800
+  },
+  "results": [
+    {
+      "short": "p04-ollama-history",
+      "pair_id": "ollama-history-file-world-readable",
+      "repo": "ollama/ollama",
+      "file": "readline/history.go",
+      "lines": 156,
+      "stage": 1,
+      "expected_category": "AUTHORIZATION",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "2b9892a808a56f9d2634f85907fdc5e0498000c6",
+      "fixed_rev": "f95d2f25f35c5140acbec44aaf8078c3c0526a7b",
+      "packages": {
+        "vuln": {
+          "run_id": "f18ad975-e68e-4b15-9ede-071387deb92a",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 102,
+            "cost_cny": null,
+            "measured_tokens": 470019,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "5cc64dd3-f57c-4706-94fc-6e0346060720",
+            "html": "f437bf3f-b28a-4b3b-89f8-ea0fa0929899",
+            "markdown": "69c29d2a-4534-4596-82f3-6828ac4ffa48"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 8,
+          "target_covered": true,
+          "findings_total": 10,
+          "hits": [],
+          "pending": [
+            {
+              "id": "98a62f37-78be-47bf-91d6-571e60b0e40e",
+              "title": "历史记录目录以 0755 创建，权限过宽（本地其他用户可遍历/干扰历史存储目录）",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "27d04a6f-444f-4762-9785-1fdbc8114580",
+              "title": "以固定路径打开历史文件且未防符号链接，可读取非预期文件内容",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "712d6d55-0895-4b8f-87a1-ae74c79619a7",
+              "title": "按行读取历史文件无长度与总量上限，可将任意长度内容载入内存",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "50f74c2d-e28c-4bdc-a991-341755d5a051",
+              "title": "历史文件临时副本以可预测路径和 0o666 创建并直接 rename，缺少 O_EXCL/NOFOLLOW 与权限回收",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "7245fb1c-5b56-4d5f-be8f-330d0083751f",
+              "title": "历史文件临时文件以 0o666 创建，历史内容可能对本机其他用户可读写",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "b445174e-4ed0-4ff4-9a0d-e0e578b1f104",
+              "title": "Add 自动保存忽略 Save 返回错误，历史写入失败被静默丢弃",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "b491e4b1-d913-4b55-9ebb-c252e5fbfa87",
+              "title": "历史记录条目长度无上限，Add 会把任意长度输入直接放入内存缓冲区（经 Init 读入的持久化文件行无长度约束）",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "f42f7833-2112-4693-aee9-8ee89379b9f0",
+              "title": "Next() 的边界守卫差一，Pos 自增后可等于 Size 并访问越界索引",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "5850cc55-abd6-42ef-9b21-a01b6bfa89c1",
+              "title": "Clear 清空列表后未重置游标 Pos，Prev/Next 会以越界索引访问历史列表",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "363e80b4-74fe-4810-8d3c-1f58d5b3b248",
+              "title": "创建历史记录对象时无上限加载并逐行触发全量重写（IO 放大）",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "41a73353-e689-4de3-b56c-a174356506a6",
+          "state": "RUN_STATE_COMPLETED",
+          "usage": {
+            "calls": 105,
+            "cost_cny": null,
+            "measured_tokens": 544473,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "79b5679b-b798-469e-a018-e67e654ccd72",
+            "html": "40f97c9e-46b7-4437-987d-57c972f53436",
+            "markdown": "f0888214-a7d2-449c-b408-24a2ed80e0e6"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 10,
+          "target_covered": true,
+          "findings_total": 9,
+          "hits": [],
+          "pending": [
+            {
+              "id": "ade466ee-924b-4e36-aa54-bb521d52affb",
+              "title": "Init 加载历史文件时无大小/行数上限，并逐行触发 Autosave 写回",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "e8143d1d-e8ce-4d87-9425-4392e9cc17e5",
+              "title": "Init 从可被本地其他用户影响的路径读取历史文件，未做 O_NOFOLLOW/属主校验，且加载过程会经 Add→Autosave 触发写回",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "2a3110f6-5b2c-4710-a64e-97c0781d9062",
+              "title": "保存历史时使用可预测的临时文件并跟随符号链接打开（open O_TRUNC + rename），存在本地符号链接/TOCTOU 覆写风险",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "6fe47017-d1ff-4f8e-a36d-40abd247ae3d",
+              "title": "Add 未净化换行/控制字符，历史记录以行分隔格式持久化导致历史行注入",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "e17859d8-76b9-4a27-b6cd-715af3ef04bb",
+              "title": "Compact 未校验 Limit，Limit<=0 时对空历史列表持续 Remove(0) 可能越界 panic 或静默清空历史",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "b034a51d-5916-4198-892b-e594068376bf",
+              "title": "History.Next 越界前自增导致最后一格越界访问（off-by-one）",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "7f2a4dae-8b47-4135-8ad2-aec7bebf4492",
+              "title": "历史文件路径完全由环境(用户主目录)推导，目录以 0755 创建且未做路径/权限校验",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "f976d379-2c79-4994-95cc-9a8b58add0ab",
+              "title": "历史条目以字符串拼接换行符直接写入文件，未过滤控制字符/换行",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "6d5c5218-c2f4-4bd2-8a22-7403582388f3",
+              "title": "Clear 只清空内存缓冲，未重置 Pos 也未持久化，历史文件仍保留旧命令",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}
