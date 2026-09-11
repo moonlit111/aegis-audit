@@ -89,8 +89,7 @@ impl Store {
                 config.mode == "FUZZ" && config.adapter == "WINDOWS_LIBFUZZER_PREBUILT";
             if config.mode == "FUZZ" && !fuzz_reuse {
                 return Err(AppError::Invalid(
-                    "FUZZ 智能复用必须使用预构建 libFuzzer；VERIFY 入口只需属于同一快照"
-                        .into(),
+                    "FUZZ 智能复用必须使用预构建 libFuzzer；VERIFY 入口只需属于同一快照".into(),
                 ));
             }
         }
