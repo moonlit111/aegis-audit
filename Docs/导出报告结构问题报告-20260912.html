@@ -1,0 +1,899 @@
+<title>导出报告结构审查</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground: #f7f8fa;
+    --surface: #ffffff;
+    --surface-sunk: #f1f3f7;
+    --ink: #141a22;
+    --ink-soft: #3b4655;
+    --muted: #5a6878;
+    --faint: #8b97a6;
+    --line: #e2e7ee;
+    --line-strong: #ced6e0;
+    --accent: #2b3f63;
+    --accent-soft: #eaeef6;
+
+    --sev-critical: #a3231c;
+    --sev-high: #9c5a12;
+    --sev-medium: #7e6a14;
+    --sev-low: #4a6076;
+
+    --mono-bg: #f1f3f7;
+    --mono-ink: #2c3a4c;
+
+    --measure: 74ch;
+    --radius: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f131a;
+      --surface: #161c25;
+      --surface-sunk: #1b222c;
+      --ink: #e7ebf1;
+      --ink-soft: #c3cbd6;
+      --muted: #8e9cad;
+      --faint: #6b7889;
+      --line: #242d39;
+      --line-strong: #33404f;
+      --accent: #8fa9d6;
+      --accent-soft: #1a2434;
+
+      --sev-critical: #e8837a;
+      --sev-high: #dda35f;
+      --sev-medium: #c9b45f;
+      --sev-low: #8fa6bf;
+
+      --mono-bg: #1b222c;
+      --mono-ink: #b9c6d6;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0f131a;
+    --surface: #161c25;
+    --surface-sunk: #1b222c;
+    --ink: #e7ebf1;
+    --ink-soft: #c3cbd6;
+    --muted: #8e9cad;
+    --faint: #6b7889;
+    --line: #242d39;
+    --line-strong: #33404f;
+    --accent: #8fa9d6;
+    --accent-soft: #1a2434;
+
+    --sev-critical: #e8837a;
+    --sev-high: #dda35f;
+    --sev-medium: #c9b45f;
+    --sev-low: #8fa6bf;
+
+    --mono-bg: #1b222c;
+    --mono-ink: #b9c6d6;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding-block: 0 96px;
+    padding-inline: 24px;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans SC", -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin-inline: auto;
+  }
+
+  code, .ref, .num {
+    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ref {
+    font-size: 12.5px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* ── masthead ─────────────────────────────── */
+
+  .masthead {
+    border-bottom: 3px solid var(--ink);
+    padding-block: 56px 22px;
+    margin-bottom: 40px;
+  }
+
+  .eyebrow {
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-family: "Noto Serif SC", Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(30px, 5vw, 42px);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    max-width: 62ch;
+    margin: 0 0 30px;
+  }
+
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 18px 28px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+
+  .meta dt {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+
+  .meta dd {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  /* ── sections ─────────────────────────────── */
+
+  section { margin-top: 56px; }
+
+  h2 {
+    font-family: "Noto Serif SC", Georgia, serif;
+    font-size: 23px;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 0 0 6px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line-strong);
+    text-wrap: balance;
+  }
+
+  h2 .sec-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--faint);
+    font-weight: 400;
+    margin-right: 12px;
+    letter-spacing: 0.04em;
+  }
+
+  .sec-note {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0 0 26px;
+    max-width: var(--measure);
+  }
+
+  p { max-width: var(--measure); }
+  .body p { margin: 0 0 15px; color: var(--ink-soft); }
+
+  /* ── summary ──────────────────────────────── */
+
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 22px 26px;
+  }
+
+  .verdict p { margin: 0 0 13px; color: var(--ink-soft); max-width: none; }
+  .verdict p:last-child { margin-bottom: 0; }
+  .verdict strong { color: var(--ink); font-weight: 700; }
+
+  /* ── risk table ───────────────────────────── */
+
+  .table-scroll { overflow-x: auto; margin-top: 4px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 460px;
+    font-size: 13.5px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 9px 14px 9px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+
+  thead th {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    border-bottom: 1px solid var(--line-strong);
+    padding-bottom: 8px;
+  }
+
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; padding-right: 0; }
+
+  tfoot td {
+    border-bottom: none;
+    border-top: 2px solid var(--line-strong);
+    font-weight: 700;
+    color: var(--ink);
+    padding-top: 11px;
+  }
+
+  .sev-chip {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+
+  .c-critical { color: var(--sev-critical); }
+  .c-high     { color: var(--sev-high); }
+  .c-medium   { color: var(--sev-medium); }
+  .c-low      { color: var(--sev-low); }
+
+  /* ── findings ─────────────────────────────── */
+
+  .finding {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 0 22px;
+    padding-block: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .finding:first-of-type { border-top: 1px solid var(--line); }
+
+  .fid {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    color: var(--faint);
+    padding-top: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .fid .sev-bar {
+    display: block;
+    width: 26px;
+    height: 3px;
+    margin-bottom: 8px;
+    border-radius: 2px;
+  }
+
+  .bar-critical { background: var(--sev-critical); }
+  .bar-high     { background: var(--sev-high); }
+  .bar-medium   { background: var(--sev-medium); }
+  .bar-low      { background: var(--sev-low); }
+
+  .finding h3 {
+    font-family: "Noto Sans SC", sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.55;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+
+  .finding p {
+    margin: 0 0 11px;
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    max-width: var(--measure);
+  }
+
+  .finding p:last-child { margin-bottom: 0; }
+
+  .lbl {
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .evidence {
+    background: var(--mono-bg);
+    border-left: 2px solid var(--line-strong);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 12px 15px;
+    margin: 0 0 12px;
+    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.72;
+    color: var(--mono-ink);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .evidence .ref { color: var(--accent); }
+
+  /* ── corrected list ───────────────────────── */
+
+  .corrected { counter-reset: corr; display: grid; gap: 2px; }
+
+  .corr {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 0 14px;
+    padding-block: 13px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .corr::before {
+    counter-increment: corr;
+    content: counter(corr);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--faint);
+    padding-top: 3px;
+  }
+
+  .corr strong {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--ink);
+    text-decoration: line-through;
+    text-decoration-color: var(--faint);
+    text-decoration-thickness: 1px;
+    margin-bottom: 4px;
+  }
+
+  .corr span { font-size: 14px; color: var(--ink-soft); }
+
+  /* ── footer ───────────────────────────────── */
+
+  .limits {
+    background: var(--surface-sunk);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-top: 26px;
+  }
+
+  .limits ul { margin: 0; padding-left: 20px; }
+  .limits li { color: var(--ink-soft); font-size: 14px; margin-bottom: 8px; max-width: var(--measure); }
+  .limits li:last-child { margin-bottom: 0; }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--faint);
+    font-size: 12.5px;
+  }
+
+  @media (max-width: 560px) {
+    body { padding-inline: 18px; }
+    .finding { grid-template-columns: 1fr; gap: 10px; }
+    .fid { display: flex; align-items: center; gap: 10px; padding-top: 0; }
+    .fid .sev-bar { margin-bottom: 0; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">问题报告 · 导出报告结构审查</div>
+    <h1>AegisAudit 导出报告的结构审查</h1>
+    <p class="standfirst">对 <code>crates/application/src/report.rs</code> 及其上下游（PDF 打印、存储生命周期、proto 契约、前端导出）的结构性审查，共 25 项问题，其中 3 项严重。</p>
+    <dl class="meta">
+      <div><dt>审查对象</dt><dd>JSON / Markdown / HTML / PDF 四种导出格式</dd></div>
+      <div><dt>审查方式</dt><dd>7 维度并行阅读 + 对抗性复核 + 真实产物实证</dd></div>
+      <div><dt>原始结论</dt><dd>40 条，17 条被复核推翻或降级</dd></div>
+      <div><dt>证据基线</dt><dd>代码逐行核对；PDF 实测用 Edge 152 / Chrome</dd></div>
+    </dl>
+  </header>
+
+  <div class="body">
+    <p><strong>结论：当前报告结构不成立。</strong>问题不在渲染细节，而在三处根本错位——报告把<strong>内部实现</strong>当成交付内容（JSON 直嵌领域模型，连模型的 provider 请求 ID 和原始输出一起交付）；<strong>四种格式不是同一份文档</strong>（Markdown 缺严重度依据，HTML 的发现章节挂错标题）；以及<strong>交付物缺了它自己承诺的章节</strong>（无执行摘要、无风险汇总、"覆盖缺口"退化成原始 JSON 转储）。</p>
+    <p>项目自己的设计契约在 <span class="ref">Docs/详细设计报告.md:995-1005</span> 声明了七章结构与"严重等级<strong>及理由</strong>"的字段要求，实现与之偏离——这不是没有标准，是没有对齐标准。</p>
+    <p>结构问题之外，本次审查<strong>推翻了 17 条看起来合理的初始结论</strong>（见第五节）。其中几条出自我此前的口头汇报，一并更正。</p>
+  </div>
+
+  <section>
+    <h2><span class="sec-num">01</span>风险汇总</h2>
+    <p class="sec-note">按严重度分布。这一节本身就是报告所缺失的那一章——产品导出的报告至今没有任何这类汇总。</p>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr><th>严重度</th><th>条目</th><th class="num">数量</th><th>集中在</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="sev-chip c-critical">严重</span></td><td>P-01 P-02 P-12</td><td class="num">3</td><td>缺执行摘要、无摘要层、JSON 泄漏内部数据</td></tr>
+          <tr><td><span class="sev-chip c-high">高</span></td><td>P-03 P-04 P-05 P-07 P-08 P-17 P-22</td><td class="num">7</td><td>契约章节缺失、格式不等价、报告不可复现</td></tr>
+          <tr><td><span class="sev-chip c-medium">中</span></td><td>P-06 P-09 P-10 P-11 P-13 P-14 P-15 P-16 P-18 P-19 P-20 P-21</td><td class="num">12</td><td>字段重复/矛盾、生命周期、版式</td></tr>
+          <tr><td><span class="sev-chip c-low">低</span></td><td>P-23 P-24 P-25</td><td class="num">3</td><td>当前不可达的加固建议</td></tr>
+        </tbody>
+        <tfoot>
+          <tr><td>合计</td><td>—</td><td class="num">25</td><td>—</td></tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">02</span>交付物结构：缺了它自己承诺的章节</h2>
+    <p class="sec-note">设计契约要求七章：概览 / 漏洞清单 / 证据链 / 修复建议 / 人工修订 / 覆盖缺口 / 运行范围。实际输出是九节，名称与边界都对不上。</p>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-critical"></span>P-01</div>
+      <div>
+        <h3>没有执行摘要：REPORTER 的结论、建议与局限被埋在 JSON 转储里</h3>
+        <p>审计链最后一环 REPORTER 的输出被写进 <code>run.summary["audit_narrative"]</code>，而三个渲染分支<strong>没有任何一行读它</strong>。它唯一的可见位置是"覆盖与错误"章节里的原始 JSON 代码块——一个语义完全错误的章节名下。</p>
+        <div class="evidence"><span class="ref">audits.rs:518-519</span>
+run.summary["audit_narrative"] = result.clone();
+
+<span class="ref">grep -rn audit_narrative</span>  → 仅命中上面这一行
+                        report.rs 内 0 命中</div>
+        <p><span class="lbl">影响</span>交付物缺少执行摘要这一必备章节。客户必须先读懂一张单元表、再解析 JSON，才知道这次审计得出了什么。REPORTER 提示词里为保证读者向表述而做的约束（不把候选当结论、不把组件验证当已利用）在报告中失去落点。</p>
+        <p><span class="lbl">建议</span>在 H1 之后插入固定章节 <code>## 执行摘要</code>，取 <code>audit_narrative</code> 的三段：summary → 段落，recommendations → 有序列表，limitations → 无序列表；并从 run.summary 转储中移除该键，避免同一段文字出现两次。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-critical"></span>P-02</div>
+      <div>
+        <h3>第一屏是程序单元表，没有摘要、目录或结论区</h3>
+        <p>HTML/Markdown 拼出 h1、四行松散元数据后<strong>直接进入表体</strong>，行数没有上限、没有计数、没有截断。</p>
+        <div class="evidence"><span class="ref">report.rs:291-298</span> h1 + 元数据 + &lt;table&gt; 一次拼出
+<span class="ref">report.rs:299-308</span> for unit in units { … }   ← 无行数上限
+<span class="ref">store.rs:1343-1348</span> SELECT data FROM program_units WHERE run_id=?  ← 无 LIMIT
+
+实测（本机 Edge 152 / Chrome 以同一套 REPORT_STYLE 打印）：
+  4000 个单元 → 400 页
+  再加 600 行原始观察 JSON → 412 页</div>
+        <p><span class="lbl">影响</span>一个真实 run（数千单元）导出的 PDF 里，发现章节的物理页码可以超过 400。读者与评审无法快速判断严重度分布与复核完成度。</p>
+        <p><span class="lbl">建议</span>在单元表之前插入执行摘要与风险汇总；单元表加标题与计数、超过 200 行截断并注明"其余 N 个见 JSON 报告"；空集合时不输出空表。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-03</div>
+      <div>
+        <h3>没有风险评级汇总；发现既不按严重度排序、也不带条目 ID</h3>
+        <p>报告按数据库原始顺序输出发现，全文没有任何"共 N 个 CRITICAL / M 个 HIGH"的统计。严重度只是一个印在标题行里的词。</p>
+        <div class="evidence"><span class="ref">audits.rs:193</span>  SELECT data FROM findings WHERE run_id=? ORDER BY created_at,id
+<span class="ref">report.rs:197-199</span> 字段序列：标题 / cwe / 严重度 / 复核 / 验证 / …
+                        ← 无 finding.id，无 fingerprint</div>
+        <p><span class="lbl">影响</span>客户无法一眼判断风险面（有没有 CRITICAL、几条已被反证）；条目没有稳定 ID，整改跟踪、与界面 ListFindings 对账、同一目标前后两次报告的差异比对都无法做。</p>
+        <p><span class="lbl">建议</span>新增 <code>## 风险汇总</code> 表（严重度 × 候选数 / VALIDATED / REJECTED / INCONCLUSIVE / 未复核）；按 CRITICAL→UNKNOWN 稳定排序；每条标题改为 <code>### F-&lt;id 前 8 位&gt; · &lt;severity&gt; · &lt;title&gt;</code>。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-04</div>
+      <div>
+        <h3>"覆盖缺口"退化成 run.summary 的全量 JSON 转储</h3>
+        <p>契约要求这一章写"未解析文件、部分解析单元、被排除项、未覆盖范围"。实现是整份 <code>run.summary</code> 原样打印——含 exploitation、recovery、审计预算等与覆盖无关的字段。</p>
+        <div class="evidence"><span class="ref">report.rs:399-403</span>
+&lt;h2&gt;覆盖与错误&lt;/h2&gt;&lt;pre&gt;{run.summary 全量 JSON}&lt;/pre&gt;&lt;p&gt;{run.error}&lt;/p&gt;
+
+契约 <span class="ref">Docs/详细设计报告.md:1004</span>
+| 覆盖缺口 | 未解析文件、部分解析单元、被排除项、未覆盖范围 |
+
+实测：600 行原始 JSON 单独占 12 页 PDF</div>
+        <p><span class="lbl">影响</span>覆盖缺口是"这份审计没看到什么"的举证，现在被埋在一个未分节、未解释的机器 JSON 里，评审无法据此判断审计范围是否足够。</p>
+        <p><span class="lbl">建议</span>拆成三节固定字段：<code>## 覆盖范围</code> / <code>## 未覆盖范围与局限性</code>（逐条列 FAILED 任务与 run.error）/ <code>## 运行范围</code>（补 adapter、observer、repeats、timeout、回收记录）。人类可读格式一律不再出现 run.summary 原始 JSON。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-05</div>
+      <div>
+        <h3>HTML 的安全发现章节，在文档结构上落进了"逆向与解混淆"</h3>
+        <p>发现章节的 <code>&lt;h2&gt;</code> 是无条件输出的，紧接着就是 recovery 的 <code>&lt;h2&gt;</code> 加一段与安全发现无关的导语；而 findings 循环只输出 <code>&lt;section&gt;&lt;h3&gt;</code>，annotations 连标题都没有。</p>
+        <div class="evidence"><span class="ref">report.rs:326</span>  body.push_str("&lt;h2&gt;发现、复核与关键逻辑&lt;/h2&gt;");   ← 无条件
+<span class="ref">report.rs:327-328</span> if run.summary["recovery"].is_object() {
+                          "&lt;h2&gt;逆向与解混淆&lt;/h2&gt;&lt;p&gt;以下记录包含智能体计划、
+                           实际工具状态、输入输出哈希与产物引用。&lt;/p&gt;…"
+<span class="ref">report.rs:331</span>  "&lt;section&gt;&lt;h3&gt;{title}&lt;/h3&gt;…"                     ← 只有 h3
+<span class="ref">report.rs:360-368</span> 注解只输出 &lt;p&gt;，无标题</div>
+        <p><span class="lbl">影响</span>PDF/HTML 里最重的"发现"章节没有自己的章节标题，在 PDF 书签与大纲里看不到它，视觉上被读成反向工程记录的附属内容。同一报告导出成 Markdown 又是另一套层级，团队无法用章节路径稳定引用。</p>
+        <p><span class="lbl">建议</span>固定唯一章节序列由两个分支共用；把无条件 h2 改为"findings 或 annotations 非空时才输出"；HTML 补出独立的"关键逻辑与人工修订"标题，与 Markdown 的 <span class="ref">report.rs:225</span> 同名同序。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-06</div>
+      <div>
+        <h3>章节顺序把过程记录排在结果之前</h3>
+        <p>实际顺序是：程序单元表 → 审计策略与优先级 → 逆向与解混淆 → 发现与复核 → …。读者要先读完一整张单元表和一段规划文本，才看到第一条发现。</p>
+        <p><span class="lbl">建议</span>改为结果在前、过程在后、原始数据入附录：结论摘要 → 发现与复核 → 关键逻辑与人工修订 → 修复建议 → 覆盖与缺口 → 运行验证 → 自动利用证据 → 逆向与解混淆 → 审计策略 → 程序单元 → 证据产物 → 附录。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">03</span>四种格式不是同一份文档</h2>
+    <p class="sec-note">Markdown 与 HTML 是两份逐段手写、各自演化的渲染代码（<span class="ref">report.rs:150-288</span> 与 <span class="ref">289-413</span>）。字段集合与章节树已经漂移。</p>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-07</div>
+      <div>
+        <h3>Markdown 缺"严重度依据"，违反契约的"严重等级<strong>及理由</strong>"</h3>
+        <div class="evidence"><span class="ref">report.rs:335</span>（HTML） …&lt;p&gt;严重度依据：{}&lt;/p&gt;… escape(&amp;finding.draft.severity_reason)
+
+<span class="ref">report.rs:197-199</span>（Markdown）字段序列为
+  标题 / cwe / severity / review_status / verification_status /
+  input_source / sink / missing_guard / preconditions / impact / recommendation
+  ← 无 severity_reason
+
+契约 <span class="ref">Docs/详细设计报告.md:1000</span>
+| 漏洞清单 | 标题、类型、CWE、严重等级**及理由**、主位置 |</div>
+        <p><span class="lbl">影响</span>人工审阅 Markdown 报告时看不到定级依据，无法判断 CRITICAL/HIGH 是否被论证过。验收记录里 Markdown 常是唯一被转成 docx 分发、或唯一归档的阅读件——分发出的交付物缺字段。</p>
+        <p><span class="lbl">建议</span>两分支共用一张字段表 <code>fn finding_fields(&amp;FindingDraft) -&gt; [(&amp;'static str, &amp;str); N]</code>，各自只负责转义与包装，不允许再手写字段清单。<strong>注：两种格式都还漏了 <code>category</code>。</strong></p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-08</div>
+      <div>
+        <h3>Markdown 把换行折叠成空格，多行字段与代码引文不可读</h3>
+        <p><code>md()</code> 在转义后执行 <code>.replace(['\n','\r'], " ")</code>，所有经它的字段都被压成单行——包括引文。而引文是<strong>多行代码片段</strong>，domain 层专门注释要求保留原始缩进。</p>
+        <div class="evidence"><span class="ref">report.rs:440</span>
+for character in escape(text).replace(['\n', '\r'], " ").chars() {
+
+<span class="ref">crates/domain/src/audit.rs:124</span>
+// Preserve the original indentation and complete cited lines in the canonical evidence.
+
+<span class="ref">report.rs:422,425</span>（HTML 侧不受影响）
+p,li{…white-space:pre-wrap}   pre{white-space:pre-wrap;…}</div>
+        <p><span class="lbl">影响</span>模型产出的多行 impact / preconditions / recommendation（每条上限 8192 字节）变成没有换行的长文；源码证据引用（最多 100 行）丢失全部分行与缩进语义。同一 run 导出 HTML 与 Markdown，可读性差一个数量级，而 UI 把两者并列成等价选项。</p>
+        <p><span class="lbl">建议</span>拆成 <code>md_inline()</code>（表格单元格用，换行转 <code>&lt;br&gt;</code>）与 <code>md_block()</code>（正文用，逐行转义但保留 <code>\n</code>）；引文改为独立代码块，围栏长度按内容里最长反引号串动态选取。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-09</div>
+      <div>
+        <h3>同一个 <code>run.state</code> 在一份报告里有两种拼写</h3>
+        <div class="evidence"><span class="ref">report.rs:294 / 155</span>  "状态：{:?}"  → Running / WaitingExecutor / Partial
+<span class="ref">report.rs:129 / 118</span>  run.state.as_str() → RUNNING / WAITING_EXECUTOR / PARTIAL</div>
+        <p><span class="lbl">影响</span>同一页上"状态：WaitingExecutor"和"导出时任务状态 WAITING_EXECUTOR"并存。验收里"JSON 的状态与 RPC 核对一致"只覆盖 JSON；HTML/Markdown 的状态无法与数据库对账，第三方解析报告的读者也无法匹配文档化的 <code>SCREAMING_SNAKE_CASE</code> 状态集。</p>
+        <p><span class="lbl">建议</span>统一为 <code>run.state.as_str()</code>；HTML 侧补 <code>data-run-state</code> / <code>data-interim</code> 机器可读属性。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-10</div>
+      <div>
+        <h3>同一条利用证据，两种格式给出强度不同的结论</h3>
+        <div class="evidence"><span class="ref">report.rs:268-270</span>（Markdown）
+证明记录的输入可在授权目标上稳定复现观察到的结果
+
+<span class="ref">report.rs:394-395</span>（HTML）
+该证据证明最小输入可稳定触发观察到的内存安全异常</div>
+        <p><span class="lbl">影响</span>对 INJECTION / PATH_TRAVERSAL / AUTHORIZATION 类发现，HTML 的"内存安全异常"是超出证据的断言。同一审计的两份交付物口径不一致，在评审与举证场景会被质疑。</p>
+        <p><span class="lbl">建议</span>两种格式共用一句与类别无关的措辞。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-11</div>
+      <div>
+        <h3>复核的攻击条件判定与复核证据，两种格式都不打印</h3>
+        <p>模型复核被强制分别给出 <code>INPUT_CONTROL</code> / <code>REACHABILITY</code> / <code>DEFENSE_GAP</code> 三项，且 <code>VERDICT=VALIDATED</code> 要求三项全部 SUPPORTED——这是定级门槛。报告只打印 verdict 与 rationale，从不打印 assessments；也不打印复核引用的原始代码。</p>
+        <div class="evidence"><span class="ref">crates/domain/src/audit.rs:244-283</span>
+if self.assessments.len() &lt; 3 || self.assessments.len() &gt; 12 { … }
+if self.verdict == "VALIDATED" &amp;&amp; self.assessments.iter().any(|a| a.status != "SUPPORTED") { … }
+
+<span class="ref">report.rs:217-219</span> 只打印 revision / actor / verdict / rationale /
+                        counter_evidence / missing_information</div>
+        <p><span class="lbl">影响</span>读者看不到判定 VALIDATED 的各攻击条件是否被原始代码支持、反证引用了哪段代码。仅凭报告无法复核一条发现。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">04</span>JSON 格式是内部实现的 dump</h2>
+    <p class="sec-note"><code>ReportDocument</code> 直接引用六个领域结构，于是 JSON 报告的内容契约等于内部实现。</p>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-critical"></span>P-12</div>
+      <div>
+        <h3>交付物里带着模型的 provider 请求 ID、提示词版本与原始输出</h3>
+        <div class="evidence"><span class="ref">report.rs:19 / 146</span>
+pub audit: &amp;'a AuditEvidence,     →     serde_json::to_vec_pretty(&amp;document)?
+
+<span class="ref">crates/domain/src/audit.rs:370-379</span>
+pub struct AuditEvidence {
+    pub findings, pub reviews, pub annotations,
+    pub model_calls: Vec&lt;ModelCall&gt;,     ← provider_request_id / prompt_version /
+    pub tasks: Vec&lt;AgentTask&gt;,              latency_ms / token 用量
+    pub runtime,                          ← 每个 agent 任务的原始模型 JSON 输出
+}
+
+实测样本 <span class="ref">.data/verification/agent-recovery/native-report.json</span>
+  audit.model_calls[0].provider_request_id = "e17013c5-dfd3-4f7d-8dd3-66611f10717f"
+  audit.model_calls[0].prompt_version      = "audit-12-human-references"</div>
+        <p><span class="lbl">影响</span>一份本应只含审计结论与证据的交付物，暴露了内部调用编排、提示词版本、模型服务请求 ID 与未标注的原始模型文本。HTML/Markdown 把 recovery 与 observation 包进代码块并说明来源，JSON 分支没有等价的可信度标记——消费方无法区分"目标证据"与"模型自述"。</p>
+        <p><span class="lbl">建议</span>把 <code>ReportDocument</code> 从"引用领域模型"改为显式白名单投影：删掉 <code>audit</code> 字段，替换为 <code>ReportFinding</code> / <code>ReportReview</code> / <code>ReportTask</code>{role, status, …}（去掉 <code>result</code> 与 <code>id</code>）等；所有保留模型产出的字段统一附 <code>"trust": "UNTRUSTED_MODEL_OUTPUT"</code>。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-13</div>
+      <div>
+        <h3><code>coverage</code> 是 <code>run.summary</code> 的克隆，同一文档里重复了两次</h3>
+        <p><code>run</code> 自己带着 <code>summary</code>，而 <code>coverage</code> 又是它的 <code>clone()</code>。字段名叫 coverage，装的却是任务状态、模型用量、工具观察与审计叙事。</p>
+        <div class="evidence"><span class="ref">report.rs:133 / 135</span>
+run,
+…
+coverage: run.summary.clone(),
+
+实测：两份各 12,819 字节，占该报告 76,374 字节约 33%
+     其中 coverage.recovery 单项 10,993 字节</div>
+        <p><span class="lbl">影响</span>按字段名取"覆盖率"会拿到一个含 25 个异构键的对象；同一事实两个可独立更新的真相来源，体积平白膨胀三分之一。</p>
+        <p><span class="lbl">建议</span>删除 <code>coverage</code>，改为受控的 <code>ReportCoverage</code> 结构体；run.summary 其余部分拆成各自命名的顶层节，并让 <code>run</code> 不再携带 summary，使其在整份文档中只出现一次。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-14</div>
+      <div>
+        <h3><code>checks</code> 与 <code>coverage</code> 对同一组状态各写一份，且可以互相矛盾</h3>
+        <p><code>checks</code> 的五个状态里有三个是渲染期实时派生的；<code>coverage</code> 里的同名状态是 run.summary 的原始值，而写入端只把 <code>exploitation</code> 回写进 source run。</p>
+        <div class="evidence"><span class="ref">report.rs:88-89</span>   fuzzing_status / runtime_status ← 由 audit.runtime 记录派生
+<span class="ref">report.rs:135</span>      coverage ← run.summary 原始值
+
+<span class="ref">crates/server/src/runtime.rs:742</span>
+source.summary["exploitation"] = json!(exploitation_status);   ← source run 唯一被回写的状态
+
+结果：同一份 JSON 里 checks.runtime_verification = COMPLETED
+      而 coverage.verification 仍是 NOT_RUN</div>
+        <p><span class="lbl">影响</span>"是否做过动态验证/模糊测试"这个关键结论在文档里有两个可能互相矛盾的值；报告正文的提示语用的是派生那一份，JSON 读者若取 coverage 会拿到未初始化的占位值。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-15</div>
+      <div>
+        <h3>单元对象：<code>code</code> 恒为空串，<code>metadata</code> 却是全量内部反编译数据</h3>
+        <div class="evidence"><span class="ref">store.rs:1352</span>  unit.unit.code.clear();          ← 只清值，字段还在
+<span class="ref">store.rs:1256</span>  unit.unit.metadata = json!({"kind": …});   ← 列表接口会裁剪，报道路径没有
+
+实测样本（我核对过）units[0] 是扁平结构，无 unit 包装：
+  code      = ''
+  metadata  = {address_space, analysis_engine, analysis_input_artifact_id,
+               analysis_input_sha256, basic_blocks, blocks_truncated,
+               decompile_error, image_base, original_instruction_mapping,
+               pcode, pcode_truncated, pseudocode_mapping, rva, signature}</div>
+        <p><span class="lbl">影响</span>一个名叫 <code>code</code> 却永不含代码的字段；同时 <code>basic_blocks</code>、<code>pcode</code> 等引擎内部溯源随单元数线性膨胀。三处读路径（报告 / 单元列表 / 调用图）的裁剪口径互不相同。</p>
+        <p><span class="lbl">建议</span>与 <span class="ref">store.rs:1256</span> 对齐裁剪 metadata；改用显式投影 <code>ReportUnit</code>，用 <code>code_sha256</code> + <code>code_bytes</code> 取代空 code 字段，保留可校验性。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-16</div>
+      <div>
+        <h3><code>schema_version</code> 恒为 1，且全仓无人校验</h3>
+        <div class="evidence"><span class="ref">report.rs:126</span>  schema_version: 1,
+<span class="ref">grep -rn schema_version</span> → 无任何针对 ReportDocument 的读取点
+既有脚本只按 checks 的键名取值：
+  check_auto_exploit.py:204 / analyze_candidates.py:33 / audit_candidates.py:137</div>
+        <p><span class="lbl">影响</span>版本字段是装饰品——写死、无消费方、无迁移路径。而既有脚本直接按键名取值，任何结构变更都会静默打断验收脚本。顶层另外还缺 report_id、生成器版本、统计汇总、plan。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">05</span>生命周期与对外契约</h2>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-17</div>
+      <div>
+        <h3>历史报告文件被当成审计证据，导致报告不可复现</h3>
+        <p>产物查询把本 run 的历史报告也纳入"证据产物"，而取产物发生在本次报告落盘<strong>之前</strong>——于是第 N 份报告必然列出前 N-1 份报告文件。</p>
+        <div class="evidence"><span class="ref">store.rs:1297</span>  run_artifacts 查询含
+    OR a.id IN (SELECT artifact_id FROM report_exports WHERE run_id=?)
+
+<span class="ref">store.rs:1355</span>  let artifacts = self.run_artifacts(run_id).await?;   ← 先取
+<span class="ref">store.rs:1389-1392</span>  stage_bytes(…); insert_artifact(…);              ← 后落盘
+
+<span class="ref">store.rs:1390</span>  文件名恒为 aegis-report-{run_id}.{extension}</div>
+        <p><span class="lbl">影响</span>同一快照点、同一格式导出两次会得到不同字节与不同 sha256，因此无法用哈希证明报告未被改写、无法做两版 diff；审计读者会把 <code>aegis-report-xxx.html</code> 误当成审计证据；同 run 所有报告同名，正文列表里出现多行同名条目。</p>
+        <p><span class="lbl">建议</span>查询里排除报告产物；报告自身产物移入独立的"报告导出历史"章节；命名改为带时点与报告 ID。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-18</div>
+      <div>
+        <h3>失败的导出不留痕；没有删除/重新生成；分页会漂移；孤儿 blob 不回收</h3>
+        <div class="evidence">PDF 渲染失败直接 <span class="ref">store.rs:1373-1381</span> 以 ? 返回 → 无 requests 行、无 report 行、无 run_event
+<span class="ref">pdf.rs:36-38</span>  浏览器缺失时 context(…) 直接失败
+<span class="ref">proto:247-251</span>  ReportService 只有 CreateReport / GetReport / ListReports
+<span class="ref">store.rs:1314</span>   ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?   ← 只增列表上的 offset 分页
+<span class="ref">store.rs:248-254</span> stage_bytes 先写 blob，insert 失败则留下无引用文件，全仓无清理路径</div>
+        <p><span class="lbl">影响</span>历史页无法区分"从未导出过 PDF"和"试过但失败"；翻页期间新导出会造成重复/漏项；磁盘占用只增不减。</p>
+        <p><span class="lbl">建议</span>失败导出写一条 run_event；增加 DeleteReport / RegenerateReport；分页改 keyset（用最后一条的 created_at+id 作游标）；补孤儿 blob 回收入口。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-19</div>
+      <div>
+        <h3>报告条目本身拿不到内容指纹，历史页在下载前无法展示或校验</h3>
+        <div class="evidence"><span class="ref">proto/audit/v1/audit.proto:124-133</span>
+message Report { id, run_id, format, artifact_id, created_at,
+                 snapshot_state, interim, snapshot_at }   ← 8 个字段，无哈希/大小
+
+<span class="ref">report.rs:126</span> ReportDocument.schema_version 只存在于下载文件内部，Report 消息读不到</div>
+        <p><span class="lbl">注</span>下载<strong>响应头</strong>已经带了 <code>x-aegis-sha256</code>（<span class="ref">web.rs:441-444</span>），执行器客户端也已在用它校验（<span class="ref">crates/executor/src/client.rs:73-78</span>）——所以"无法校验"不成立。真正缺的是<strong>协议层</strong>：历史页在用户点击下载之前，拿不到大小、指纹或 schema 版本，也无法判断文件是否仍存在。</p>
+        <p><span class="lbl">建议</span>Report 消息补 <code>sha256</code> / <code>size_bytes</code> / <code>media_type</code> / <code>document_schema_version</code>；历史页显示指纹前缀与大小。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-20</div>
+      <div>
+        <h3>报告自身没有身份与版本标识，PDF 的 <code>/Title</code> 恒定</h3>
+        <div class="evidence"><span class="ref">report.rs:291</span>  &lt;title&gt;AegisAudit 分析报告&lt;/title&gt;   ← 常量，Chromium 写入 PDF /Title
+<span class="ref">report.rs:427</span>  @page{ … @bottom-right{content:counter(page) " / " counter(pages) …} }
+<span class="ref">pdf.rs:57</span>   --no-pdf-header-footer   ← 主动关掉浏览器页眉页脚
+
+实测（Edge 152.0.4191.66）：每页内容流末尾的文本 run 编码为 "1 / 4"…"4 / 4"，
+绘制色 #64748b 与 @page 的 color 一致；去掉 margin box 后该 run 消失
+（33,716 → 32,181 字节）——页码确实生效</div>
+        <p><span class="lbl">影响</span>页脚只有页码，不含 run/项目/报告版本。同一 run 每次导出、不同 run 的导出，PDF 文档标题完全相同；正文里的任务 ID 只出现一次，单独传阅某一页无法溯源。人类可读格式也都不输出 schema_version。</p>
+        <p><span class="lbl">局限</span>页码依赖 Chromium 的 CSS Paged Media margin box 支持，而<strong>没有任何测试覆盖这个依赖</strong>——<span class="ref">pdf.rs:98</span> 的测试 HTML 既没有 @page 也没有 counter()。运行环境不支持时，交付物会静默变成几百页无页码的 PDF。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">06</span>版式、可打印性与前端</h2>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-medium"></span>P-21</div>
+      <div>
+        <h3>打印版式把页数放大一倍以上</h3>
+        <div class="evidence"><span class="ref">report.rs:422-423</span>
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th,td{…overflow-wrap:anywhere}          ← 4 列在 A4 上均分 172px，路径逐字符断行
+
+实测同一张 4000 行单元表：
+  table-layout:fixed（现网样式） = 400 页 / 6.35 MB
+  仅改为 auto                    = 182 页 / 6.01 MB   （10 行/页 → 22 行/页）
+
+<span class="ref">report.rs:331-334</span>  "&lt;p&gt;静态结论范围：…&lt;/p&gt;" 在 &lt;section&gt; 之外
+                          → PDF 里视觉上归属上一条 findings
+<span class="ref">report.rs:425</span>      pre 无 break-inside 控制、无高度上限 → 跨页断裂</div>
+        <p><span class="lbl">影响</span>页数被版式放大一倍以上，直接加剧 P-02 的"发现被埋"；"静态结论范围"作为每条结论的适用范围声明归属错误，在安全报告里属于举证归属错误。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-high"></span>P-22</div>
+      <div>
+        <h3>下载文件名与确认弹窗承诺的名字不是一回事</h3>
+        <p>前端把显示名写在 <code>link.textContent</code> 上，下载交给 <code>link.download = ''</code>——按规范文件名取响应头的 <code>Content-Disposition</code>，即服务端的 artifact 名。前端从不把这个名字传给服务端（<code>CreateReportRequest</code> 只有 request_id / run_id / format）。</p>
+        <div class="evidence"><span class="ref">ReportExport.svelte:48-51</span>
+link.href = artifactUrl(report.artifactId);
+link.download = '';                                    ← 空值 = 用服务端文件名
+link.textContent = `${snapshotName} · ${reportName(report)}`;   ← 只用于弹窗显示
+
+<span class="ref">store.rs:1390</span>  stage_bytes(&amp;bytes, &amp;format!("aegis-report-{run_id}.{extension}"), mime)
+<span class="ref">web.rs:432-436</span>  Content-Disposition: attachment; filename*=UTF-8''{artifact.name}</div>
+        <p><span class="lbl">影响</span>客户拿到的是 <code>aegis-report-0f3a9c21.html</code>——没有项目名、没有格式、没有导出时间。同一 run 导出"阶段报告"和"结果快照"两份 HTML，落盘文件名完全相同，浏览器只能加 " (1)"。而弹窗里展示的是一个文件系统里根本不存在的名字，用户按它去找文件必定找不到。</p>
+        <p><span class="lbl">建议</span>让一个名字贯穿到底：<code>CreateReportRequest</code> 增加 <code>file_stem</code>，前端构造 <code>{快照名}-{格式}-{时间戳}</code>，<code>Report</code> 回传 <code>file_name</code>，弹窗与下载共用它。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">07</span>加固建议（当前不可达）</h2>
+    <p class="sec-note">以下三条经复核确认<strong>当前无法触发</strong>，作为纵深防御与编码卫生保留。复核推翻了它们最初的"安全缺陷"定性。</p>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-low"></span>P-23</div>
+      <div>
+        <h3>两处未走 <code>escape()</code> 的插值</h3>
+        <div class="evidence"><span class="ref">report.rs:294</span>  "状态：{:?}"        → run.state（未 escape）
+<span class="ref">report.rs:384</span>  "范围：{}"          → record.config.target_scope()（未 escape）</div>
+        <p><span class="lbl">复核结论</span><strong>不是"安全靠数据类型巧合"</strong>——是类型级保证。<code>RunState</code> 是 <code>Copy</code> 枚举，九个变体都不携带数据（<span class="ref">crates/domain/src/lib.rs:59-71</span>），<code>{:?}</code> 不可能输出 <code>&lt;meta</code>。<code>target_scope()</code> 是 <code>&amp;'static str</code>。分支内其余动态插值全部走了 <code>escape()</code>。</p>
+        <p><span class="lbl">建议</span>仍值得统一为 <code>escape(run.state.as_str())</code>，理由是消除未来变体加数据时的静默回归；并加一条渲染出口断言，拦住 <code>&lt;script</code> / <code>&lt;a </code> / <code>&lt;form</code> 等渲染器自己从不生成的标签。</p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-low"></span>P-24</div>
+      <div>
+        <h3>PDF 打印进程没有出站阻断</h3>
+        <p>报告 HTML 的 CSP 不含 <code>form-action</code>（meta 也投递不了 <code>navigate-to</code>），而 PDF 是把这份 HTML 交给本机 headless 浏览器以 <code>file://</code> 渲染，参数里没有任何阻断出站的开关。</p>
+        <div class="evidence"><span class="ref">report.rs:291</span>  default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'
+<span class="ref">pdf.rs:48-62</span>  参数里没有 --host-resolver-rules / --proxy-server
+                    （也没有 --disable-web-security 等危险开关 —— 这点是好的）</div>
+        <p><span class="lbl">复核结论</span>影响链的前提取自一个<strong>不存在的注入路径</strong>（见 P-23）。而且分析员用本机浏览器打开 HTML 这一最易触达的场景，在 HTTP 层已被兜住：下载路由同时投递 <code>Content-Disposition: attachment</code>、<code>nosniff</code> 与 <code>Content-Security-Policy: sandbox</code>（<span class="ref">web.rs:432-448</span>），无 <code>allow-*</code> token 的 sandbox 会把文档丢进不透明源并禁用脚本。</p>
+        <p><span class="lbl">建议</span>仅保留这一条低成本加固：<code>pdf.rs</code> 参数补 <code>--host-resolver-rules=MAP * ~NOTFOUND</code>（报告是纯本地自包含 HTML，不引用外部资源，阻断域名解析不影响排版）。</p>
+        <p><span class="lbl">警告</span>复核同时指出，最初提出的 <code>ensure!(!html.contains("&lt;meta"))</code> 断言会<strong>让每一次 PDF 导出失败</strong>——<span class="ref">report.rs:291</span> 生成的报告恒定含两个 meta。<strong>不要照做。</strong></p>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fid"><span class="sev-bar bar-low"></span>P-25</div>
+      <div>
+        <h3>产物下载的 media_type 没有白名单</h3>
+        <div class="evidence"><span class="ref">web.rs:320-325</span>  上传端透传 media_type（仅校验长度 ≤100 与 header 合法性）
+<span class="ref">web.rs:416-420</span>  下载端用它落 CONTENT_TYPE
+<span class="ref">report.rs:413</span>   报告 HTML 也以 text/html; charset=utf-8 走同一条路由</div>
+        <p><span class="lbl">复核结论</span><strong>不可触发</strong>。防护不止 <code>attachment</code> 一层——<code>nosniff</code> 与 <code>CSP: sandbox</code> 在同一 handler 里无条件设置。且 media_type 并非攻击者可控：所有执行器上传都是字面常量（<span class="ref">recovery.rs:107</span>、<span class="ref">jobs.rs:206/510</span> 等），唯一由调用方决定的取值是操作者从本机磁盘自选文件时浏览器给出的类型，而 <code>/api/uploads</code> 需通过 localhost 与 Origin 同源校验加 operator 会话。</p>
+        <p><span class="lbl">建议</span>作为编码卫生保留：给上传的 media_type 加白名单（拒绝 <code>text/html</code>、<code>image/svg+xml</code>），并把报告产物拆到独立路由 <code>/api/reports/{id}/content</code>，让"报告"与"任意上传产物"不再共用一条下载路径。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">08</span>复核推翻的结论</h2>
+    <p class="sec-note">以下条目在初读时都完全成立，复核用代码逐条证伪。列出来是为了避免有人照着错的方向去改——其中若干条出自我此前的口头汇报。</p>
+    <div class="corrected">
+      <div class="corr"><div><strong>幂等键不含快照点，会把旧时点报告当新导出交付</strong><span>推翻 3 次。重试复用同一 requestId 是本仓库显式规定并被测试锁死的契约（<span class="ref">run-actions.spec.ts:329</span>：reuse the request after a lost response）；且快照时点在四处可见，"用户无从察觉"为假。</span></div></div>
+      <div class="corr"><div><strong>组件卸载 abort 后服务端仍会落盘，造成看不见的重复报告</strong><span>因果链写反了。axum/hyper 在客户端断开时 drop handler future，abort 恰好落在"报告还没写库"的窗口里——这正是本仓库对长任务一律显式 spawn 的原因（<span class="ref">model.rs:107</span>、<span class="ref">agents.rs:125</span>）。</span></div></div>
+      <div class="corr"><div><strong>下载路由不校验，协议不提供内容指纹</strong><span><code>x-aegis-sha256</code> 响应头已经存在（<span class="ref">web.rs:441-444</span>），且已有的一等消费者就在用它：<span class="ref">crates/executor/src/client.rs:73-78</span>。</span></div></div>
+      <div class="corr"><div><strong>报告正文与文件名都不携带导出时间</strong><span>前半句错误。<span class="ref">report.rs:110-123</span> 的提示语就是"… · 数据截至 {} · …"，且写进了 Markdown（<span class="ref">:157</span>）与 HTML（<span class="ref">:297</span>）正文。</span></div></div>
+      <div class="corr"><div><strong><code>md()</code> 是比 <code>escape()</code> 更窄的转义器</strong><span>方向说反了。<code>md()</code> 的第一步就是 <code>escape(text)</code>，它是 <strong>超集</strong>。换行折叠的问题成立，覆盖面的问题不成立。<em>我先前也复述错了这一条。</em></span></div></div>
+      <div class="corr"><div><strong>两处裸插值让安全依赖"数据类型巧合"</strong><span>是类型级保证，不是巧合。<code>RunState</code> 是 <code>Copy</code> 枚举、九个变体均不携带数据；当前不存在任何注入路径。</span></div></div>
+      <div class="corr"><div><strong>CSP 不覆盖导航，PDF 浏览器无出站阻断＝可 SSRF</strong><span>前提是一个不存在的注入路径；且浏览器场景已被 HTTP 层的 <code>CSP: sandbox</code> 兜住。附带的那条修复（拒收含 <code>&lt;meta</code> 的 HTML）会让每次 PDF 导出失败。</span></div></div>
+      <div class="corr"><div><strong>产物下载的防线只剩硬编码的 attachment</strong><span>同一 handler 无条件还设了 <code>nosniff</code> 与 <code>CSP: sandbox</code>；media_type 也非攻击者可控（执行器上传全是字面常量）。<em>我先前称其为"残余风险"，也说重了。</em></span></div></div>
+      <div class="corr"><div><strong>PDF 导出必然撞上 15s deadline，且后端仍会排版并落盘</strong><span><code>pdf.rs:65</code> 的 45s 是杀进程上限而非耗时估计，<code>--virtual-time-budget=1000</code> 是刻意求快，<code>try_acquire()</code> 拿不到槽位是立即失败而非排队。更关键的是 <span class="ref">rpc.rs:531-545</span> 是内联 <code>await</code>、没有 spawn——断开即取消，进程树被内核终止、临时目录一并删除，既无报告行也无产物。按原建议把文案改成"服务端可能已生成报告"，会把用户引向一份不存在的报告。</span></div></div>
+      <div class="corr"><div><strong>报告 JSON 里 <code>units[].unit.code</code> 为空、<code>units[].unit.metadata</code> 全量</strong><span>JSON 路径错误。<code>ProgramUnit</code> 用了 <code>#[serde(flatten)]</code>，序列化后字段摊平到顶层，不存在 <code>unit</code> 包装——实际是 <code>units[].code</code> / <code>units[].metadata</code>（我实测样本确认）。metadata 泄漏与空 code 的实质成立，见 P-15。</span></div></div>
+      <div class="corr"><div><strong>plan 解析失败会让"审计策略"整章静默消失</strong><span>不可达。<code>finish_agent_task</code> 首句即校验结果，PLANNER 分支用同一个 <code>Plan</code> 反序列化、失败不落库；<code>Plan.approach</code> 必填且写入时强制非空。</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="sec-num">09</span>方法与局限</h2>
+    <div class="limits">
+      <ul>
+        <li><strong>已实证</strong>：PDF 的页数、页脚页码与 <code>/Title</code> 是用本机 Edge 152.0.4191.66 与 Chrome、以与 <span class="ref">pdf.rs</span> 一致的参数真打印并解析内容流得到的；JSON 结构用 <span class="ref">.data/verification/agent-recovery/native-report.json</span> 实测核对。</li>
+        <li><strong>未实证</strong>：报告正文的四种格式没有跑完整的端到端导出比对，"章节集合不一致"等结论由逐行读代码得出。验证方式是写一个覆盖全部字段分支的渲染对照测试，断言四种格式出现的字段名集合相同。</li>
+        <li><strong>审查范围</strong>：7 个维度（JSON 契约、Markdown 渲染、HTML/PDF 渲染、生命周期与存储、前端 UX、交付物完整性、不可信内容注入）共 40 条原始结论；对抗性复核对其中大部分做了 2–3 个独立视角的证伪尝试，17 条被推翻或降级。</li>
+        <li><strong>已知盲区</strong>：报告的可复现性（同一 run 两次导出的字节是否一致）、超大 run 的渲染性能、报告与下游工单系统（Jira / DefectDojo / SARIF）的互操作、报告的访问控制（谁能下载别人的报告）——这些问题没有独立的维度覆盖。</li>
+        <li><strong>一件事</strong>：如果只做一项改动，<strong>先给报告加执行摘要与风险汇总</strong>（P-01 / P-02 / P-03）。它不需要改数据模型、不影响任何既有测试，却直接把"这份报告能不能被读懂"从否变成是。JSON 的契约改造（P-12）优先级同样高，但它要动 proto 与前端，适合排在第二位。</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    证据引用格式为 <code>文件:行号</code>，全部指向审查时的 <code>fix/snapshot-audit-workflow</code> 分支工作区。复核意见以对抗性证伪为目标，倾向推翻而非确认——被推翻的结论列在第八节，不代表它们指向的代码位置不存在，只代表原始定性不成立。
+  </footer>
+
+</div>
