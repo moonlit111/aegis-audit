@@ -1,0 +1,457 @@
+{
+  "checked_at": "2026-09-11T06:01:21.332931+00:00",
+  "purpose": "Configured compatible API regression on a benign self-built UPX fixture",
+  "code_commits": [
+    "3afb9e1",
+    "f4ca8b4"
+  ],
+  "build": {
+    "commit": "f4ca8b477d98064a0b75e7624353fa034e4d3592",
+    "binaries": {
+      "aegis-server": "d1ef7b9d425f9905a13a3a299d7993195f69218169fdb9b5636992c89e6fc88c",
+      "aegis-executor": "89c6f16b5d59a8852a7cfcbab31ef82ee6d7982f21eaf9376d5e370220906038"
+    }
+  },
+  "fixes": [
+    "Keep standard JSON response_format in compatible connection probes and completions.",
+    "Reset the two correction opportunities after a successful tool result; retain strict schemas and global budgets.",
+    "Retain JSON evidence for empty string recovery and do not upload an empty readable artifact.",
+    "Allow 30 seconds for FLOSS version detection and report probe failures accurately.",
+    "Retry Windows atomic state replacement for transient access/sharing/lock conflicts for at most two seconds; preserve the old file on persistent failure."
+  ],
+  "regressions": [
+    {
+      "check": "Rust workspace, serial tests",
+      "passed": 97,
+      "failed": 0,
+      "command": "python scripts/aegis.py cargo test --workspace --locked -j 1 -- --test-threads=1",
+      "evidence": {
+        "path": ".data/verification/json-actions-20260911/final-rust-tests-serial.log",
+        "sha256": "3d3cfe034888b01454ec95782425292a6bc8b3adc42862e9100b52bfc31d2777",
+        "bytes": 22929
+      }
+    },
+    {
+      "check": "Executor suite after adding two Windows sharing-lock regressions",
+      "passed": 7,
+      "failed": 0,
+      "ignored": 4,
+      "note": "Five tests overlap with the earlier workspace run; two are newly added.",
+      "evidence": {
+        "path": ".data/verification/json-actions-final-20260911/state-write-regression.log",
+        "sha256": "5e2e36fc22b23ffe3a87fc01a37766b0340aaab21826e327988c90c2c02c1760",
+        "bytes": 2078
+      }
+    },
+    {
+      "check": "Workspace/all-targets Clippy with -D warnings",
+      "status": "PASSED",
+      "evidence": {
+        "path": ".data/verification/json-actions-final-20260911/state-clippy.log",
+        "sha256": "ba2da064eaabc035cd8300ec49875163ed32f1d3361892d2057ac3540ddd97d9",
+        "bytes": 161
+      }
+    },
+    {
+      "check": "rustfmt",
+      "status": "PASSED"
+    },
+    {
+      "check": "Browser model settings, review and report workflow",
+      "passed": 1,
+      "model": "mock compatible provider enforcing JSON mode",
+      "evidence": {
+        "path": ".data/verification/json-actions-20260911/browser-regression.log",
+        "sha256": "b1d5e4ed6b0bb000e90b10cd400e4ee5993eacb0aa17b35aed202c51eaf621d5",
+        "bytes": 507
+      }
+    },
+    {
+      "check": "Browser binary recovery workflow",
+      "passed": 1,
+      "model": "mock provider; real executor and Ghidra",
+      "evidence": {
+        "path": ".data/verification/json-actions-final-20260911/binary-browser-regression.log",
+        "sha256": "dbd556f30c125519b928c5f039f30c81d964276e13aa9e84e9616faead026901",
+        "bytes": 489
+      }
+    }
+  ],
+  "live_run": {
+    "id": "4b9f1f6d-c5a9-43ce-9aa7-bc442f04f27c",
+    "snapshot_id": "4d43b1ea-5321-4dc5-aabf-6e3df7411c87",
+    "url": "http://127.0.0.1:7331/#/runs/4b9f1f6d-c5a9-43ce-9aa7-bc442f04f27c",
+    "provider_kind": "OPENAI_COMPATIBLE",
+    "model": "glm-5.3-flash",
+    "prompt_version": "audit-13-json-actions",
+    "state": "RUN_STATE_PARTIAL",
+    "error": "智能体响应再次未通过校验：存在未知或被反证的必要攻击条件，不能判为 VALIDATED；请使用 INCONCLUSIVE 或 REJECTED",
+    "started_at": "2026-09-11T05:40:18.082Z",
+    "finished_at": "2026-09-11T05:55:16.372Z",
+    "budget": {
+      "max_model_calls": 60,
+      "max_output_tokens": 8192,
+      "max_tool_rounds": 16,
+      "max_units": 12,
+      "model_timeout_seconds": 300,
+      "reasoning_effort": "high",
+      "timeout_seconds": 1800
+    },
+    "coverage": {
+      "unit_count": 5,
+      "eligible_unit_count": 5,
+      "audited_unit_count": 1,
+      "finding_count": 1,
+      "reviewed_finding_count": 0,
+      "independent_review": "PARTIAL",
+      "incomplete_agent_tasks": 1,
+      "vulnerability_audit": "PARTIAL",
+      "verification": "NOT_RUN",
+      "fuzzing": "NOT_RUN"
+    },
+    "phases": [
+      {
+        "id": "STRUCTURE",
+        "status": "COMPLETED",
+        "current": null,
+        "total": null
+      },
+      {
+        "id": "RECOVERY",
+        "status": "COMPLETED",
+        "current": null,
+        "total": null
+      },
+      {
+        "id": "PLANNING",
+        "status": "COMPLETED",
+        "current": "1",
+        "total": "1"
+      },
+      {
+        "id": "AUDIT_REVIEW",
+        "status": "PARTIAL",
+        "current": "1",
+        "total": "5"
+      },
+      {
+        "id": "VERIFICATION_PLAN",
+        "status": "SKIPPED",
+        "current": null,
+        "total": null
+      },
+      {
+        "id": "REPORT",
+        "status": "SKIPPED",
+        "current": null,
+        "total": null
+      }
+    ],
+    "model_usage": {
+      "calls": 22,
+      "input_tokens": 121001,
+      "output_tokens": 34657,
+      "total_tokens": 155658,
+      "unknown_usage_calls": 0,
+      "statuses": {
+        "INVALID_RESPONSE": 6,
+        "SUCCEEDED": 16
+      }
+    },
+    "invalid_or_failed_calls": [
+      {
+        "call": 1,
+        "role": "REVERSE",
+        "status": "INVALID_RESPONSE",
+        "error": "响应 JSON 无效：EOF while parsing an object at line 1 column 1982",
+        "finishReason": "stop"
+      },
+      {
+        "call": 9,
+        "role": "AUDITOR",
+        "status": "INVALID_RESPONSE",
+        "error": "响应 JSON 无效：expected value at line 1 column 1",
+        "finishReason": "stop"
+      },
+      {
+        "call": 18,
+        "role": "REVIEWER",
+        "status": "INVALID_RESPONSE",
+        "error": "模型输出被截断（length）；单次预算为 8192 token（含思考），请提高预算或缩小任务上下文",
+        "finishReason": "length"
+      },
+      {
+        "call": 20,
+        "role": "REVIEWER",
+        "status": "INVALID_RESPONSE",
+        "error": "智能体结果结构无效：unknown field `note`, expected one of `verdict`, `rationale`, `counter_evidence`, `missing_information`, `evidence`, `assessments`",
+        "finishReason": "stop"
+      },
+      {
+        "call": 21,
+        "role": "REVIEWER",
+        "status": "INVALID_RESPONSE",
+        "error": "智能体结果结构无效：unknown field `evidence_note`, expected one of `verdict`, `rationale`, `counter_evidence`, `missing_information`, `evidence`, `assessments`",
+        "finishReason": "stop"
+      },
+      {
+        "call": 22,
+        "role": "REVIEWER",
+        "status": "INVALID_RESPONSE",
+        "error": "存在未知或被反证的必要攻击条件，不能判为 VALIDATED；请使用 INCONCLUSIVE 或 REJECTED",
+        "finishReason": "stop"
+      }
+    ],
+    "tasks": [
+      {
+        "role": "REVERSE",
+        "itemKey": "recovery",
+        "status": "SUCCEEDED",
+        "error": null
+      },
+      {
+        "role": "PLANNER",
+        "itemKey": "plan",
+        "status": "SUCCEEDED",
+        "error": null
+      },
+      {
+        "role": "AUDITOR",
+        "itemKey": "u_8da1723a0f07b40f56ee6af766a010a8",
+        "status": "SUCCEEDED",
+        "error": null
+      },
+      {
+        "role": "REVIEWER",
+        "itemKey": "5ccd0c2a-c420-4d0d-93ea-a8321a718f3d",
+        "status": "FAILED",
+        "error": "智能体响应再次未通过校验：存在未知或被反证的必要攻击条件，不能判为 VALIDATED；请使用 INCONCLUSIVE 或 REJECTED"
+      }
+    ],
+    "findings": [
+      {
+        "id": "5ccd0c2a-c420-4d0d-93ea-a8321a718f3d",
+        "title": "decode_table 逐字节写入循环无内部边界校验，安全性完全依赖调用点常量",
+        "severity": "LOW",
+        "reviewStatus": "UNREVIEWED",
+        "verificationStatus": "NOT_RUN",
+        "staticScope": "COMPONENT"
+      }
+    ],
+    "recovery_steps": [
+      {
+        "tool": "upx",
+        "status": "PROCESSED",
+        "input_sha256": "d12ef6bb0798e3e9178046f29066f9ec906f04f2a41f0b6fe1e324c96bb6565e",
+        "output_sha256": "94a7ee77f280012f2238878bca54cf86a993f8c2b57674d196826205423cccc5",
+        "processes_reaped": true,
+        "tool_versions": [
+          "upx 5.2.1"
+        ]
+      },
+      {
+        "tool": "floss",
+        "status": "RECOVERED",
+        "input_sha256": "94a7ee77f280012f2238878bca54cf86a993f8c2b57674d196826205423cccc5",
+        "output_sha256": "",
+        "processes_reaped": true,
+        "tool_versions": [
+          "3.1.1"
+        ]
+      },
+      {
+        "tool": "ghidra",
+        "status": "COMPLETED",
+        "input_sha256": "94a7ee77f280012f2238878bca54cf86a993f8c2b57674d196826205423cccc5",
+        "output_sha256": "",
+        "processes_reaped": true,
+        "tool_versions": [
+          "12.1.3"
+        ]
+      }
+    ],
+    "independently_checked_tool_results": {
+      "unpacked_sha256": "94a7ee77f280012f2238878bca54cf86a993f8c2b57674d196826205423cccc5",
+      "unpacked_bytes": 3584,
+      "code_section_bytes": 304,
+      "code_section_matches_reference": true,
+      "recovered_strings": [
+        "AegisAudit recovered test string"
+      ],
+      "ghidra_status": "COMPLETED",
+      "function_count": 5,
+      "annotated_string_count": 1,
+      "string_appears_in_pseudocode": true
+    },
+    "reports": {
+      "json": {
+        "path": ".data/verification/json-actions-retest-20260911/report.json",
+        "sha256": "827cb9d2e90801411bdc047d5def236bfda85593c3c302f608efea9cec4d4320",
+        "bytes": 124760,
+        "id": "33cc7a12-a795-457e-9f43-96b7fa82a8dd",
+        "artifact_id": "6e2d002b-14c1-41aa-97df-77d8de6161eb"
+      },
+      "html": {
+        "path": ".data/verification/json-actions-retest-20260911/report.html",
+        "sha256": "588e851a64da6e809bc581f7d623a3f1386b07e7ea65582812c8d526c0f19d98",
+        "bytes": 78321,
+        "id": "78005e52-d5fd-4e9f-a356-1684a08d9218",
+        "artifact_id": "2c259809-3b3e-4cd1-8a43-308962f6fe7c"
+      }
+    },
+    "report_checks": {
+      "json_run_state_matches_api": true,
+      "json_coverage_matches_api": true,
+      "json_model_call_count_matches_api": true,
+      "html_contains_run_id": true,
+      "note": "These are exported records of a terminal PARTIAL run; the model REPORTER stage did not execute."
+    },
+    "last_reviewer_response": {
+      "verdict": "VALIDATED",
+      "assessments": [
+        {
+          "check": "INPUT_CONTROL",
+          "status": "SUPPORTED"
+        },
+        {
+          "check": "REACHABILITY",
+          "status": "SUPPORTED"
+        },
+        {
+          "check": "DEFENSE_GAP",
+          "status": "SUPPORTED"
+        },
+        {
+          "check": "EXTRA_PRECONDITION",
+          "status": "UNKNOWN"
+        }
+      ],
+      "accepted": false,
+      "evidence": {
+        "path": ".data/verification/json-actions-retest-20260911/model-response-22.json",
+        "sha256": "c1e8ff3730b2d9b3b77aaabe386967ab325612f25ae80425ec54e391ad2c4ffd",
+        "bytes": 4375
+      }
+    },
+    "remaining_blocker": "The provider failed the review schema twice and then declared VALIDATED with a necessary precondition UNKNOWN. Three consecutive invalid results correctly stopped this run as PARTIAL; complete audit/review remains unverified.",
+    "raw_evidence": [
+      {
+        "path": ".data/verification/json-actions-retest-20260911/latest-run.json",
+        "sha256": "4af64b3800f54ffb292c43c4c55022ac510bf60d2691edba7c5f6a0142420450",
+        "bytes": 37802
+      },
+      {
+        "path": ".data/verification/json-actions-retest-20260911/latest-audit.json",
+        "sha256": "89e7bfed3cf57cc3c6a0b24a3a8c8fd189372da6ca7367c31db29a537526d69d",
+        "bytes": 40419
+      },
+      {
+        "path": ".data/verification/json-actions-retest-20260911/tools-verified.json",
+        "sha256": "d220fb15ea3e92a939716f08690e83e8bb5ecfc38a1f762a1444f5e2b71912e4",
+        "bytes": 395
+      }
+    ]
+  },
+  "service_health": {
+    "checked_at": "2026-09-11T05:59:47.853877+00:00",
+    "endpoints": [
+      {
+        "base": "http://127.0.0.1:7331",
+        "page_http_status": 200,
+        "session_and_rpc": "PASSED",
+        "project_count": 1,
+        "executors": [
+          {
+            "id": "4acb3e6f-3a8e-4ccb-9531-24e01145b67c",
+            "last_seen": "2026-09-11T05:59:47.272Z",
+            "available_tools": [
+              "import",
+              "tree-sitter",
+              "git",
+              "ghidra",
+              "semgrep",
+              "windows-host",
+              "upx",
+              "floss",
+              "string-recovery"
+            ]
+          }
+        ]
+      },
+      {
+        "base": "http://127.0.0.1:5173",
+        "page_http_status": 200,
+        "session_and_rpc": "PASSED",
+        "project_count": 1,
+        "executors": [
+          {
+            "id": "4acb3e6f-3a8e-4ccb-9531-24e01145b67c",
+            "last_seen": "2026-09-11T05:59:47.272Z",
+            "available_tools": [
+              "import",
+              "tree-sitter",
+              "git",
+              "ghidra",
+              "semgrep",
+              "windows-host",
+              "upx",
+              "floss",
+              "string-recovery"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "fixture": {
+    "path": "tests/fixtures/recovery/sample-upx.exe",
+    "sha256": "d12ef6bb0798e3e9178046f29066f9ec906f04f2a41f0b6fe1e324c96bb6565e",
+    "bytes": 3072,
+    "reference": {
+      "path": "tests/fixtures/recovery/sample.exe",
+      "sha256": "766f2cd9dff0cb2792ee715336249b47d0a7e524c71023b27e0968e14345455f",
+      "bytes": 3584
+    },
+    "classification": "Self-built mechanism fixture; not a formal closed-source acceptance target",
+    "native_target_execution": "NOT_RUN",
+    "whole_file_comparison": "Not used as code-equivalence evidence; UPX can normalize PE headers"
+  },
+  "prior_attempts": [
+    {
+      "run_id": "5cf84083-5d25-4681-bebd-b28e472dd52a",
+      "state": "PARTIAL",
+      "calls": 6,
+      "measured_tokens": 27117,
+      "reason": "Prose on calls 2/4/6 exhausted cumulative JSON corrections; UPX/FLOSS succeeded, Ghidra did not execute."
+    },
+    {
+      "run_id": "e6079efd-fe70-4591-9c05-1fdeb1594cea",
+      "state": "PARTIAL",
+      "calls": 26,
+      "measured_tokens": 182294,
+      "unknown_usage_calls": 1,
+      "reason": "UPX/Ghidra succeeded; FLOSS capability probe failed, empty builtin recovery upload was rejected, reviewer exceeded 180-second call timeout."
+    },
+    {
+      "run_id": "af574579-6421-47ff-8d50-c66e9db5e555",
+      "state": "FAILED",
+      "calls": 2,
+      "reason": "UPX succeeded and uploaded evidence; executor atomic state save failed with Windows error 5 before completion acknowledgment."
+    }
+  ],
+  "old_work_cleanup": {
+    "work_id": "e89810b0-aa0f-40a7-b6f8-34d475dc94aa",
+    "source": "original completion RPC with archived lease and verified uploaded UPX reaping proof",
+    "old_result_accepted": false,
+    "work_state": "FAILED",
+    "cleanup_confirmed": true
+  },
+  "limitations": [
+    "The latest run's terminal state and audited-unit count define audit coverage; tool success alone is not full audit completion.",
+    "Candidate findings require independent review; NOT_RUN is not dynamic verification or proof of target safety.",
+    "FLOSS performs emulation; the target executable was not launched natively in this verification.",
+    "IDA/D-810 was unavailable in this local run; the MBA expressions were not transformed by a deobfuscation tool.",
+    "A parallel test run encountered SQLite locking in fixture setup. Its failure log is retained; the serial workspace run passed.",
+    "Raw model artifacts and archived expired lease credentials stay in local .data and are not included in this shareable summary."
+  ]
+}
