@@ -265,10 +265,10 @@ pub fn render_at(
             if run.summary["exploitation"] == "COMPLETED" {
                 text.push_str("\n## 自动利用证据\n\n");
                 text.push_str(&format!(
-                    "利用证据：{}；利用输入：{}。该证据证明最小输入可稳定触发观察到的内存安全异常，不外推为任意代码执行。\n\n",
-                    md(run.summary["exploitation_artifact_id"].as_str().unwrap_or("")),
-                    md(run.summary["exploitation_input_artifact_id"].as_str().unwrap_or(""))
-                ));
+                "利用证据：{}；利用输入（可复现配方）：{}。证据归档了触发输入与复放脚本，证明记录的输入可在授权目标上稳定复现观察到的结果；不外推为任意代码执行。\n\n",
+                md(run.summary["exploitation_artifact_id"].as_str().unwrap_or("")),
+                md(run.summary["exploitation_input_artifact_id"].as_str().unwrap_or(""))
+            ));
             }
             text.push_str("\n## 覆盖与错误\n\n");
             text.push_str(&format!(

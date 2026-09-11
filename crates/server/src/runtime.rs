@@ -23,6 +23,68 @@ raise SystemExit(subprocess.run(
 ).returncode)
 "##;
 
+/// Replays an archived VERIFY recipe: rebuilt test directory, recorded probe
+/// arguments, then the same observation rule the supervisor used. The runner
+/// contains no host commands of its own and never touches anything outside its
+/// own working directory.
+const BEHAVIOR_POC_RUNNER: &str = r##"#!/usr/bin/env python3
+"""Replay an archived VERIFY recipe against the authorized local target."""
+import argparse
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+
+CRASH_STATUS = {"C0000005", "C000001D", "C00000FD", "C0000374", "C0000409"}
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", required=True, help="path to the original target executable")
+parser.add_argument("--recipe", type=Path)
+parser.add_argument("--work", type=Path)
+parser.add_argument("--timeout", type=float)
+arguments = parser.parse_args()
+script = Path(__file__)
+recipe_path = arguments.recipe or script.with_name(script.stem + ".recipe.json")
+recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+work = Path(arguments.work) if arguments.work else Path(tempfile.mkdtemp(prefix="aegis-poc-"))
+work.mkdir(parents=True, exist_ok=True)
+for fixture in recipe.get("fixtures", []):
+    destination = work / fixture["path"]
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(fixture["content"], encoding="utf-8", newline="")
+target = work / Path(recipe["target_path"]).name
+shutil.copyfile(arguments.target, target)
+probe = recipe.get("probe", {})
+timeout = arguments.timeout or float(recipe.get("timeout_seconds", 5))
+marker = (work / recipe["marker_path"]) if recipe.get("marker_path") else None
+expected = int(recipe.get("repeats", 2))
+observed = 0
+for attempt in range(1, expected + 1):
+    if marker is not None and marker.exists():
+        marker.unlink()
+    completed = subprocess.run(
+        [str(target), *[str(value) for value in probe.get("args", [])]],
+        cwd=work, timeout=timeout, capture_output=True, text=True,
+        encoding="utf-8", errors="replace",
+        input=probe.get("stdin") or None,
+    )
+    code = completed.returncode
+    status = format(code & 0xFFFFFFFF, "08X")
+    if recipe.get("observer") == "FILE_CREATED":
+        hit = marker is not None and marker.is_file()
+    else:
+        hit = status in CRASH_STATUS
+    observed += 1 if hit else 0
+    print(json.dumps({"attempt": attempt, "exit_code": code, "status": status,
+                      "observed": hit, "stdout": completed.stdout[-2000:],
+                      "stderr": completed.stderr[-2000:]}))
+print(json.dumps({"observed": observed, "expected": expected,
+                  "marker": str(marker) if marker is not None else "",
+                  "work": str(work)}))
+raise SystemExit(0 if observed == expected else 2)
+"##;
+
 impl Store {
     pub async fn runtime_records(&self, source_run_id: &str) -> Result<Vec<d::RuntimeRecord>> {
         let rows = sqlx::query("SELECT v.data,r.data AS run_data FROM runtime_records v JOIN audit_runs r ON r.id=v.run_id WHERE v.source_run_id=? OR v.run_id=? ORDER BY v.created_at,v.id")
@@ -390,7 +452,10 @@ impl Store {
             "NOT_RUN"
         });
         run.summary["runtime"] = serde_json::to_value(&result)?;
-        let mut exploitation_status = "NOT_RUN";
+        // Every branch below assigns the status before it is stored, so the
+        // binding deliberately starts uninitialised instead of carrying a value
+        // that no run can ever read.
+        let exploitation_status;
         let mut exploitation_artifact_id = String::new();
         let mut exploitation_input_artifact_id = String::new();
         if record.config.mode == "FUZZ" {
@@ -480,6 +545,142 @@ impl Store {
                 };
                 run.summary["exploitation"] = json!(exploitation_status);
             }
+        } else if ["REPRODUCED", "VERIFIED_COMPONENT"].contains(&verdict) {
+            // A verified behaviour is reusable evidence only when the exact input
+            // is archived next to a runner that replays it, so an operator can
+            // reproduce the observed effect without re-reading the trial log.
+            let recipe = json!({
+                "schema_version": 1,
+                "mode": record.config.mode,
+                "adapter": record.config.adapter,
+                "target_path": record.config.path,
+                "target_sha256": result.target_sha256,
+                "observer": record.config.observer,
+                "marker_path": record.config.marker_path,
+                "repeats": record.config.repeats,
+                "timeout_seconds": record.config.timeout_seconds,
+                "probe": record.config.probe,
+                "fixtures": record.config.fixtures,
+            });
+            let recipe_artifact = self
+                .stage_bytes(
+                    serde_json::to_vec_pretty(&recipe)?.as_slice(),
+                    &format!("exploit-{}.recipe.json", record.id),
+                    "application/json",
+                )
+                .await?;
+            Self::insert_artifact(
+                conn,
+                &recipe_artifact,
+                Some(&snapshot.id),
+                Some(work),
+                Some(attempt),
+            )
+            .await?;
+            let runner_artifact = self
+                .stage_bytes(
+                    BEHAVIOR_POC_RUNNER.as_bytes(),
+                    &format!("exploit-{}.py", record.id),
+                    "text/x-python",
+                )
+                .await?;
+            Self::insert_artifact(
+                conn,
+                &runner_artifact,
+                Some(&snapshot.id),
+                Some(work),
+                Some(attempt),
+            )
+            .await?;
+            let category = if record.finding_id.is_empty() {
+                String::new()
+            } else {
+                let finding: d::Finding = load(conn, "findings", &record.finding_id).await?;
+                finding.draft.category
+            };
+            let impact = match category.as_str() {
+                "PATH_TRAVERSAL" => {
+                    "The archived probe makes the target write outside the directory it declares."
+                }
+                "AUTHORIZATION" => {
+                    "The archived probe performs the restricted operation with caller-supplied identity data."
+                }
+                "INJECTION" => {
+                    "The archived probe makes the target execute an additional command in the test directory."
+                }
+                "MEMORY_BOUNDS" => {
+                    "The archived probe drives the recorded out-of-bounds write; the process terminates with the recorded Windows status."
+                }
+                _ => "The archived probe reproduces the recorded observation on the target.",
+            };
+            let trials: Vec<_> = result
+                .observation
+                .trials
+                .iter()
+                .map(|trial| {
+                    json!({"label": trial.label, "exit_code": trial.exit_code,
+                        "observed": trial.observed, "timed_out": trial.timed_out,
+                        "crash_signature": trial.crash_signature})
+                })
+                .collect();
+            let reproductions = result
+                .observation
+                .trials
+                .iter()
+                .filter(|trial| trial.label == "probe" && trial.observed)
+                .count();
+            let evidence = json!({
+                "schema_version": 1,
+                "kind": "BEHAVIOR_POC",
+                "mode": record.config.mode,
+                "finding_id": record.finding_id,
+                "exploit_class": category,
+                "target_path": record.config.path,
+                "target_sha256": result.target_sha256,
+                "config_hash": result.config_hash,
+                "adapter": record.config.adapter,
+                "observer": record.config.observer,
+                "marker_path": record.config.marker_path,
+                "probe": {"args": record.config.probe.args, "stdin": record.config.probe.stdin},
+                "reproductions": reproductions,
+                "expected_reproductions": record.config.repeats,
+                "trials": trials,
+                "recipe_artifact_id": recipe_artifact.id,
+                "runner_artifact_id": runner_artifact.id,
+                "impact": impact,
+                "limitations": [
+                    "The reuse PoC documents the observed local effect of the archived input; it is not proof of remote code execution.",
+                    "The runner must only be used against the authorized local target.",
+                ],
+            });
+            let evidence_artifact = self
+                .stage_bytes(
+                    serde_json::to_vec_pretty(&evidence)?.as_slice(),
+                    &format!("exploit-{}.json", record.id),
+                    "application/json",
+                )
+                .await?;
+            Self::insert_artifact(
+                conn,
+                &evidence_artifact,
+                Some(&snapshot.id),
+                Some(work),
+                Some(attempt),
+            )
+            .await?;
+            exploitation_status = "COMPLETED";
+            exploitation_artifact_id = evidence_artifact.id.clone();
+            exploitation_input_artifact_id = recipe_artifact.id.clone();
+            run.summary["exploitation"] = json!(exploitation_status);
+            run.summary["exploitation_artifact_id"] = json!(evidence_artifact.id);
+            run.summary["exploitation_input_artifact_id"] = json!(recipe_artifact.id);
+        } else {
+            exploitation_status = if verdict == "ERROR" {
+                "ERROR"
+            } else {
+                "NOT_REPRODUCED"
+            };
+            run.summary["exploitation"] = json!(exploitation_status);
         }
         update_run(conn, &run).await?;
         if !record.finding_id.is_empty() {

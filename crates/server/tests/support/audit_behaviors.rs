@@ -3,7 +3,10 @@ use aegis_application::model::{ModelClient, ModelRequest, ModelResponse, ProbeRe
 use std::{
     future::Future,
     pin::Pin,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
@@ -14,6 +17,9 @@ struct ScriptedModel {
     failing_role: Option<&'static str>,
     audit_tool_requests: usize,
     truncate_first: bool,
+    delay_ms: u64,
+    in_flight: Arc<AtomicUsize>,
+    peak_in_flight: Arc<AtomicUsize>,
     requests: Mutex<Vec<ModelRequest>>,
 }
 impl ScriptedModel {
@@ -25,6 +31,9 @@ impl ScriptedModel {
             failing_role: None,
             audit_tool_requests: 0,
             truncate_first: false,
+            delay_ms: 0,
+            in_flight: Arc::new(AtomicUsize::new(0)),
+            peak_in_flight: Arc::new(AtomicUsize::new(0)),
             requests: Mutex::new(vec![]),
         }
     }
@@ -35,6 +44,12 @@ impl ModelClient for ScriptedModel {
         request: &'a ModelRequest,
     ) -> Pin<Box<dyn Future<Output = anyhow::Result<ModelResponse>> + Send + 'a>> {
         Box::pin(async move {
+            let active = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+            self.peak_in_flight.fetch_max(active, Ordering::SeqCst);
+            if self.delay_ms > 0 {
+                tokio::time::sleep(Duration::from_millis(self.delay_ms)).await;
+            }
+            let outcome = async {
             self.requests.lock().unwrap().push(request.clone());
             let system = request.messages[0]["content"].as_str().unwrap();
             if self
@@ -104,6 +119,10 @@ impl ModelClient for ScriptedModel {
                     usage_available: true,
                 },
             })
+            }
+            .await;
+            self.in_flight.fetch_sub(1, Ordering::SeqCst);
+            outcome
         })
     }
 }
@@ -790,6 +809,57 @@ async fn extended_budget_and_truncation_repairs_keep_the_configured_reasoning() 
     assert!(requests.iter().all(|request| request.max_tokens == 131_072
         && request.reasoning_effort == "max"
         && request.timeout_seconds == 1800));
+}
+
+#[tokio::test]
+async fn independent_audit_units_overlap_without_losing_coverage() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig {
+        max_model_calls: 60,
+        max_units: 8,
+        max_tool_rounds: 1,
+        ..Default::default()
+    };
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.delay_ms = 25;
+    let peak = model.peak_in_flight.clone();
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    assert!(
+        peak.load(Ordering::SeqCst) >= 2,
+        "independent audit units never overlapped; the loop is still serial"
+    );
+    let evidence = store.audit_evidence(&run.id).await.unwrap();
+    let record: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
+    let eligible = record.summary["eligible_unit_count"].as_u64().unwrap();
+    assert!(eligible >= 2, "the fixture must expose independent units");
+    assert_eq!(
+        record.summary["audited_unit_count"].as_u64().unwrap(),
+        eligible,
+        "parallel auditing must still cover every eligible unit"
+    );
+    let reviewed = evidence
+        .findings
+        .iter()
+        .filter(|finding| {
+            evidence
+                .reviews
+                .iter()
+                .any(|review| review.finding_id == finding.id && review.actor == "MODEL")
+        })
+        .count();
+    assert_eq!(reviewed, evidence.findings.len());
 }
 
 #[tokio::test]

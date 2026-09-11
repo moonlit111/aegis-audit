@@ -11,8 +11,15 @@ use aegis_domain as d;
 use anyhow::{Context, bail, ensure};
 use serde_json::{Value, json};
 use sqlx::Row;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 use tokio_util::sync::CancellationToken;
+
+/// Bounded parallelism for independent audit units. Each worker still performs
+/// its own model calls, reviews and evidence writes; the limit only decides how
+/// many units may be in flight, so a slow provider cannot queue the whole audit
+/// serially and a fast one cannot exhaust the budget in one burst.
+const AUDIT_PARALLEL_UNITS: usize = 4;
 
 impl Store {
     pub async fn recover_audits(&self) -> Result<()> {
@@ -189,48 +196,24 @@ impl Store {
         let planner = context.execute("PLANNER", "plan", corpus.catalog()).await?;
         let plan: Plan = serde_json::from_value(planner.result)?;
         let order = corpus.ordered(&plan.priorities)?;
-        for id in order.iter().take(config.max_units as usize) {
-            let input = json!({"focus":corpus.focus(id)?,"audit_approach":plan.approach,
-                "instructions":"Audit this focus unit even if no lexical clues exist. Query relevant code when evidence is incomplete."});
-            context.execute_item("AUDITOR", id, input).await?;
-            // Review immediately so findings remain useful when a later unit reaches a budget.
-            let evidence = self.audit_evidence(context.run_id).await?;
-            for finding in evidence.findings {
-                if evidence
-                    .reviews
-                    .iter()
-                    .any(|r| r.finding_id == finding.id && r.actor == "MODEL")
-                    || evidence.tasks.iter().any(|task| {
-                        task.role == "REVIEWER"
-                            && task.item_key == finding.id
-                            && task.status == "FAILED"
-                    })
-                {
-                    continue;
-                }
-                let mut ids = std::collections::HashSet::new();
-                let mut originals = vec![];
-                for reference in &finding.evidence {
-                    if ids.insert(reference.unit_id.clone()) {
-                        originals.push(
-                            corpus.view(
-                                &reference.unit_id,
-                                Some(
-                                    reference
-                                        .start_line
-                                        .saturating_sub(6)
-                                        .max(corpus.units[&reference.unit_id].unit.start_line),
-                                ),
-                                Some(reference.end_line.saturating_add(15)),
-                            )?,
-                        );
-                    }
-                }
-                let input = json!({"candidate":finding.draft,"original_code":originals,"review_scope":"COMPONENT",
-                    "verification_status":"NOT_RUN","instructions":"Independently check this claim against the original code; the auditor conversation is not provided."});
-                context.execute_item("REVIEWER", &finding.id, input).await?;
+        let limit = order.len().min(config.max_units as usize);
+        let parallelism = AUDIT_PARALLEL_UNITS.max(1).min(limit.max(1));
+        let cursor = AtomicUsize::new(0);
+        let next = |cursor: &AtomicUsize| {
+            let index = cursor.fetch_add(1, Ordering::SeqCst);
+            (index < limit).then(|| order[index].clone())
+        };
+        let workers = (0..parallelism).map(|_| async {
+            while let Some(id) = next(&cursor) {
+                self.audit_unit(&context, &corpus, &plan, &id).await?;
             }
-        }
+            Ok::<(), anyhow::Error>(())
+        });
+        futures::future::try_join_all(workers).await?;
+        // Safety net: a unit whose finding was recorded under another unit id, or
+        // whose review was skipped by a failed worker, is still reviewed once here.
+        self.review_pending_findings(&context, &corpus, None)
+            .await?;
         // Planning uses a fresh context and cannot assign an execution verdict.
         // A saved recipe is executed by a separate, cancellable runtime task.
         let evidence = self.audit_evidence(context.run_id).await?;
@@ -291,6 +274,71 @@ impl Store {
                     ),
                 }
             }
+        }
+        Ok(())
+    }
+    /// Audit one focus unit and review the findings it produced. Units are
+    /// independent tasks, so several of these run concurrently.
+    async fn audit_unit(
+        &self,
+        context: &AgentContext<'_>,
+        corpus: &Corpus,
+        plan: &Plan,
+        id: &str,
+    ) -> anyhow::Result<()> {
+        let input = json!({"focus":corpus.focus(id)?,"audit_approach":plan.approach,
+            "instructions":"Audit this focus unit even if no lexical clues exist. Query relevant code when evidence is incomplete."});
+        context.execute_item("AUDITOR", id, input).await?;
+        self.review_pending_findings(context, corpus, Some(id))
+            .await
+    }
+    /// Review every finding that has no model review yet, optionally limited to
+    /// one unit. The store deduplicates by (role, item_key), so a repeated call
+    /// reuses the finished review instead of spending another model call.
+    async fn review_pending_findings(
+        &self,
+        context: &AgentContext<'_>,
+        corpus: &Corpus,
+        only_unit: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let evidence = self.audit_evidence(context.run_id).await?;
+        for finding in evidence.findings {
+            if only_unit.is_some_and(|id| finding.draft.unit_id != id) {
+                continue;
+            }
+            if evidence
+                .reviews
+                .iter()
+                .any(|review| review.finding_id == finding.id && review.actor == "MODEL")
+                || evidence.tasks.iter().any(|task| {
+                    task.role == "REVIEWER"
+                        && task.item_key == finding.id
+                        && task.status == "FAILED"
+                })
+            {
+                continue;
+            }
+            let mut ids = std::collections::HashSet::new();
+            let mut originals = vec![];
+            for reference in &finding.evidence {
+                if ids.insert(reference.unit_id.clone()) {
+                    originals.push(
+                        corpus.view(
+                            &reference.unit_id,
+                            Some(
+                                reference
+                                    .start_line
+                                    .saturating_sub(6)
+                                    .max(corpus.units[&reference.unit_id].unit.start_line),
+                            ),
+                            Some(reference.end_line.saturating_add(15)),
+                        )?,
+                    );
+                }
+            }
+            let input = json!({"candidate":finding.draft,"original_code":originals,"review_scope":"COMPONENT",
+                "verification_status":"NOT_RUN","instructions":"Independently check this claim against the original code; the auditor conversation is not provided."});
+            context.execute_item("REVIEWER", &finding.id, input).await?;
         }
         Ok(())
     }

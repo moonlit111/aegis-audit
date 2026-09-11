@@ -44,6 +44,7 @@ TERMINAL_RECORD = {'REPRODUCED', 'NOT_REPRODUCED', 'NO_CRASH_OBSERVED', 'VERIFIE
 RUNTIME = {
     'P1': {
         'observer': 'FILE_CREATED', 'marker_path': 'escaped.txt',
+        'finding_category': 'PATH_TRAVERSAL',
         'fixtures': [{'path': 'payload.txt', 'content': 'parcel'}],
         'baseline': ['inbox', 'payload.txt', 'payload.txt'],
         'probe': ['inbox', '..\\escaped.txt', 'payload.txt'],
@@ -51,6 +52,7 @@ RUNTIME = {
     },
     'P2': {
         'observer': 'SANITIZER', 'marker_path': '',
+        'finding_category': 'MEMORY_BOUNDS',
         'fixtures': [{'path': 'record.rv', 'content': 'RV1' + ' ' + 'A' * 32},
                      {'path': 'long.rv', 'content': 'RV1' + '`' + 'B' * 96}],
         'baseline': ['record.rv'],
@@ -59,6 +61,7 @@ RUNTIME = {
     },
     'O1': {
         'observer': 'FILE_CREATED', 'marker_path': 'exported.txt',
+        'finding_category': 'AUTHORIZATION',
         'fixtures': [{'path': 'account.txt', 'content': 'alice|secret|guest'},
                      {'path': 'record.txt', 'content': 'ledger-entry'}],
         'baseline': ['account.txt', 'alice', 'secret', 'guest', 'status', 'record.txt', 'exported.txt'],
@@ -67,6 +70,7 @@ RUNTIME = {
     },
     'O2': {
         'observer': 'FILE_CREATED', 'marker_path': 'injected.txt',
+        'finding_category': 'INJECTION',
         'fixtures': [{'path': 'doc.txt', 'content': 'report-body'},
                      {'path': 'doc.txt & copy doc.txt injected.txt', 'content': 'report-body'}],
         'baseline': ['doc.txt'],
@@ -237,10 +241,21 @@ def exercise(api: API, output: Path, targets: list[dict], static: bool, runtime:
             if runtime and not record.get('runtime_record_id') and not resume:
                 source = source_run_id(api, record, entry['name'])
                 config_json = runtime_config(entry, RUNTIME[entry['id']], entry['name'] + '.exe')
+                finding = ''
+                if label == 'defect':
+                    # Tie the reproduction to the mined finding so the review and
+                    # report show it as verified instead of an unrelated run.
+                    wanted = RUNTIME[entry['id']]['finding_category']
+                    matches = [item for item in spec.get('defect', {}).get('findings', [])
+                               if item['category'] == wanted]
+                    matches.sort(key=lambda item: item['review_status'] != 'VALIDATED')
+                    if matches:
+                        finding = matches[0]['id']
                 runtime_record = api.rpc('RuntimeService', 'CreateRuntime', requestId=str(uuid.uuid4()),
                                          sourceRunId=source,
-                                         findingId='', configJson=json.dumps(config_json))['record']
+                                         findingId=finding, configJson=json.dumps(config_json))['record']
                 record['runtime_record_id'] = runtime_record['id']
+                record['finding_id'] = finding
                 record['runtime_config'] = config_json
                 api_checkpoint()
             if record.get('runtime_record_id') and not record.get('runtime_complete'):
@@ -257,6 +272,24 @@ def exercise(api: API, output: Path, targets: list[dict], static: bool, runtime:
                                for trial in observation.get('trials', [])],
                     'error': observation.get('error', ''),
                 }
+                runtime_run = api.rpc('RunService', 'GetRun', runId=runtime_record['runId'])['run']
+                runtime_summary = json.loads(runtime_run.get('summaryJson', '{}'))
+                record['runtime']['exploitation'] = runtime_summary.get('exploitation', 'NOT_RUN')
+                record['poc'] = {
+                    'evidence_artifact_id': runtime_summary.get('exploitation_artifact_id', ''),
+                    'recipe_artifact_id': runtime_summary.get('exploitation_input_artifact_id', ''),
+                    'run_id': runtime_run['id'],
+                }
+                if record['poc']['evidence_artifact_id']:
+                    data = api.download(record['poc']['evidence_artifact_id'])
+                    record['poc']['evidence'] = json.loads(data)
+                    (folder / 'poc-evidence.json').write_bytes(data)
+                    runner_id = record['poc']['evidence'].get('runner_artifact_id', '')
+                    if runner_id:
+                        (folder / 'poc-replay.py').write_bytes(api.download(runner_id))
+                    recipe_id = record['poc']['recipe_artifact_id']
+                    if recipe_id:
+                        (folder / 'poc-recipe.json').write_bytes(api.download(recipe_id))
                 record['runtime_reports'] = collect_reports(api, runtime_record['runId'], folder,
                                                             record, 'runtime_reports')
                 record['runtime_complete'] = True
@@ -329,6 +362,8 @@ def main() -> int:
     parser.add_argument('--max-tool-rounds', type=int, default=10)
     parser.add_argument('--timeout-seconds', type=int, default=3600)
     parser.add_argument('--model-timeout-seconds', type=int, default=240)
+    parser.add_argument('--reasoning-effort', default='high',
+                        help='Provider reasoning effort; "medium" halves typical audit latency')
     options = parser.parse_args()
     if Path(options.batch).name != options.batch:
         parser.error('--batch must be a single directory name')
@@ -353,7 +388,7 @@ def main() -> int:
     }
     config = {'maxModelCalls': options.max_model_calls, 'maxUnits': options.max_units,
               'maxToolRounds': options.max_tool_rounds, 'timeoutSeconds': options.timeout_seconds,
-              'maxOutputTokens': 0, 'reasoningEffort': 'high',
+              'maxOutputTokens': 0, 'reasoningEffort': options.reasoning_effort,
               'modelTimeoutSeconds': options.model_timeout_seconds}
     document['audit_config'] = config
     static = not (options.runtime_only or options.collect_only)
