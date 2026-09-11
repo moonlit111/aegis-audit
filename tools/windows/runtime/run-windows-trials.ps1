@@ -159,10 +159,17 @@ function Get-WindowsLibFuzzerCrashSignature {
 
 function Copy-WindowsRuntimeInputs {
     param([string]$InputPath, [string]$Work)
-    Get-ChildItem -LiteralPath $InputPath -Recurse -File |
+    # Resolve the root once and measure the offset against that same string. The
+    # caller can hand us an 8.3 short path (GitHub's runner TEMP is
+    # C:\Users\RUNNER~1\...) while Get-ChildItem reports FullName in the long
+    # form, so subtracting the caller's length slices at the wrong offset and the
+    # inputs land outside $Work. Do not reach for [IO.Path]::GetRelativePath:
+    # powershell.exe runs on .NET Framework, which does not have it.
+    $resolvedInput = (Get-Item -LiteralPath $InputPath).FullName
+    Get-ChildItem -LiteralPath $resolvedInput -Recurse -File |
         Where-Object { $_.Name -notin @('session.json', 'runtime-config.json') } |
         ForEach-Object {
-            $relative = $_.FullName.Substring($InputPath.Length + 1)
+            $relative = $_.FullName.Substring($resolvedInput.Length + 1)
             $target = Join-Path $Work $relative
             $targetParent = Split-Path -Parent $target
             if (-not (Test-Path -LiteralPath $targetParent)) {
