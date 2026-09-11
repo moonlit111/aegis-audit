@@ -120,7 +120,7 @@
       rationale = '';
       await refresh();
       onchanged();
-      notify('人工标注已保存，引用内容已按原始代码核对。');
+      notify('人工标注已保存，引用内容已按原始代码核对');
     } catch (failure) {
       error = errorMessage(failure);
     } finally {
@@ -149,7 +149,7 @@
       editing = '';
       await refresh();
       onchanged();
-      notify('标注修订已保存。');
+      notify('标注修订已保存');
     } catch (failure) {
       error = errorMessage(failure);
     } finally {

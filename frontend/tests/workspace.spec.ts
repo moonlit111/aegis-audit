@@ -49,6 +49,7 @@ test('runtime configuration → repeated component observations → reload → f
   await page.getByLabel('报告格式').selectOption('json');
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const report = JSON.parse(await readFile((await (await downloaded).path())!, 'utf8'));
   expect(report.checks.runtime_verification).toBe('COMPLETED');
   expect(report.checks.exploitation).toBe('NOT_RUN');
@@ -61,7 +62,7 @@ test('runtime configuration → repeated component observations → reload → f
 
 async function importFile(page: Page, project: string, name: string, bytes: Buffer, binary = false) {
   await page.goto('/');
-  await page.getByRole('button', { name: '新建项目', exact: true }).click();
+  await page.getByRole('button', { name: '导入新项目', exact: true }).click();
   await page.getByLabel('项目名称', { exact: true }).fill(project);
   if (binary) await page.getByRole('button', { name: 'PE / ELF', exact: true }).click();
   await page
@@ -133,6 +134,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
     await page.getByLabel('报告格式').selectOption(format);
     const downloaded = page.waitForEvent('download');
     await page.getByRole('button', { name: '导出报告', exact: true }).click();
+    await page.getByRole('button', { name: '下载文件', exact: true }).click();
     const download = await downloaded;
     const content = await readFile((await download.path())!, 'utf8');
     expect(content).toContain('NOT_RUN');
@@ -148,6 +150,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
   await page.getByLabel('报告格式').selectOption('pdf');
   const pdfDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const pdfFile = await pdfDownload;
   expect((await readFile((await pdfFile.path())!)).subarray(0, 5).toString()).toBe('%PDF-');
   await page.getByRole('tab', { name: '报告历史', exact: true }).click();
@@ -157,6 +160,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
   await expect(page.locator('.report-history tbody tr').first()).toContainText('PDF');
   const historic = page.waitForEvent('download');
   await page.locator('.report-history tbody tr').first().getByRole('button', { name: '下载报告' }).click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   expect((await readFile((await (await historic).path())!)).subarray(0, 5).toString()).toBe('%PDF-');
   await page.getByRole('tab', { name: '任务事件' }).click();
   await expect(page.locator('.event-list')).toContainText('RUN_COMPLETED');
@@ -172,7 +176,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
 
 test('browser folder import uses the same persistent structure pipeline', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '新建项目', exact: true }).click();
+  await page.getByRole('button', { name: '导入新项目', exact: true }).click();
   await page.getByLabel('项目名称', { exact: true }).fill('本地文件夹验证');
   await page.getByRole('button', { name: '本地文件夹', exact: true }).click();
   await page

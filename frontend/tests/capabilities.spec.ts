@@ -46,7 +46,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.screenshot({ path: testInfo.outputPath('model-connection.png'), fullPage: true });
 
   await page.goto('/#/projects');
-  await page.getByRole('button', { name: '新建项目', exact: true }).click();
+  await page.getByRole('button', { name: '导入新项目', exact: true }).click();
   await page.getByLabel('项目名称', { exact: true }).fill('能力闭环浏览器验证');
   const zip = zipSync({
     'review.py': strToU8(
@@ -84,6 +84,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.getByLabel('报告格式').selectOption('json');
   const interimDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出阶段报告', exact: true }).click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const interim = JSON.parse(await readFile((await (await interimDownload).path())!, 'utf8'));
   expect(interim.interim).toBe(true);
   expect(interim.snapshot_state).toBe('RUNNING');
@@ -139,6 +140,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.getByLabel('报告格式').selectOption('json');
   const finalDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const finalReport = JSON.parse(await readFile((await (await finalDownload).path())!, 'utf8'));
   expect(finalReport.interim).toBe(false);
   const humanReview = finalReport.audit.reviews.find((review: { actor: string }) => review.actor === 'HUMAN');
@@ -152,6 +154,7 @@ test('web model settings → human references → typed phases and plan → revi
     .filter({ hasText: '阶段报告' })
     .getByRole('button', { name: '下载报告' })
     .click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   expect(JSON.parse(await readFile((await (await historicalDownload).path())!, 'utf8'))).toEqual(interim);
   await expect(page.locator('.toast')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('immutable-report-history.png'), fullPage: true });
@@ -163,6 +166,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.getByRole('tab', { name: '智能体记录', exact: true }).click();
   const requestDownload = page.waitForEvent('download');
   await page.locator('.agent-records').getByRole('link', { name: '请求', exact: true }).first().click();
+  await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const request = await readFile((await (await requestDownload).path())!, 'utf8');
   expect(request).toContain('人工上下文标记');
   expect(request).not.toContain('browser-fixture-key');
@@ -195,7 +199,7 @@ test('binary audit retains real recovery and displays the same typed plan with a
   const release = await page.request.post(new URL('/__test__/release-auditors', endpoint!).toString());
   expect(release.ok()).toBe(true);
   await page.goto('/#/projects');
-  await page.getByRole('button', { name: '新建项目', exact: true }).click();
+  await page.getByRole('button', { name: '导入新项目', exact: true }).click();
   await page.getByLabel('项目名称', { exact: true }).fill('二进制规划闭环验证');
   await page.getByRole('button', { name: 'PE / ELF', exact: true }).click();
   const fixture = await readFile(

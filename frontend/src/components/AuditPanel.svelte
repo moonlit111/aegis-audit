@@ -210,7 +210,7 @@
       rationale = '';
       counterEvidence = '';
       missingInformation = '';
-      notify('人工复核已保存，原始模型复核与执行证据继续保留。');
+      notify('人工复核已保存，原始模型复核与执行证据继续保留');
     } catch (failure) {
       error = errorMessage(failure);
     } finally {
