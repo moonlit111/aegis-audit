@@ -86,7 +86,15 @@ $session = Get-Content -LiteralPath (Join-Path $InputPath 'session.json') -Raw |
     let execution = run(&prepared, Duration::from_secs(10), CancellationToken::new())
         .await
         .unwrap();
-    assert!(execution.success);
+    assert!(
+        execution.success,
+        "runtime did not succeed: exit={:?} reaped={} timed_out={} cancelled={} stderr={}",
+        execution.exit_code,
+        execution.processes_reaped,
+        execution.timed_out,
+        execution.cancelled,
+        execution.stderr
+    );
     assert_eq!(execution.exit_code, Some(0));
     assert!(!temporary.path().join("attempt/sandbox.wsb").exists());
     assert!(
@@ -172,7 +180,15 @@ def fetch(name):
     let execution = run(&prepared, Duration::from_secs(30), CancellationToken::new())
         .await
         .unwrap();
-    assert!(execution.success);
+    assert!(
+        execution.success,
+        "runtime did not succeed: exit={:?} reaped={} timed_out={} cancelled={} stderr={}",
+        execution.exit_code,
+        execution.processes_reaped,
+        execution.timed_out,
+        execution.cancelled,
+        execution.stderr
+    );
     assert_eq!(execution.exit_code, Some(0));
     let output = collect_output(&prepared, &HostRuntimeOutputPolicy::windows_python()).unwrap();
     let guest_error =
