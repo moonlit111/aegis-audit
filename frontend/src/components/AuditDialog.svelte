@@ -141,12 +141,12 @@
 <style>
   .audit-dialog {
     width: 620px;
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
   }
   .audit-target {
     margin: 0 0 22px;
     overflow-wrap: anywhere;
-    font-size: 13px;
+    font-size: var(--text-base);
   }
   fieldset {
     border: 0;
@@ -155,7 +155,7 @@
     min-width: 0;
   }
   legend {
-    font-size: 13px;
+    font-size: var(--text-base);
     font-weight: 600;
     margin-bottom: 14px;
   }
@@ -166,7 +166,7 @@
   }
   .field {
     min-width: 0;
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .field input,
   .field select {

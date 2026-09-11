@@ -7,6 +7,7 @@ pub mod deobfuscation;
 pub mod ida_d810;
 pub mod import;
 pub mod model;
+pub mod pdf;
 pub mod process;
 pub mod protection;
 pub mod recovery;

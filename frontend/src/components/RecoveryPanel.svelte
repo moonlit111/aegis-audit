@@ -112,7 +112,7 @@
   }
   article {
     padding: 20px 0;
-    border-top: 1px solid var(--border, #dce7e3);
+    border-top: 1px solid var(--line);
   }
   li {
     margin: 12px 0;

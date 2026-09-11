@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Store a DeepSeek key locally with a non-echoing prompt; never writes a tracked file."""
 import argparse
+from contextlib import closing
 import getpass
 import json
 import os
 from pathlib import Path
 import sys
 import tempfile
+import sqlite3
+import uuid
 from aegis import ROOT, require_windows
 from windows_secrets import protect_secret
 
@@ -36,6 +39,25 @@ def save_settings(data_dir, key, model):
         raise ValueError('Use an official DeepSeek model identifier.')
     protected = protect_secret(key)
     data_dir.mkdir(parents=True, exist_ok=True)
+    database = data_dir / 'aegis.sqlite'
+    if database.is_file():
+        try:
+            with closing(sqlite3.connect(database, timeout=5)) as connection, connection:
+                connection.execute('BEGIN IMMEDIATE')
+                if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='model_settings'").fetchone():
+                    active = connection.execute("""SELECT
+                        (SELECT count(*) FROM audit_workflows w JOIN audit_runs r ON r.id=w.run_id
+                         WHERE r.state IN ('QUEUED','WAITING_EXECUTOR','RUNNING','CANCELLING')) +
+                        (SELECT count(*) FROM model_calls WHERE status='RUNNING' AND run_id IS NULL)""").fetchone()[0]
+                    if active:
+                        raise ValueError('Finish or cancel active audits and connection checks before changing model settings.')
+                    data = json.dumps({'model': model, 'endpoint': 'https://api.deepseek.com',
+                                       'provider_kind': 'DEEPSEEK', 'protected_key': protected,
+                                       'revision': str(uuid.uuid4())})
+                    connection.execute('INSERT INTO model_settings(id,data) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data', (data,))
+                    return
+        except sqlite3.Error as error:
+            raise ValueError('Model settings could not be saved; the database may be busy or unavailable.') from error
     atomic_write(data_dir / 'model.json', json.dumps({'model': model}, indent=2) + '\n')
     atomic_write(data_dir / 'deepseek.token', protected)
 

@@ -105,6 +105,21 @@ message RunEvent {
   string work_item_id = 6;
   uint64 current = 7;
   uint64 total = 8;
+  string phase_id = 9;
+  uint32 phase_order = 10;
+  uint32 phase_count = 11;
+}
+// Ordered workflow stages. Counts are observed work, never model-budget percentages.
+message RunPhase {
+  string id = 1;
+  string title = 2;
+  uint32 order = 3;
+  string status = 4;
+  uint64 current = 5;
+  uint64 total = 6;
+  string detail = 7;
+  string role = 8;
+  string unit_id = 9;
 }
 message Report {
   string id = 1;
@@ -112,6 +127,9 @@ message Report {
   string format = 3;
   string artifact_id = 4;
   string created_at = 5;
+  string snapshot_state = 6;
+  bool interim = 7;
+  string snapshot_at = 8;
 }
 message ToolCapability {
   string name = 1;
@@ -188,7 +206,7 @@ message CreateRunResponse { AuditRun run = 1; }
 message ListRunsRequest { string project_id = 1; }
 message ListRunsResponse { repeated AuditRun runs = 1; }
 message GetRunRequest { string run_id = 1; }
-message GetRunResponse { AuditRun run = 1; repeated Artifact artifacts = 2; }
+message GetRunResponse { AuditRun run = 1; repeated Artifact artifacts = 2; repeated RunPhase phases = 3; }
 message WatchRunRequest { string run_id = 1; uint64 after_seq = 2; }
 message WatchRunResponse { RunEvent event = 1; }
 message CancelRunRequest { string run_id = 1; }
@@ -199,7 +217,26 @@ service ProgramService {
   rpc GetUnit(GetUnitRequest) returns (GetUnitResponse);
   rpc GetGraph(GetGraphRequest) returns (GetGraphResponse);
   rpc UpdateAnnotation(UpdateAnnotationRequest) returns (UpdateAnnotationResponse);
+  rpc CreateAnnotation(CreateAnnotationRequest) returns (CreateAnnotationResponse);
+  rpc ListAnnotations(ListAnnotationsRequest) returns (ListAnnotationsResponse);
 }
+message EvidenceInput {
+  string unit_id = 1;
+  uint32 start_line = 2;
+  uint32 end_line = 3;
+  string quote = 4;
+}
+message CreateAnnotationRequest {
+  string request_id = 1;
+  string run_id = 2;
+  string unit_id = 3;
+  string tag = 4;
+  string rationale = 5;
+  repeated EvidenceInput evidence = 6;
+}
+message CreateAnnotationResponse { LogicAnnotation annotation = 1; }
+message ListAnnotationsRequest { string run_id = 1; }
+message ListAnnotationsResponse { repeated LogicAnnotation annotations = 1; }
 message ListUnitsRequest { string run_id = 1; string query = 2; string language = 3; uint32 offset = 4; uint32 limit = 5; }
 message ListUnitsResponse { repeated ProgramUnit units = 1; uint64 total = 2; }
 message GetUnitRequest { string unit_id = 1; }
@@ -210,7 +247,10 @@ message GetGraphResponse { repeated ProgramUnit units = 1; repeated ProgramEdge 
 service ReportService {
   rpc CreateReport(CreateReportRequest) returns (CreateReportResponse);
   rpc GetReport(GetReportRequest) returns (GetReportResponse);
+  rpc ListReports(ListReportsRequest) returns (ListReportsResponse);
 }
+message ListReportsRequest { string run_id = 1; uint32 offset = 2; uint32 limit = 3; }
+message ListReportsResponse { repeated Report reports = 1; uint64 total = 2; }
 message CreateReportRequest { string request_id = 1; string run_id = 2; string format = 3; }
 message CreateReportResponse { Report report = 1; }
 message GetReportRequest { string report_id = 1; }
@@ -237,7 +277,18 @@ message CompleteWorkResponse { bool accepted = 1; }
 service SystemService {
   rpc GetCapabilities(GetCapabilitiesRequest) returns (GetCapabilitiesResponse);
   rpc CheckModelConnection(CheckModelConnectionRequest) returns (CheckModelConnectionResponse);
+  rpc SaveModelSettings(SaveModelSettingsRequest) returns (SaveModelSettingsResponse);
 }
+message SaveModelSettingsRequest {
+  string request_id = 1;
+  string provider_kind = 2;
+  string endpoint = 3;
+  string model = 4;
+  string api_key = 5;
+  string key_action = 6;
+  string expected_revision = 7;
+}
+message SaveModelSettingsResponse { ModelConnection connection = 1; }
 message GetCapabilitiesRequest {}
 message GetCapabilitiesResponse { string version = 1; string scope = 2; repeated Executor executors = 3; repeated string pending_features = 4; ModelConnection model_connection = 5; }
 message ModelCall {
@@ -269,6 +320,10 @@ message ModelConnection {
   bool configured = 4;
   ModelCall last_call = 5;
   string status_message = 6;
+  string provider_kind = 7;
+  string key_source = 8;
+  string revision = 9;
+  bool settings_locked = 10;
 }
 message CheckModelConnectionRequest { string request_id = 1; }
 message CheckModelConnectionResponse { ModelCall call = 1; }
@@ -348,6 +403,16 @@ message AgentTask {
   string result_artifact_id = 8;
   string error = 9;
   string result_json = 10;
+  AuditPlan plan = 11;
+}
+message AuditPlan {
+  string approach = 1;
+  repeated AuditPriority priorities = 2;
+  repeated string limitations = 3;
+}
+message AuditPriority {
+  string unit_id = 1;
+  string reason = 2;
 }
 message GetAuditRequest { string run_id = 1; }
 message GetAuditResponse {

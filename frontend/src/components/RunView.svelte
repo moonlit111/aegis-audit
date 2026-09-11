@@ -27,6 +27,7 @@
     ProgramEdge,
     Artifact,
     RunEvent,
+    RunPhase,
   } from '../gen/audit/v1/audit_pb';
   import { RunState } from '../gen/audit/v1/audit_pb';
   import {
@@ -54,6 +55,9 @@
   import AuditPanel from './AuditPanel.svelte';
   import RuntimePanel from './RuntimePanel.svelte';
   import RecoveryPanel from './RecoveryPanel.svelte';
+  import RunProgress from './RunProgress.svelte';
+  import AnnotationsPanel from './AnnotationsPanel.svelte';
+  import ReportHistory from './ReportHistory.svelte';
 
   let {
     runId,
@@ -73,12 +77,14 @@
   let runtimeFinding = $state('');
   let viewer = $state('code');
   let events = $state<RunEvent[]>([]);
+  let phases = $state<RunPhase[]>([]);
   let streamStatus = $state('连接中');
   let error = $state('');
   let loadingUnits = $state(false);
   let selectedId = $state('');
   let reportFormat = $state('html');
   let reportBusy = $state(false);
+  let reportVersion = $state(0);
   let cancelBusy = $state(false);
   let cursor = $state(0n);
   let alive = true;
@@ -102,6 +108,7 @@
       const previousCount = run?.unitCount;
       const previousResult = parseJson<Summary>(run?.summaryJson || '', {}).result_artifact_id;
       run = response.run;
+      phases = response.phases;
       if (initial && run?.scope === 'SECURITY_AUDIT') tab = 'audit';
       if (initial && run && ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope)) tab = 'runtime';
       artifacts = response.artifacts;
@@ -236,8 +243,13 @@
       document.body.appendChild(link);
       link.click();
       link.remove();
+      reportVersion += 1;
       await loadRun();
-      notify('报告已生成，包含目标哈希、覆盖情况与产物引用。');
+      notify(
+        response.report?.interim
+          ? '阶段报告已生成，保留导出时的进度与证据。'
+          : '报告已生成，可在报告历史中再次下载。',
+      );
     } catch (failure) {
       error = errorMessage(failure);
     } finally {
@@ -277,13 +289,14 @@
       >{/if}
     <div class="report-action">
       <select aria-label="报告格式" bind:value={reportFormat}
-        ><option value="html">HTML</option><option value="json">JSON</option><option value="markdown"
-          >Markdown</option
-        ></select
-      ><button
-        class="button primary"
-        disabled={reportBusy || !run || !isTerminal(run.state)}
-        onclick={exportReport}><Download size={15} />{reportBusy ? '生成中…' : '导出报告'}</button
+        ><option value="html">HTML</option><option value="pdf">PDF</option><option value="json">JSON</option
+        ><option value="markdown">Markdown</option></select
+      ><button class="button primary" disabled={reportBusy || !run} onclick={exportReport}
+        ><Download size={15} />{reportBusy
+          ? '生成中…'
+          : run && !isTerminal(run.state)
+            ? '导出阶段报告'
+            : '导出报告'}</button
       >
     </div>
   </div>
@@ -326,6 +339,18 @@
     </div>
   </div>
   {#if run.error}<div class="error-banner"><AlertCircle size={18} /><span>{run.error}</span></div>{/if}
+  <RunProgress
+    {phases}
+    onselect={(phase) => {
+      if (phase.unitId) {
+        tab = 'program';
+        void selectUnit(phase.unitId);
+      } else if (phase.id === 'RECOVERY') tab = 'recovery';
+      else if (phase.id === 'RUNTIME') tab = 'runtime';
+      else if (phase.id === 'STRUCTURE') tab = 'program';
+      else tab = 'audit';
+    }}
+  />
   {#if !isTerminal(run.state)}<div class="running-banner">
       <span class="pulse-dot"></span><span
         >{run.state === RunState.WAITING_EXECUTOR
@@ -336,6 +361,18 @@
       ><a href="#/environment">执行环境<ArrowUpRight size={13} /></a>
     </div>{/if}
   <div class="view-tabs" role="tablist" aria-label="分析内容">
+    <button
+      role="tab"
+      aria-selected={tab === 'reports'}
+      class:active={tab === 'reports'}
+      onclick={() => (tab = 'reports')}><Download size={16} />报告历史</button
+    >
+    <button
+      role="tab"
+      aria-selected={tab === 'annotations'}
+      class:active={tab === 'annotations'}
+      onclick={() => (tab = 'annotations')}><Code2 size={16} />关键逻辑</button
+    >
     {#if summary.recovery}<button
         role="tab"
         aria-selected={tab === 'recovery'}
@@ -383,12 +420,24 @@
       ></i>{streamStatus}</span
     >
   </div>
-  {#if tab === 'recovery' && summary.recovery}
+  {#if tab === 'reports'}
+    <ReportHistory {runId} version={reportVersion} />
+  {:else if tab === 'annotations'}
+    <AnnotationsPanel
+      {run}
+      {notify}
+      onselectunit={(id) => {
+        tab = 'program';
+        void selectUnit(id);
+      }}
+    />
+  {:else if tab === 'recovery' && summary.recovery}
     <RecoveryPanel recovery={summary.recovery} />
   {:else if tab === 'audit'}
     <AuditPanel
       {run}
       {notify}
+      knownUnits={units}
       onverify={(id) => {
         runtimeFinding = id;
         tab = 'runtime';
@@ -399,7 +448,7 @@
       }}
     />
   {:else if tab === 'runtime'}
-    <RuntimePanel {run} {unit} {notify} {onchanged} findingId={runtimeFinding} />
+    <RuntimePanel {run} {snapshot} {unit} {notify} {onchanged} findingId={runtimeFinding} />
   {:else if tab === 'program'}
     <div class="program-layout">
       <aside class="unit-explorer">
@@ -432,7 +481,7 @@
                     size={15}
                   />{:else}<Code2 size={15} />{/if}</span
               ><span><strong>{item.name}</strong><small>{item.path}</small></span><span class="unit-location"
-                >{item.address ? 'ƒ' : `L${item.startLine}`}</span
+                >{item.address || `L${item.startLine}–L${item.endLine}`}</span
               ></button
             >{/each}{#if !units.length}<div class="explorer-empty">
               {loadingUnits
@@ -517,6 +566,7 @@
               units={graph.units}
               edges={graph.edges}
               focus={unit.id}
+              focusUnit={unit}
               onselect={selectUnit}
             />
             <div class="relation-list">
@@ -703,6 +753,10 @@
             >
             <div>
               <span class="event-kind">{event.kind}</span>
+              {#if event.phaseId}<span class="subtle">
+                  · 阶段 {event.phaseOrder}/{event.phaseCount}
+                  {phases.find((p) => p.id === event.phaseId)?.title || event.phaseId}</span
+                >{/if}
               <pre>{event.message}</pre>
               {#if event.total > 0n && event.kind === 'TOOL_PROGRESS'}<div class="event-progress">
                   <progress max={Number(event.total)} value={Number(event.current)}></progress><span

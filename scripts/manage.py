@@ -47,11 +47,53 @@ def owned(item):
     return bool(identity) and identity == item.get('identity')
 
 
+def signal_break(pid):
+    try:
+        os.kill(pid, signal.CTRL_BREAK_EVENT)
+        return
+    except OSError as error:
+        if error.winerror != 87:
+            raise
+    # Console events require a shared console. A later CLI invocation can be in
+    # another terminal, so attach an isolated helper without detaching this one.
+    powershell = Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    script = r'''
+Add-Type -ErrorAction Stop -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AegisConsoleSignal {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool AttachConsole(uint processId);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool GenerateConsoleCtrlEvent(uint signal, uint processGroupId);
+    [DllImport("kernel32.dll")]
+    public static extern bool FreeConsole();
+}
+'@
+[void][AegisConsoleSignal]::FreeConsole()
+if (-not [AegisConsoleSignal]::AttachConsole(AEGIS_TARGET_PID)) {
+    throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error())
+}
+try {
+    if (-not [AegisConsoleSignal]::GenerateConsoleCtrlEvent(1, AEGIS_TARGET_PID)) {
+        throw [ComponentModel.Win32Exception]::new([Runtime.InteropServices.Marshal]::GetLastWin32Error())
+    }
+} finally {
+    [void][AegisConsoleSignal]::FreeConsole()
+}
+'''.replace('AEGIS_TARGET_PID', str(pid))
+    result = subprocess.run([str(powershell), '-NoProfile', '-NonInteractive', '-Command', script],
+                            capture_output=True, text=True, encoding='utf-8', errors='replace',
+                            timeout=15, creationflags=subprocess.CREATE_NO_WINDOW)
+    if result.returncode:
+        raise RuntimeError(f'Cannot send a graceful stop to owned process {pid}: {result.stderr.strip()}')
+
+
 def stop_item(item):
     if not owned(item):
         return
     pid = item['pid']
-    os.kill(pid, signal.CTRL_BREAK_EVENT)
+    signal_break(pid)
     for _ in range(300):
         if not owned(item):
             return
