@@ -139,8 +139,11 @@ fn absolute(path: &Path) -> PathBuf {
     path
 }
 async fn version(program: &str, arg: &str) -> Option<String> {
-    let output = tokio::time::timeout(
-        Duration::from_secs(5),
+    version_with_timeout(program, arg, Duration::from_secs(5)).await
+}
+async fn version_with_timeout(program: &str, arg: &str, timeout: Duration) -> Option<String> {
+    let output = match tokio::time::timeout(
+        timeout,
         Command::new(program)
             .arg(arg)
             .stdin(Stdio::null())
@@ -148,9 +151,23 @@ async fn version(program: &str, arg: &str) -> Option<String> {
             .output(),
     )
     .await
-    .ok()?
-    .ok()?;
+    {
+        Ok(Ok(output)) => output,
+        Ok(Err(error)) => {
+            tracing::warn!(program, error=%error, "tool version probe could not start");
+            return None;
+        }
+        Err(_) => {
+            tracing::warn!(
+                program,
+                timeout_seconds = timeout.as_secs(),
+                "tool version probe timed out"
+            );
+            return None;
+        }
+    };
     if !output.status.success() {
+        tracing::warn!(program, status=%output.status, "tool version probe failed");
         return None;
     }
     let bytes = if output.stdout.is_empty() {
@@ -327,14 +344,29 @@ async fn capabilities(options: &Options) -> (Tools, Vec<p::ToolCapability>) {
         ("upx", upx, "5.2.1"),
         ("floss", floss, aegis_application::recovery::FLOSS_VERSION),
     ] {
+        let found = path.is_some();
+        // The packaged FLOSS Python runtime can exceed five seconds on a cold start.
+        let timeout = Duration::from_secs(if name == "floss" { 30 } else { 5 });
         let detected = if let Some(path) = path {
-            version(&path.to_string_lossy(), "--version").await
+            version_with_timeout(&path.to_string_lossy(), "--version", timeout).await
         } else {
             None
         };
         let available = detected.as_ref().is_some_and(|v| v.contains(expected));
+        let readiness = if available {
+            "版本探测通过".to_owned()
+        } else if !found {
+            "未找到已配置的程序".to_owned()
+        } else if detected.is_some() {
+            "探测版本与固定版本不匹配".to_owned()
+        } else {
+            format!(
+                "已找到程序，但版本探测未成功（{} 秒时限）；请检查启动日志后复检",
+                timeout.as_secs()
+            )
+        };
         caps.push(p::ToolCapability {name:name.into(),version:detected.unwrap_or_default(),available,
-            detail:format!("Windows 原生逆向工具；固定版本 {expected}；由智能体规划后调用。安装：py -3 scripts/install_reverse_tools.py"),..Default::default()});
+            detail:format!("Windows 原生逆向工具；固定版本 {expected}；{readiness}；由智能体规划后调用。安装：py -3 scripts/install_reverse_tools.py"),..Default::default()});
     }
     caps.push(p::ToolCapability {
         name: "string-recovery".into(),

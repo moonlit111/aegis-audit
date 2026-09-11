@@ -34,7 +34,8 @@ class FixtureProvider:
                     self.send_error(413)
                     return
                 body = json.loads(self.rfile.read(length))
-                assert not any(key in body for key in ('thinking', 'reasoning_effort', 'response_format'))
+                assert body.get('response_format') == {'type': 'json_object'}
+                assert not any(key in body for key in ('thinking', 'reasoning_effort'))
                 messages = body['messages']
                 if messages[0]['role'] != 'system':
                     role, context, result = 'CONNECTION_CHECK', {}, {'connected': True}
