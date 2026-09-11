@@ -137,23 +137,34 @@ pub fn workflow_phases(run: &AuditRun, binary: bool, tasks: &[AgentTask]) -> Vec
                     .iter()
                     .filter(|t| t.role == "AUDITOR" && t.status == "SUCCEEDED")
                     .count() as u64;
-                let eligible = run.summary["eligible_unit_count"]
+                // The plan is `eligible ∩ budget`, on one basis. `eligible_unit_count`
+                // counts only units that carry code — the basis the auditor plans over —
+                // while `unit_count` counts every unit, including ones a semantic audit can
+                // never cover. Both `eligible_unit_count` and `audit_config` are written in
+                // one transaction when the audit starts, so a run that has a budget also has
+                // the eligible count. A run that never reached that stage has no plan yet,
+                // and falls back to `unit_count` would advertise one that is both on a
+                // different basis and visibly shrinks the moment the audit begins.
+                phase.total = run.summary["eligible_unit_count"]
                     .as_u64()
-                    .unwrap_or(run.unit_count);
-                phase.total = eligible.min(
-                    run.summary["audit_config"]["max_units"]
-                        .as_u64()
-                        .unwrap_or(eligible),
-                );
-                if phase.detail.is_empty() {
-                    phase.detail =
-                        "每个单元审计后立即复核新发现；计数为本次计划内的已审计单元".into();
-                }
-                if run.state.terminal() && phase.current < eligible && phase.status == "COMPLETED" {
+                    .map(|eligible| {
+                        eligible.min(
+                            run.summary["audit_config"]["max_units"]
+                                .as_u64()
+                                .unwrap_or(eligible),
+                        )
+                    })
+                    .unwrap_or(0);
+                // Completion is relative to the plan. The detail below separately
+                // reports whole-target coverage, so a completed budget cannot hide gaps.
+                if run.state.terminal()
+                    && phase.current < phase.total
+                    && phase.status == "COMPLETED"
+                {
                     phase.status = "PARTIAL".into();
                     phase.detail = format!(
-                        "已审计 {} / {eligible} 个可审计单元；存在覆盖缺口",
-                        phase.current
+                        "已审计 {} / {} 个计划单元；存在覆盖缺口",
+                        phase.current, phase.total
                     );
                 }
             }
@@ -184,6 +195,33 @@ pub fn workflow_phases(run: &AuditRun, binary: bool, tasks: &[AgentTask]) -> Vec
         } else if phases[index].status == "PENDING" {
             phases[index].status = "WAITING".into();
             phases[index].detail = "等待调度；已完成阶段保留".into();
+        }
+    }
+    // Keep plan completion and whole-target coverage visible together, including
+    // while planning, after cancellation, and when reopening a budget-limited run.
+    if let Some(eligible) = run.summary["eligible_unit_count"].as_u64()
+        && let Some(phase) = phases.iter_mut().find(|p| p.id == "AUDIT_REVIEW")
+    {
+        let budget = run.summary["audit_config"]["max_units"]
+            .as_u64()
+            .unwrap_or(eligible);
+        phase.total = eligible.min(budget);
+        phase.current = tasks
+            .iter()
+            .filter(|t| t.role == "AUDITOR" && t.status == "SUCCEEDED")
+            .count() as u64;
+        let coverage = format!(
+            "已审计 {} / {eligible} 个可读单元；本轮计划 {} 个（上限 {budget}）",
+            phase.current, phase.total
+        );
+        if !phase.detail.is_empty() {
+            phase.detail.push_str("。 ");
+        }
+        phase.detail.push_str(&coverage);
+        if eligible > phase.total {
+            phase
+                .detail
+                .push_str(&format!("；{} 个未纳入本轮", eligible - phase.total));
         }
     }
     phases
@@ -254,5 +292,65 @@ mod tests {
         assert_eq!(phase_definitions(AUDIT_SCOPE, true).len(), 6);
         assert_eq!(phase_definitions("STRUCTURE_ANALYSIS", false).len(), 1);
         assert_eq!(phase_definitions("DYNAMIC_TESTING", true)[0].id, "RUNTIME");
+    }
+    #[test]
+    fn a_finished_plan_is_not_reported_as_a_coverage_gap() {
+        // max_units (2) sits below eligible (3), so auditing both planned units completes
+        // this phase. It used to be downgraded to PARTIAL because the check compared the
+        // audited count against `eligible`, leaving the card reading "2 / 2 个计划单元"
+        // next to a 部分完成 badge. The run itself stays partial; that gap is the run's to
+        // report, not this phase's.
+        let mut run = run();
+        run.state = RunState::Partial;
+        let tasks = vec![
+            task("PLANNER", "SUCCEEDED"),
+            task("AUDITOR", "SUCCEEDED"),
+            task("AUDITOR", "SUCCEEDED"),
+            task("REPORTER", "SUCCEEDED"),
+        ];
+        let phases = workflow_phases(&run, false, &tasks);
+        assert_eq!((phases[2].current, phases[2].total), (2, 2));
+        assert_eq!(phases[2].status, "COMPLETED");
+        assert!(phases[2].detail.contains("已审计 2 / 3 个可读单元"));
+        assert!(phases[2].detail.contains("本轮计划 2 个（上限 2）"));
+        assert!(phases[2].detail.contains("1 个未纳入本轮"));
+    }
+    #[test]
+    fn an_unfinished_plan_still_reports_the_coverage_gap() {
+        // One of the two planned units audited: the phase keeps its warning, and the
+        // detail now quotes the same denominator as the progress bar.
+        let mut run = run();
+        run.state = RunState::Partial;
+        let tasks = vec![
+            task("PLANNER", "SUCCEEDED"),
+            task("AUDITOR", "SUCCEEDED"),
+            task("REPORTER", "SUCCEEDED"),
+        ];
+        let phases = workflow_phases(&run, false, &tasks);
+        assert_eq!((phases[2].current, phases[2].total), (1, 2));
+        assert_eq!(phases[2].status, "PARTIAL");
+        assert!(
+            phases[2]
+                .detail
+                .contains("已审计 1 / 2 个计划单元；存在覆盖缺口")
+        );
+        assert!(phases[2].detail.contains("已审计 1 / 3 个可读单元"));
+    }
+    #[test]
+    fn an_unplanned_run_shows_no_plan_instead_of_the_raw_unit_count() {
+        // Before the audit stage there is no eligible count and no budget, so there is no
+        // plan. `unit_count` counts every unit, code-less ones included, so quoting it as
+        // the plan would put the bar on a different basis than the auditor's own `limit`
+        // and shrink the moment the audit started.
+        let mut run = run();
+        run.summary = json!({"result_artifact_id": "a"});
+        let tasks = vec![task("AUDITOR", "SUCCEEDED")];
+        let phases = workflow_phases(&run, false, &tasks);
+        assert_eq!(phases[2].total, 0);
+        assert_eq!(
+            run.unit_count, 3,
+            "the raw count is present and deliberately unused"
+        );
+        assert_eq!(phases[2].current, 1);
     }
 }

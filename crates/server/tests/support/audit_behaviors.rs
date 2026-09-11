@@ -13,6 +13,8 @@ use std::{
 struct ScriptedModel {
     invalid_quote: bool,
     invalid_review: bool,
+    review_verdict: &'static str,
+    correct_review_on_retry: bool,
     invalid_verifier: bool,
     failing_role: Option<&'static str>,
     audit_tool_requests: usize,
@@ -28,6 +30,8 @@ impl ScriptedModel {
         Self {
             invalid_quote,
             invalid_review: false,
+            review_verdict: "VALIDATED",
+            correct_review_on_retry: false,
             invalid_verifier: false,
             failing_role: None,
             audit_tool_requests: 0,
@@ -82,7 +86,8 @@ impl ModelClient for ScriptedModel {
             } else if system.contains("ROLE: REVIEWER") {
                 assert!(input.get("audit_approach").is_none());
                 assert!(input.get("original_code").is_some());
-                json!({"verdict":"VALIDATED","rationale":"original code has an unconstrained path argument","counter_evidence":"no guard in supplied code","missing_information":"external routing is not dynamically tested","evidence":input["candidate"]["evidence"],"assessments":(["INPUT_CONTROL","REACHABILITY","DEFENSE_GAP"].map(|check|json!({"check":check,"status":if self.invalid_review && check == "INPUT_CONTROL" {"UNKNOWN"} else {"SUPPORTED"},"rationale":"the fixture function receives and opens the supplied name without a guard","evidence":input["candidate"]["evidence"]})))})
+                let repaired = self.correct_review_on_retry && request.messages.iter().any(|message| message["content"].as_str().is_some_and(|text| text.contains("复核总判定与逐项证据不一致")));
+                json!({"verdict":if repaired {"VALIDATED"} else {self.review_verdict},"rationale":"original code has an unconstrained path argument","counter_evidence":"no guard in supplied code","missing_information":"external routing is not dynamically tested","evidence":input["candidate"]["evidence"],"assessments":(["INPUT_CONTROL","REACHABILITY","DEFENSE_GAP"].map(|check|json!({"check":check,"status":if self.invalid_review && check == "INPUT_CONTROL" {"UNKNOWN"} else {"SUPPORTED"},"rationale":"the fixture function receives and opens the supplied name without a guard","evidence":input["candidate"]["evidence"]})))})
             } else if system.contains("ROLE: VERIFIER") {
                 json!({"status":if self.invalid_verifier {"INVALID"} else {"NEEDS_CONFIGURATION"},"rationale":"fixture test does not provide deployment input","limitations":["runtime not executed"],"config":null})
             } else {
@@ -200,6 +205,76 @@ async fn prepared(store: &Store, config: d::AuditConfig) -> d::AuditRun {
     let run: d::AuditRun = store.get("audit_runs", &run.id).await.unwrap();
     assert_eq!(run.state, d::RunState::Running);
     run
+}
+
+#[tokio::test]
+async fn inconclusive_review_explains_skipped_verification_after_reopening() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig::default();
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.invalid_review = true;
+    model.review_verdict = "INCONCLUSIVE";
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    store.finish_audit(&run.id, None).await.unwrap();
+    let data = store.audit_evidence(&run.id).await.unwrap();
+    assert_eq!(data.findings[0].review_status, "INCONCLUSIVE");
+    assert!(!data.tasks.iter().any(|task| task.role == "VERIFIER"));
+    for store in [store, Store::open(directory.path()).await.unwrap()] {
+        let phases = store.run_phases(&run.id).await.unwrap();
+        let phase = phases.iter().find(|p| p.id == "VERIFICATION_PLAN").unwrap();
+        assert_eq!(phase.status, "SKIPPED");
+        assert!(phase.detail.contains("0 条通过复核，1 条结论不确定"));
+    }
+}
+
+#[tokio::test]
+async fn contradictory_review_is_repaired_before_verification() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = Store::open(directory.path()).await.unwrap();
+    let config = d::AuditConfig::default();
+    let run = prepared(&store, config.clone()).await;
+    let mut model = ScriptedModel::new(false);
+    model.review_verdict = "INCONCLUSIVE";
+    model.correct_review_on_retry = true;
+    store
+        .drive_audit_with_model(
+            &run.id,
+            "fixture-model",
+            &config,
+            &model,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let data = store.audit_evidence(&run.id).await.unwrap();
+    assert_eq!(data.findings[0].review_status, "VALIDATED");
+    assert!(
+        data.tasks
+            .iter()
+            .any(|task| task.role == "VERIFIER" && task.status == "SUCCEEDED")
+    );
+    let requests = model.requests.lock().unwrap();
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|request| request.messages[0]["content"]
+                .as_str()
+                .unwrap()
+                .contains("ROLE: REVIEWER"))
+            .count(),
+        2
+    );
 }
 
 #[tokio::test]

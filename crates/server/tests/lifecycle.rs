@@ -354,6 +354,29 @@ async fn interim_report_history_is_immutable_idempotent_and_paginated() {
         .unwrap();
     assert!(!final_report.interim);
     assert_eq!(final_report.snapshot_state, "CANCELLED");
+    let final_bytes = store
+        .artifact_bytes(&final_report.artifact_id, 4 * 1024 * 1024)
+        .await
+        .unwrap();
+    let final_document: Value = serde_json::from_slice(&final_bytes).unwrap();
+    assert!(
+        final_document["artifacts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|artifact| {
+                artifact["id"] != first.artifact_id && artifact["id"] != final_report.artifact_id
+            })
+    );
+    // History remains available in the task; only the exported evidence excludes it.
+    assert!(
+        store
+            .run_artifacts(&run.id)
+            .await
+            .unwrap()
+            .iter()
+            .any(|artifact| artifact.id == first.artifact_id)
+    );
     assert_eq!(
         store
             .create_report(&request, &run.id, "json")

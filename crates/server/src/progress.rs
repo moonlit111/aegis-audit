@@ -88,6 +88,17 @@ impl Store {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut phases = d::workflow_phases(&run, snapshot.kind == "BINARY", &tasks);
         for phase in &mut phases {
+            if phase.id == "VERIFICATION_PLAN"
+                && phase.status == "SKIPPED"
+                && tasks.iter().any(|t| t.role == "REPORTER")
+            {
+                let statuses: Vec<String> =
+                    sqlx::query_scalar("SELECT review_status FROM findings WHERE run_id=?")
+                        .bind(run_id)
+                        .fetch_all(&self.pool)
+                        .await?;
+                phase.detail = verification_skip_reason(&statuses);
+            }
             if ["STRUCTURE", "PREPARATION", "RECOVERY", "RUNTIME"].contains(&phase.id.as_str()) {
                 let row: Option<String> = sqlx::query_scalar("SELECT data FROM run_events WHERE run_id=? AND json_extract(data,'$.kind')='TOOL_PROGRESS' AND (json_extract(data,'$.phase_id')=? OR (?=1 AND json_extract(data,'$.phase_id') IS NULL)) ORDER BY seq DESC LIMIT 1")
                     .bind(run_id).bind(&phase.id).bind(phase.order).fetch_optional(&self.pool).await?;
@@ -117,5 +128,43 @@ impl Store {
             }
         }
         Ok(phases)
+    }
+}
+
+fn verification_skip_reason(statuses: &[String]) -> String {
+    if statuses.is_empty() {
+        return "本轮已审计范围内没有候选发现，无需生成验证方案；整体覆盖见审计进度".into();
+    }
+    let count = |status: &str| statuses.iter().filter(|s| s.as_str() == status).count();
+    let validated = count("VALIDATED");
+    let inconclusive = count("INCONCLUSIVE");
+    let rejected = count("REJECTED");
+    let pending = statuses.len() - validated - inconclusive - rejected;
+    let counts = format!(
+        "{} 条候选：{validated} 条通过复核，{inconclusive} 条结论不确定，{rejected} 条已驳回，{pending} 条待复核",
+        statuses.len()
+    );
+    if validated > 0 {
+        format!("{counts}。本轮未生成方案；复核状态可能在审计结束后更新，请重新审计以生成方案")
+    } else {
+        format!("{counts}。仅对通过复核的发现生成验证方案；可在漏洞审计中查看复核依据并补充证据")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skipped_verification_distinguishes_no_candidates_unknown_rejected_and_pending() {
+        assert!(verification_skip_reason(&[]).contains("本轮已审计范围内没有候选"));
+        let reason = verification_skip_reason(&["INCONCLUSIVE".into()]);
+        assert!(reason.contains("0 条通过复核，1 条结论不确定"));
+        assert!(reason.contains("补充证据"));
+        let reason = verification_skip_reason(&["REJECTED".into(), "PENDING".into()]);
+        assert!(reason.contains("1 条已驳回，1 条待复核"));
+        let reason = verification_skip_reason(&["VALIDATED".into()]);
+        assert!(reason.contains("本轮未生成方案"));
+        assert!(!reason.contains("0 条通过复核"));
     }
 }
