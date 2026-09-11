@@ -4,6 +4,7 @@
   import type { AuditRun, Snapshot } from '../gen/audit/v1/audit_pb';
   import { TargetKind } from '../gen/audit/v1/audit_pb';
   import { errorMessage, requestId, runsApi } from '../lib/api';
+  import { parseJson } from '../lib/format';
 
   let {
     snapshot,
@@ -30,10 +31,17 @@
   const fields = [
     { key: 'maxModelCalls', label: '总模型调用上限', min: 4, max: 2000 },
     { key: 'maxToolRounds', label: '每个子任务工具轮数', min: 1, max: 100 },
-    { key: 'maxUnits', label: '程序单元上限', min: 1, max: 500 },
     { key: 'timeoutSeconds', label: '任务时限（秒）', min: 60, max: 86400 },
   ] as const;
   let options = $state({ ...defaults });
+  let inheritedBudget = $state(false);
+  const previousSummary = $derived(
+    parseJson<{ eligible_unit_count?: number }>(previousRun?.summaryJson || '', {}),
+  );
+  const knownUnits = $derived(previousSummary.eligible_unit_count);
+  const plannedUnits = $derived(
+    knownUnits === undefined ? undefined : Math.min(knownUnits, options.maxUnits || 0),
+  );
   let dialog: HTMLDialogElement;
   let busy = $state(false);
   let error = $state('');
@@ -43,7 +51,8 @@
     if (previousRun) {
       try {
         const config = JSON.parse(previousRun.summaryJson).audit_config;
-        if (config)
+        if (config) {
+          inheritedBudget = true;
           options = {
             maxModelCalls: config.max_model_calls ?? defaults.maxModelCalls,
             maxUnits: config.max_units ?? defaults.maxUnits,
@@ -53,6 +62,7 @@
             reasoningEffort: config.reasoning_effort ?? defaults.reasoningEffort,
             modelTimeoutSeconds: config.model_timeout_seconds ?? defaults.modelTimeoutSeconds,
           };
+        }
       } catch {
         /* Older runs may not contain an audit configuration. */
       }
@@ -120,9 +130,38 @@
         ? '准备目标 → 逆向与反编译 → 漏洞审计与独立复核 → 验证方案。兼容的已有反编译结果会自动复用。'
         : '结构解析 → 漏洞审计与独立复核 → 验证方案。'}
       实际运行验证可在结果中单独启动。
-      {#if previousRun}本次将新建一轮审计，保留原结果；默认沿用上一轮预算。{/if}
+      {#if previousRun}本次将新建一轮审计，保留原结果。{/if}
     </p>
     <form onsubmit={submit}>
+      <fieldset class="audit-scope" disabled={busy} aria-label="审计范围">
+        <legend>审计范围</legend>
+        <label class="field">
+          程序单元上限
+          <input type="number" min="1" max="500" step="1" required bind:value={options.maxUnits} />
+        </label>
+        <p class="field-help">
+          单元通常是一个函数或文件级代码段。系统按优先级安排审计，达到此上限后结束本轮。
+        </p>
+        {#if knownUnits !== undefined}
+          <p>上一轮有 {knownUnits} 个可读单元，本轮预计纳入 {plannedUnits} 个；实际数量以本轮解析为准。</p>
+          {#if options.maxUnits > 0 && knownUnits > options.maxUnits}
+            <p class="scope-warning" role="status">
+              当前上限仅覆盖 {plannedUnits} / {knownUnits} 个单元，预计还有 {knownUnits - options.maxUnits} 个未纳入本轮。
+            </p>
+            {#if knownUnits <= 500}
+              <button type="button" class="text-button" onclick={() => (options.maxUnits = knownUnits!)}
+                >将上限设为 {knownUnits}，纳入全部已知单元</button
+              >
+            {/if}
+          {/if}
+        {:else}
+          <p class="field-help">可读单元总数将在解析后确定；本轮最多审计 {options.maxUnits || 0} 个。</p>
+        {/if}
+        <p class="budget-summary">
+          {inheritedBudget ? '已沿用上一轮预算' : '本轮预算'}：最多 {options.maxModelCalls} 次模型调用，每个子任务最多
+          {options.maxToolRounds} 轮工具查询。调用次数与任务时限也可能使审计提前结束。
+        </p>
+      </fieldset>
       <details class="advanced-options">
         <summary>高级设置：模型与预算</summary>
         <fieldset disabled={busy}>
@@ -182,6 +221,7 @@
           disabled={busy}
           onclick={() => {
             options = { ...defaults };
+            inheritedBudget = false;
             error = '';
           }}><RotateCcw size={17} /></button
         >
@@ -211,6 +251,38 @@
   }
   .advanced-options {
     margin-bottom: 20px;
+  }
+  .audit-scope {
+    padding: 16px;
+    margin-bottom: 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-subtle);
+  }
+  .audit-scope p {
+    margin: 10px 0 0;
+    line-height: 1.6;
+  }
+  .audit-scope .field {
+    display: grid;
+    gap: 6px;
+  }
+  .audit-scope input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .audit-scope .text-button {
+    margin-top: 8px;
+    white-space: normal;
+    text-align: left;
+  }
+  .scope-warning {
+    font-weight: 600;
+    color: var(--warning);
+  }
+  .budget-summary {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
   }
   .advanced-options summary {
     cursor: pointer;
@@ -244,6 +316,11 @@
   .dialog-actions > .icon-button {
     margin-right: auto;
     flex-shrink: 0;
+  }
+  .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
   }
   @media (max-width: 520px) {
     .audit-options-grid {

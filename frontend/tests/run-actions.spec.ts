@@ -128,6 +128,11 @@ async function workspace(page: Page) {
 }
 
 const cancelDialog = (page: Page) => page.getByRole('dialog', { name: '取消当前任务？', exact: true });
+const exportDialog = (page: Page) => page.getByRole('dialog', { name: '确认生成报告', exact: true });
+
+async function confirmExport(page: Page) {
+  await exportDialog(page).getByRole('button', { name: '确认生成', exact: true }).click();
+}
 
 test('run actions confirm cancellation and show submission, stopping, and durable completion', async ({
   page,
@@ -239,6 +244,41 @@ test('run actions respect task completion before and during cancellation', async
   await expect(page.locator('.cancel-feedback')).not.toContainText('任务已取消');
 });
 
+test('run actions require confirmation before generating and preserve focus on dismissal', async ({
+  page,
+}, info) => {
+  const state = await workspace(page);
+  await page.goto('/#/runs/actions-run');
+  const button = page.getByRole('button', { name: '导出阶段报告', exact: true });
+  await button.click();
+  await expect(exportDialog(page)).toContainText('PermitLedger.exe');
+  await expect(exportDialog(page)).toContainText('HTML');
+  await expect(exportDialog(page)).toContainText('分析会继续进行');
+  expect(state.reportRequests).toHaveLength(0);
+  await exportDialog(page).getByRole('button', { name: '取消', exact: true }).click();
+  await expect(button).toBeFocused();
+  await button.click();
+  await page.keyboard.press('Escape');
+  await expect(exportDialog(page)).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await button.click();
+  await exportDialog(page).getByRole('button', { name: '关闭报告生成确认', exact: true }).click();
+  await expect(exportDialog(page)).toHaveCount(0);
+  expect(state.reportRequests).toHaveLength(0);
+  expect(state.reports.size).toBe(0);
+  await button.click();
+  state.run.state = RunState.COMPLETED;
+  await expect(exportDialog(page)).toContainText('分析完成');
+  await expect(exportDialog(page)).not.toContainText('分析会继续进行');
+  await page.setViewportSize({ width: 360, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('export-confirmation-mobile.png') });
+  expect(state.reportRequests).toHaveLength(0);
+  await confirmExport(page);
+  await expect(page.getByRole('dialog', { name: '下载文件确认', exact: true })).toBeVisible();
+  expect(state.reportRequests).toHaveLength(1);
+});
+
 test('run actions export one labelled report with progress, download, and history', async ({
   page,
 }, info) => {
@@ -249,6 +289,14 @@ test('run actions export one labelled report with progress, download, and histor
   await card.getByLabel('报告格式').selectOption('json');
   await card
     .getByRole('button', { name: '导出阶段报告', exact: true })
+    .evaluate((button: HTMLButtonElement) => {
+      button.click();
+      button.click();
+    });
+  await expect(exportDialog(page)).toContainText('JSON');
+  expect(state.reportRequests).toHaveLength(0);
+  await exportDialog(page)
+    .getByRole('button', { name: '确认生成', exact: true })
     .evaluate((button: HTMLButtonElement) => {
       button.click();
       button.click();
@@ -284,12 +332,16 @@ test('run actions retain export errors and reuse the request after a lost respon
   await page.goto('/#/runs/actions-run');
   const card = page.getByRole('region', { name: '报告导出', exact: true });
   await card.getByRole('button', { name: '导出阶段报告', exact: true }).click();
+  await confirmExport(page);
   await expect(card.getByRole('alert')).toContainText('模拟报告响应丢失');
   const reads = state.getRuns;
   await expect.poll(() => state.getRuns).toBeGreaterThanOrEqual(reads + 2);
   await expect(card.getByRole('alert')).toContainText('模拟报告响应丢失');
   state.loseReportResponse = false;
   await card.getByRole('button', { name: '重试导出', exact: true }).click();
+  await expect(exportDialog(page)).toBeVisible();
+  expect(state.reportRequests).toHaveLength(1);
+  await confirmExport(page);
   await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click();
   expect(state.reportRequests).toHaveLength(2);
   expect(state.reportRequests[0].requestId).toBe(state.reportRequests[1].requestId);
@@ -301,6 +353,7 @@ test('run actions retain export errors and reuse the request after a lost respon
   expect(state.reportRequests).toHaveLength(2);
   await card.getByLabel('报告格式').selectOption('markdown');
   await card.getByRole('button', { name: '导出阶段报告', exact: true }).click();
+  await confirmExport(page);
   await expect(page.getByRole('dialog')).toContainText('MARKDOWN 阶段报告');
   expect(state.reportRequests[2].requestId).not.toBe(state.reportRequests[1].requestId);
   expect(state.reports.size).toBe(2);
@@ -315,6 +368,8 @@ test('run actions describe incomplete results and use the server report type', a
   const card = page.getByRole('region', { name: '报告导出', exact: true });
   await expect(card).toContainText('包含已完成部分');
   await card.getByRole('button', { name: '导出报告', exact: true }).click();
+  await expect(exportDialog(page)).toContainText('包含已完成部分');
+  await confirmExport(page);
   await expect(page.getByRole('dialog')).toContainText('HTML 阶段报告');
   await page.getByRole('dialog').getByRole('button', { name: '取消', exact: true }).click();
   await expect(card.getByRole('status')).toContainText('HTML 阶段报告已生成');

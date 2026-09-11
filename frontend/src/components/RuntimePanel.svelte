@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { Play, RefreshCw, Square, Download, ArrowUpRight } from '@lucide/svelte';
+  import { onMount, tick } from 'svelte';
+  import { Play, RefreshCw, ArrowUpRight, CheckCircle2, Info, LoaderCircle } from '@lucide/svelte';
   import type {
     AuditRun,
     ProgramUnit,
@@ -10,13 +10,16 @@
     Snapshot,
   } from '../gen/audit/v1/audit_pb';
   import { TargetKind } from '../gen/audit/v1/audit_pb';
-  import { artifactUrl, errorMessage, findingsApi, requestId, runsApi, runtimeApi } from '../lib/api';
-  import { dateTime, isTerminal, parseJson } from '../lib/format';
+  import { errorMessage, requestId, runtimeApi } from '../lib/api';
+  import { parseJson } from '../lib/format';
   import {
     runtimeLabel,
     runtimePending,
     runtimeTemplate,
-    type RuntimeResult,
+    matchingRuntime,
+    readVerificationPlan,
+    runtimeConfigKey,
+    verificationPlans,
     type VerificationPlan,
   } from '../lib/runtime';
 
@@ -25,28 +28,42 @@
     snapshot,
     unit,
     findingId = '',
-    active = true,
-    onchanged,
+    audit,
+    records,
+    refreshing,
+    loadError,
+    onrefresh,
+    onstarted,
+    onshowresults,
     notify,
   }: {
     run: AuditRun;
     snapshot?: Snapshot;
     unit?: ProgramUnit;
     findingId?: string;
-    active?: boolean;
-    onchanged: () => Promise<void>;
+    audit?: GetAuditResponse;
+    records: RuntimeRecord[];
+    refreshing: boolean;
+    loadError: string;
+    onrefresh: () => Promise<void>;
+    onstarted: (record: RuntimeRecord) => void;
+    onshowresults: (recordId?: string) => void;
     notify: (message: string) => void;
   } = $props();
-  let records = $state<RuntimeRecord[]>([]);
-  let audit = $state<GetAuditResponse>();
   let configJson = $state('');
   let adapter = $state('NATIVE_SOURCE');
   let mode = $state('VERIFY');
   let selectedFinding = $state('');
   let error = $state('');
+  let errorPanel = $state<HTMLDivElement>();
+  let failedSubmission = $state(false);
+  let lastSubmissionFinding = '';
   let busy = $state(false);
-  let loading: Promise<void> | undefined;
-  let loaded = false;
+  let submittingFinding = $state<string | null>(null);
+  let attempt: { key: string; id: string } | undefined;
+  let configOpen = $state(false);
+  let configPanel = $state<HTMLDetailsElement>();
+  let configEditor = $state<HTMLTextAreaElement>();
   let alive = true;
   const controller = new AbortController();
   const snapshotMetadata = $derived(
@@ -82,36 +99,17 @@
   $effect(() => {
     selectedFinding = findingId;
   });
-  const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope));
   const plans = $derived(
-    (audit?.tasks || []).filter((t) => t.role === 'VERIFIER' && t.status === 'SUCCEEDED'),
+    verificationPlans(audit?.tasks).sort(
+      (a, b) => Number(b.itemKey === findingId) - Number(a.itemKey === findingId),
+    ),
   );
+  const configuredRecord = $derived(matchingRuntime(records, selectedFinding, parseJson(configJson, {})));
 
   function template() {
     configJson = runtimeTemplate(adapter, mode, unit);
   }
-  function refresh() {
-    if (loading) return loading;
-    loading = (async () => {
-      try {
-        const response = await runtimeApi.listRuntime({ runId: run.id }, { signal: controller.signal });
-        if (alive) {
-          records = response.records;
-          error = '';
-        }
-        if (run.scope === 'SECURITY_AUDIT') {
-          const response = await findingsApi.getAudit({ runId: run.id }, { signal: controller.signal });
-          if (alive) audit = response;
-        }
-      } catch (failure) {
-        if (alive) error = errorMessage(failure);
-      }
-    })().finally(() => {
-      loading = undefined;
-    });
-    return loading;
-  }
-  function loadPlan(task: AgentTask) {
+  async function loadPlan(task: AgentTask) {
     const plan = parseJson<VerificationPlan>(task.resultJson, {
       status: '',
       rationale: '',
@@ -120,27 +118,60 @@
     });
     if (!plan.config) return;
     selectedFinding = task.itemKey;
+    if (typeof plan.config.mode === 'string') mode = plan.config.mode;
+    if (typeof plan.config.adapter === 'string') adapter = plan.config.adapter;
     configJson = JSON.stringify(plan.config, null, 2);
+    configOpen = true;
+    await tick();
+    configPanel?.scrollIntoView({ block: 'start' });
+    configEditor?.focus({ preventScroll: true });
   }
   async function start(savedFinding = '') {
     if (busy) return;
     busy = true;
+    submittingFinding = savedFinding;
+    lastSubmissionFinding = savedFinding;
+    failedSubmission = false;
     error = '';
     try {
-      if (!savedFinding) JSON.parse(configJson);
-      await runtimeApi.createRuntime({
-        requestId: requestId(),
-        sourceRunId: run.id,
-        findingId: savedFinding || selectedFinding,
-        configJson: savedFinding ? '' : configJson,
-      });
-      await refresh();
-      await onchanged();
-      notify('运行任务已创建，结果会保存在当前分析中');
+      const savedPlan = plans.find((task) => task.itemKey === savedFinding);
+      const config = savedFinding
+        ? savedPlan && readVerificationPlan(savedPlan).config
+        : JSON.parse(configJson);
+      if (!config || typeof config !== 'object' || Array.isArray(config))
+        throw new Error('请提供有效的运行配置');
+      const previous = matchingRuntime(records, savedFinding || selectedFinding, config);
+      if (previous && (savedFinding || runtimePending(previous.status))) {
+        onshowresults(previous.id);
+        return;
+      }
+      const key = JSON.stringify([run.id, savedFinding || selectedFinding, runtimeConfigKey(config)]);
+      if (!attempt || attempt.key !== key) attempt = { key, id: requestId() };
+      const response = await runtimeApi.createRuntime(
+        {
+          requestId: attempt.id,
+          sourceRunId: run.id,
+          findingId: savedFinding || selectedFinding,
+          configJson: savedFinding ? '' : configJson,
+        },
+        { signal: controller.signal },
+      );
+      if (!alive) return;
+      if (!response.record?.id) throw new Error('未收到有效的运行记录，请重试');
+      attempt = undefined;
+      onstarted(response.record);
+      notify('验证已提交，已切换到“覆盖与产物”查看进度与结果');
     } catch (failure) {
-      error = errorMessage(failure);
+      if (alive) {
+        error = errorMessage(failure);
+        failedSubmission = true;
+        await tick();
+        errorPanel?.scrollIntoView({ block: 'center' });
+        errorPanel?.focus({ preventScroll: true });
+      }
     } finally {
       busy = false;
+      submittingFinding = null;
     }
   }
 
@@ -148,27 +179,23 @@
     if (busy || !selectedFinding) return;
     busy = true;
     error = '';
+    failedSubmission = false;
     try {
-      const response = await runtimeApi.suggestRuntime({
-        requestId: requestId(),
-        sourceRunId: run.id,
-        findingId: selectedFinding,
-      });
+      const response = await runtimeApi.suggestRuntime(
+        {
+          requestId: requestId(),
+          sourceRunId: run.id,
+          findingId: selectedFinding,
+        },
+        { signal: controller.signal },
+      );
+      if (!alive) return;
       configJson = response.configJson;
       notify(response.rationale || '已生成可复用的动态测试配置。');
     } catch (failure) {
       error = errorMessage(failure);
     } finally {
       busy = false;
-    }
-  }
-  async function cancel(record: RuntimeRecord) {
-    try {
-      await runsApi.cancelRun({ runId: record.runId });
-      await refresh();
-      notify('取消请求已记录，正在等待宿主机运行进程回收');
-    } catch (failure) {
-      error = errorMessage(failure);
     }
   }
   onMount(() => {
@@ -181,231 +208,401 @@
             : 'WINDOWS_ORIGINAL_PE64'
           : 'WINDOWS_NATIVE_SOURCE';
     template();
-    const timer = setInterval(() => {
-      if (active && (!isTerminal(run.state) || records.some((r) => runtimePending(r.status)))) void refresh();
-    }, 1800);
+    configOpen = plans.length === 0;
     return () => {
       alive = false;
       controller.abort();
-      clearInterval(timer);
     };
-  });
-  $effect(() => {
-    if (active && !loaded) {
-      loaded = true;
-      void refresh();
-    }
   });
 </script>
 
-<section class="runtime-panel">
+<section class="runtime-panel" aria-label="验证方案与运行配置">
   <div class="panel-title">
     <div>
-      <h2>运行验证与动态测试</h2>
-      <p class="subtle">每次运行保存正常输入、执行输出、复测记录和测试范围。</p>
+      <h2>验证方案与运行配置</h2>
+      <p class="subtle">启动后自动前往“覆盖与产物”，查看验证进度、复现结论与执行证据。</p>
     </div>
-    <button class="text-button" onclick={() => refresh()} aria-label="刷新运行结果"
-      ><RefreshCw size={16} /></button
+    <button
+      class="button secondary small refresh-runtime"
+      onclick={() => onrefresh()}
+      aria-label="刷新验证方案"
+      title="重新获取验证方案和已有运行状态"
+      disabled={refreshing}
+      ><RefreshCw size={15} class={refreshing ? 'spin' : ''} />{refreshing ? '刷新中…' : '刷新方案'}</button
     >
   </div>
-  {#if error}<div class="error-banner" role="alert">
-      <span>{error}</span><button
+  {#if loadError}<div class="error-banner" role="alert">
+      {loadError}<button class="text-button" onclick={() => onrefresh()}>重新读取</button>
+    </div>{/if}
+  {#if records.length}<p class="runtime-results-link">
+      <button class="text-button" onclick={() => onshowresults()}
+        >在覆盖与产物查看验证进度与结果<ArrowUpRight size={14} /></button
+      >
+    </p>{/if}
+  {#if error}<div class="error-banner" role="alert" bind:this={errorPanel} tabindex="-1">
+      <span>{failedSubmission ? '验证提交未确认：' : ''}{error}</span>
+      {#if failedSubmission}<button
+          class="button secondary small"
+          disabled={busy}
+          onclick={() => start(lastSubmissionFinding)}>重试提交</button
+        >{/if}<button
         class="text-button"
         onclick={() => {
           error = '';
         }}>关闭</button
       >
     </div>{/if}
-  {#if !isRuntimeRun}
-    {#if plans.length}
-      <div class="runtime-plans">
-        {#each plans as task}
-          {@const plan = parseJson<VerificationPlan>(task.resultJson, {
-            status: '',
-            rationale: '',
-            limitations: [],
-            config: null,
-          })}
-          <article class="runtime-plan">
+  {#if plans.length}
+    <div class="runtime-plans">
+      {#each plans as task}
+        {@const plan = parseJson<VerificationPlan>(task.resultJson, {
+          status: '',
+          rationale: '',
+          limitations: [],
+          config: null,
+        })}
+        {@const ready = plan.status === 'READY' && Boolean(plan.config)}
+        {@const previous = plan.config ? matchingRuntime(records, task.itemKey, plan.config) : undefined}
+        {@const pending = previous && runtimePending(previous.status)}
+        <article class="runtime-plan" class:ready>
+          <header class="runtime-plan-heading">
+            <span class="plan-label">验证方案</span>
+            <h3>{audit?.findings.find((f) => f.id === task.itemKey)?.title || '待验证发现'}</h3>
+          </header>
+          <div class="runtime-plan-status" class:ready class:unavailable={plan.status === 'UNSUPPORTED'}>
+            {#if ready}<CheckCircle2 size={24} />{:else}<Info size={24} />{/if}
             <div>
-              <strong>{audit?.findings.find((f) => f.id === task.itemKey)?.title || '验证方案'}</strong><span
-                class="badge neutral">{runtimeLabel(plan.status)}</span
+              <strong
+                >{previous
+                  ? `已有验证 · ${runtimeLabel(previous.status)}`
+                  : ready
+                    ? '方案就绪'
+                    : runtimeLabel(plan.status) || '方案待完善'}</strong
               >
+              <p>
+                {previous
+                  ? pending
+                    ? '验证正在处理，可在“覆盖与产物”查看进度。'
+                    : '已有执行结果，可在“覆盖与产物”查看复现结论与证据。'
+                  : ready
+                    ? '运行配置已生成，尚未执行。启动验证后才能判断是否复现。'
+                    : plan.status === 'UNSUPPORTED'
+                      ? '此方案暂不能在当前执行环境中运行。'
+                      : '请先核对验证思路，补齐入口或输入等运行条件。'}
+              </p>
             </div>
-            <p>{plan.rationale}</p>
-            {#if plan.limitations.length}<ul class="muted">
-                {#each plan.limitations as limitation}<li>{limitation}</li>{/each}
-              </ul>{/if}
-            {#if plan.config}<div class="runtime-actions">
-                <button class="button secondary" onclick={() => loadPlan(task)}>查看并调整配置</button><button
-                  class="button primary"
-                  disabled={busy}
-                  onclick={() => start(task.itemKey)}><Play size={14} />按方案运行</button
-                >
-              </div>{/if}
-          </article>
-        {/each}
-      </div>
-    {/if}
-    <details class="runtime-config" open={!plans.length}>
-      <summary>配置本地测试</summary>
-      <p class="muted">
-        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口本地构建，原始二进制支持 PE
-        x86/x64，预构建 libFuzzer 支持动态测试。
-      </p>
-      {#if !runtimeAdapterSupported}<div class="error-banner" role="alert">
-          当前运行器仅支持 PE x86/x64；ELF 目标只能进行静态分析。
-        </div>{/if}
-      <form
-        onsubmit={(event) => {
-          event.preventDefault();
-          void start();
-        }}
-      >
-        <div class="runtime-config-row">
-          <label class="field"
-            >配置模板<select bind:value={adapter}
-              >{#each adapterOptions as option}<option value={option.value}>{option.label}</option
-                >{/each}</select
-            ></label
-          >
-          <label class="field"
-            >测试方式<select bind:value={mode}
-              ><option value="VERIFY">正常输入与重复验证</option><option
-                value="FUZZ"
-                disabled={!fuzzSupported}>动态测试（libFuzzer）</option
-              ></select
-            ></label
-          >
-          <div class="runtime-template-actions">
-            <button type="button" class="button secondary" onclick={template}>填入模板</button>
-            <button
-              type="button"
-              class="button secondary"
-              disabled={busy || !selectedFinding}
-              onclick={() => void reuse()}>智能复用</button
-            >
+            {#if ready && !previous}<button
+                class="button primary"
+                disabled={busy}
+                aria-busy={submittingFinding === task.itemKey}
+                onclick={() => start(task.itemKey)}
+                >{#if submittingFinding === task.itemKey}<LoaderCircle
+                    size={15}
+                    class="spin"
+                  />正在提交验证…{:else}<Play size={15} />按方案运行{/if}</button
+              >
+            {:else if previous}
+              {#if pending}<button class="button secondary" disabled
+                  ><LoaderCircle size={15} class="spin" />{runtimeLabel(previous.status)}</button
+                >{/if}
+              <button class="button primary" onclick={() => onshowresults(previous.id)}
+                >{pending ? '查看验证进度' : '查看验证结果'}<ArrowUpRight size={15} /></button
+              >
+            {/if}
           </div>
-        </div>
-        {#if audit?.findings.length}<label class="field"
-            >关联发现<select bind:value={selectedFinding}
-              ><option value="">独立测试</option>{#each audit.findings as finding}<option value={finding.id}
-                  >{finding.title}</option
-                >{/each}</select
-            ></label
-          >{/if}
-        <label class="field"
-          >运行配置 JSON<textarea
-            class="runtime-config-editor"
-            bind:value={configJson}
-            spellcheck="false"
-            required
-          ></textarea></label
-        >
-        <button class="button primary" disabled={busy || !configJson.trim() || !runtimeAdapterSupported}
-          ><Play size={15} />{busy ? '创建中…' : '开始本地测试'}</button
-        >
-      </form>
-    </details>
+          {#if submittingFinding === task.itemKey}<p class="runtime-submitting" role="status">
+              正在创建验证任务，提交成功后将自动切换到“覆盖与产物”。
+            </p>{/if}
+          <div class="runtime-plan-body">
+            <div class="plan-rationale">
+              <h4>验证思路</h4>
+              <p>{plan.rationale}</p>
+            </div>
+            {#if plan.config}
+              <dl class="plan-facts">
+                <div>
+                  <dt>测试方式</dt>
+                  <dd>{runtimeLabel(String(plan.config.mode || '')) || '未提供'}</dd>
+                </div>
+                <div>
+                  <dt>执行方式</dt>
+                  <dd>{runtimeLabel(String(plan.config.adapter || '')) || '未提供'}</dd>
+                </div>
+                <div>
+                  <dt>测试入口</dt>
+                  <dd>
+                    <code>{String(plan.config.path || '未提供')}</code>
+                    {#if plan.config.function}<code>{String(plan.config.function)}()</code>{/if}
+                  </dd>
+                </div>
+                {#if typeof plan.config.repeats === 'number' && plan.config.mode === 'VERIFY'}
+                  <div>
+                    <dt>异常输入复测</dt>
+                    <dd>{plan.config.repeats} 次<small>另执行 1 次正常输入作对照</small></dd>
+                  </div>
+                {/if}
+              </dl>
+            {/if}
+            {#if plan.limitations.length}<div class="plan-limitations">
+                <h4><Info size={15} />执行条件与限制</h4>
+                <ul>
+                  {#each plan.limitations as limitation}<li>{limitation}</li>{/each}
+                </ul>
+              </div>{/if}
+            {#if plan.config}<div class="runtime-actions">
+                <button class="button secondary" onclick={() => loadPlan(task)}>查看并调整配置</button>
+              </div>{/if}
+          </div>
+        </article>
+      {/each}
+    </div>
   {/if}
-  <div class="runtime-records">
-    {#each records as record}
-      {@const config = parseJson<{ mode: string; path: string }>(record.configJson, { mode: '', path: '' })}
-      {@const result = parseJson<RuntimeResult | null>(record.resultJson, null)}
-      <article class="runtime-record" data-status={record.status}>
-        <div class="panel-title">
-          <h3>{runtimeLabel(config.mode)} · {config.path}</h3>
-          <span
-            class={`badge ${['ERROR', 'FAILED'].includes(record.status) ? 'danger' : runtimePending(record.status) ? 'neutral' : 'warning'}`}
-            >{runtimeLabel(record.status)}</span
+  <details class="runtime-config" bind:this={configPanel} bind:open={configOpen}>
+    <summary>配置本地测试</summary>
+    <p class="muted">
+      填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口本地构建，原始二进制支持 PE
+      x86/x64，预构建 libFuzzer 支持动态测试。
+    </p>
+    {#if !runtimeAdapterSupported}<div class="error-banner" role="alert">
+        当前运行器仅支持 PE x86/x64；ELF 目标只能进行静态分析。
+      </div>{/if}
+    <form
+      onsubmit={(event) => {
+        event.preventDefault();
+        void start();
+      }}
+    >
+      <div class="runtime-config-row">
+        <label class="field"
+          >配置模板<select bind:value={adapter}
+            >{#each adapterOptions as option}<option value={option.value}>{option.label}</option
+              >{/each}</select
+          ></label
+        >
+        <label class="field"
+          >测试方式<select bind:value={mode}
+            ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ" disabled={!fuzzSupported}
+              >动态测试（libFuzzer）</option
+            ></select
+          ></label
+        >
+        <div class="runtime-template-actions">
+          <button type="button" class="button secondary" onclick={template}>填入模板</button>
+          <button
+            type="button"
+            class="button secondary"
+            disabled={busy || !selectedFinding}
+            onclick={() => void reuse()}>智能复用</button
           >
         </div>
-        <p class="subtle">
-          {dateTime(record.createdAt)}{#if result}
-            · {runtimeLabel(result.target_scope)}{/if}
-        </p>
-        <div class="runtime-actions">
-          <a class="text-button" href={`#/runs/${record.runId}`}>任务与事件<ArrowUpRight size={13} /></a>
-          {#if isRuntimeRun}<a class="text-button" href={`#/runs/${record.sourceRunId}`}
-              >原始分析<ArrowUpRight size={13} /></a
-            >{/if}
-          {#if runtimePending(record.status)}<button
-              class="text-button"
-              disabled={record.status === 'CANCELLING'}
-              onclick={() => cancel(record)}><Square size={13} />取消运行</button
-            >{/if}
-          {#if result}<a class="text-button" href={artifactUrl(result.recipe_artifact_id)}
-              >测试配置与脚本<Download size={13} /></a
-            ><a class="text-button" href={artifactUrl(result.observation_artifact_id)}
-              >原始观察<Download size={13} /></a
-            >{#each result.tools as tool}<a class="text-button" href={artifactUrl(tool.log_artifact_id)}
-                >{tool.name} 日志<Download size={13} /></a
-              >{/each}{/if}
-        </div>
-        {#if result}
-          {#if result.observation.error}<p class="inline-error">{result.observation.error}</p>{/if}
-          {#if result.observation.trials.length}<div class="table-scroll">
-              <table>
-                <thead><tr><th>输入</th><th>退出码</th><th>观察结果</th><th>状态</th></tr></thead><tbody
-                  >{#each result.observation.trials as trial, index}<tr
-                      ><td>{trial.label === 'baseline' ? '正常输入' : `复测 ${index}`}</td><td
-                        >{trial.exit_code ?? '—'}</td
-                      ><td>{trial.observed ? '观察到指定现象' : '未观察到'}</td><td
-                        >{trial.timed_out ? '超时' : trial.exception || '执行结束'}{trial.truncated
-                          ? ' · 日志已截断'
-                          : ''}</td
-                      ></tr
-                    >{/each}</tbody
-                >
-              </table>
-            </div>{/if}
-          {#if config.mode === 'FUZZ'}<p>
-              {runtimeLabel(result.observation.fuzz.engine || '')} · {result.observation.fuzz.executions ?? 0}
-              次执行 · {result.observation.fuzz.timeouts ?? 0} 次超时
-            </p>
-            <p class="muted">
-              {result.observation.fuzz.coverage_feedback
-                ? `覆盖反馈：${result.observation.fuzz.bitmap_cvg || '见原始统计'}`
-                : '按输入变异执行，未使用覆盖反馈。'}
-            </p>
-            {#each result.observation.crashes as crash}<div class="runtime-crash">
-                <strong>{crash.signature}</strong>
-                <p>
-                  {crash.reproduced ? '已重复复现' : '尚未稳定复现'} · {crash.minimized
-                    ? '已缩减输入'
-                    : '保留原始输入'}
-                </p>
-                <code>SHA-256 {crash.input_sha256}</code>
-              </div>{/each}{/if}
-          <details>
-            <summary>执行输出与构建信息</summary>
-            <pre>{JSON.stringify(result.observation, null, 2)}</pre>
-          </details>
-          <p class="runtime-hash">
-            <span>目标 SHA-256</span><code>{result.target_sha256}</code><span>配置 SHA-256</span><code
-              >{result.config_hash}</code
-            ><span>执行环境</span><code>{result.image_id}</code>
-          </p>
-        {/if}
-        <details>
-          <summary>本次冻结的配置</summary>
-          <pre>{JSON.stringify(JSON.parse(record.configJson), null, 2)}</pre>
-        </details>
-      </article>
-    {/each}
-    {#if !records.length}<p class="empty-panel compact">
-        尚无运行记录。创建测试后可在这里查看进度和证据。
-      </p>{/if}
-  </div>
-  <p class="field-help">
-    组件内验证、插桩构建和原始程序执行分别记录。未复现或未观察到崩溃，仅说明本次输入和预算下的结果。
-  </p>
+      </div>
+      {#if audit?.findings.length}<label class="field"
+          >关联发现<select bind:value={selectedFinding}
+            ><option value="">独立测试</option>{#each audit.findings as finding}<option value={finding.id}
+                >{finding.title}</option
+              >{/each}</select
+          ></label
+        >{/if}
+      <label class="field"
+        >运行配置 JSON<textarea
+          class="runtime-config-editor"
+          bind:this={configEditor}
+          bind:value={configJson}
+          spellcheck="false"
+          required
+        ></textarea></label
+      >
+      {#if configuredRecord && runtimePending(configuredRecord.status)}<p role="status">
+          此配置已在{runtimeLabel(configuredRecord.status)}。<button
+            type="button"
+            class="text-button"
+            onclick={() => onshowresults(configuredRecord.id)}>查看验证进度<ArrowUpRight size={14} /></button
+          >
+        </p>{/if}
+      <button
+        class="button primary"
+        disabled={busy ||
+          !configJson.trim() ||
+          !runtimeAdapterSupported ||
+          Boolean(configuredRecord && runtimePending(configuredRecord.status))}
+        >{#if submittingFinding === ''}<LoaderCircle size={15} class="spin" />正在提交验证…{:else}<Play
+            size={15}
+          />{configuredRecord
+            ? runtimePending(configuredRecord.status)
+              ? '验证处理中'
+              : '再次运行本地测试'
+            : '开始本地测试'}{/if}</button
+      >
+    </form>
+  </details>
 </section>
 
 <style>
+  .runtime-results-link {
+    margin: 0 0 16px;
+  }
+  .runtime-submitting {
+    margin: 12px 20px 0;
+    color: var(--accent);
+  }
+  .runtime-panel > .panel-title {
+    align-items: start;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .refresh-runtime {
+    flex: none;
+  }
+  .runtime-plan {
+    padding: 0;
+    overflow: hidden;
+  }
+  .runtime-plan.ready {
+    border-color: var(--success-line);
+  }
+  .runtime-plan-heading {
+    display: grid;
+    gap: 5px;
+    padding: 20px 20px 16px;
+  }
+  .plan-label {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .runtime-plan-heading h3 {
+    font-size: var(--text-lg);
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .runtime-plan-status {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0 20px;
+    padding: 16px;
+    border: 1px solid var(--warning-line);
+    border-radius: var(--radius-md);
+    background: var(--warning-soft);
+    color: var(--warning);
+  }
+  .runtime-plan-status.ready {
+    border-color: var(--success-line);
+    background: var(--success-soft);
+    color: var(--success);
+  }
+  .runtime-plan-status.unavailable {
+    border-color: var(--line);
+    background: var(--surface-subtle);
+    color: var(--text-secondary);
+  }
+  .runtime-plan-status > div {
+    flex: 1;
+    min-width: 150px;
+  }
+  .runtime-plan-status strong {
+    display: block;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .runtime-plan-status p {
+    margin-top: 4px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .runtime-plan-status .button {
+    flex: none;
+  }
+  .runtime-plan-body {
+    display: grid;
+    gap: 18px;
+    padding: 20px;
+  }
+  .runtime-plan-body h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px;
+    font-size: var(--text-base);
+    color: var(--ink);
+  }
+  .plan-rationale p,
+  .plan-limitations li {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.8;
+    color: var(--text-secondary);
+  }
+  .plan-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 24px;
+    margin: 0;
+    padding: 16px;
+    background: var(--surface-subtle);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+  .plan-facts dt {
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+  .plan-facts dd {
+    display: grid;
+    gap: 3px;
+    margin: 0;
+    color: var(--text-secondary);
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+  .plan-facts small {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .plan-limitations {
+    padding-left: 14px;
+    border-left: 3px solid var(--warning-line);
+  }
+  .plan-limitations h4 {
+    color: var(--warning);
+  }
+  .plan-limitations ul {
+    display: grid;
+    gap: 6px;
+    padding-left: 18px;
+    margin: 0;
+  }
+  .runtime-plan-body .runtime-actions {
+    margin: 0;
+  }
   .runtime-template-actions {
     display: flex;
     gap: 8px;
     align-items: center;
+  }
+  @media (max-width: 600px) {
+    .runtime-panel {
+      padding: var(--space-4);
+    }
+    .runtime-plan-heading,
+    .runtime-plan-body {
+      padding: var(--space-4);
+    }
+    .runtime-plan-status {
+      margin: 0 var(--space-4);
+      padding: 12px;
+    }
+    .runtime-plan-status .button {
+      width: 100%;
+    }
+    .plan-facts {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 12px;
+    }
+    .runtime-template-actions {
+      flex-wrap: wrap;
+    }
   }
 </style>

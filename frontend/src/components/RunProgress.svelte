@@ -25,7 +25,7 @@
     RUNNING: '执行中',
     COMPLETED: '完成',
     PARTIAL: '部分完成',
-    SKIPPED: '未执行',
+    SKIPPED: '已跳过',
     FAILED: '失败',
     CANCELLED: '已取消',
     CANCELLING: '取消中',
@@ -98,7 +98,10 @@
             <span class="step-body">
               <strong>{phase.title}</strong>
               <span class={`phase-status ${statusClass(phase.status)}`}>
-                {phase.id === current?.id ? '当前 · ' : ''}{labels[phase.status] || phase.status}
+                {phase.id === current?.id ? '当前 · ' : ''}{phase.id === 'AUDIT_REVIEW' &&
+                phase.status === 'COMPLETED'
+                  ? '本轮完成'
+                  : labels[phase.status] || phase.status}
               </span>
               {#if phase.total > 0n}
                 <progress
@@ -108,11 +111,13 @@
                 ></progress>
                 <small
                   >{phase.current.toString()} / {phase.total.toString()}{phase.id === 'AUDIT_REVIEW'
-                    ? ' 个计划单元'
+                    ? ' 个本轮计划单元'
                     : ' 项'}</small
                 >
               {/if}
-              {#if current?.detail && phase.id === current?.id}<small>{current.detail}</small>{/if}
+              {#if phase.detail && (phase.id === current?.id || ['AUDIT_REVIEW', 'VERIFICATION_PLAN', 'RUNTIME'].includes(phase.id))}<small
+                  >{phase.detail}</small
+                >{/if}
             </span>
           </button>
         </li>

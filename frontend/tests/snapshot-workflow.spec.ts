@@ -33,7 +33,12 @@ const run = (id: string, scope = 'STRUCTURE_ANALYSIS', state = 2): Run => ({
 });
 
 async function workspace(page: Page) {
-  const state = { runs: [] as Run[], requests: [] as Record<string, unknown>[], failCreate: false };
+  const state = {
+    runs: [] as Run[],
+    requests: [] as Record<string, unknown>[],
+    phases: [] as Record<string, unknown>[],
+    failCreate: false,
+  };
   await page.route('**/rpc/**', async (route) => {
     const method = route.request().url().split('/').pop();
     let json: unknown = {};
@@ -54,7 +59,7 @@ async function workspace(page: Page) {
         json = {
           run: state.runs.find((r) => r.id === route.request().postDataJSON().runId),
           artifacts: [],
-          phases: [],
+          phases: state.phases,
         };
         break;
       case 'GetCapabilities':
@@ -166,4 +171,88 @@ test('snapshot workflow notices a task started elsewhere while the audit dialog 
   await dialog.getByRole('button', { name: '查看进度', exact: true }).click();
   await expect(page).toHaveURL(/runs\/elsewhere/);
   expect(state.requests).toHaveLength(0);
+});
+
+test('snapshot workflow exposes an inherited one-unit budget and submits the corrected scope', async ({
+  page,
+}, info) => {
+  const state = await workspace(page);
+  const previous = run('old-audit', 'SECURITY_AUDIT', 6);
+  previous.unitCount = '6';
+  previous.summaryJson = JSON.stringify({
+    eligible_unit_count: 6,
+    audited_unit_count: 1,
+    audit_config: { max_units: 1, max_model_calls: 18, max_tool_rounds: 3 },
+  });
+  state.runs = [previous];
+  await page.goto('/#/projects');
+  const card = page.locator('.snapshot-card');
+  await card.getByText('重新运行', { exact: true }).click();
+  await card.getByRole('button', { name: '重新审计', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '重新运行漏洞审计', exact: true });
+  await expect(dialog.getByLabel('程序单元上限')).toBeVisible();
+  await expect(dialog.getByLabel('程序单元上限')).toHaveValue('1');
+  await expect(dialog).toContainText('已沿用上一轮预算');
+  await expect(dialog.getByRole('status')).toContainText('当前上限仅覆盖 1 / 6 个单元');
+  await expect(dialog.getByLabel('总模型调用上限')).not.toBeVisible();
+  await page.screenshot({ path: info.outputPath('inherited-budget-desktop.png') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(dialog.getByRole('button', { name: '开始审计', exact: true })).toBeInViewport();
+  await page.screenshot({ path: info.outputPath('inherited-budget-mobile.png') });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await dialog.getByRole('button', { name: '将上限设为 6，纳入全部已知单元', exact: true }).click();
+  await expect(dialog.getByLabel('程序单元上限')).toHaveValue('6');
+  await expect(dialog.getByRole('status')).toHaveCount(0);
+  await dialog.getByRole('button', { name: '开始审计', exact: true }).click();
+  await expect.poll(() => state.requests.length).toBe(1);
+  expect(state.requests[0]).toMatchObject({ maxUnits: 6, maxModelCalls: 18, maxToolRounds: 3 });
+});
+
+test('snapshot workflow shows whole-target coverage and the reason verification was skipped', async ({
+  page,
+}, info) => {
+  const state = await workspace(page);
+  const previous = run('limited-audit', 'SECURITY_AUDIT', 6);
+  previous.unitCount = '6';
+  previous.summaryJson = JSON.stringify({
+    eligible_unit_count: 6,
+    audited_unit_count: 1,
+    finding_count: 1,
+    audit_config: { max_units: 1 },
+  });
+  state.runs = [previous];
+  state.phases = [
+    {
+      id: 'AUDIT_REVIEW',
+      title: '逐单元审计与复核',
+      order: 4,
+      status: 'COMPLETED',
+      current: '1',
+      total: '1',
+      detail: '已审计 1 / 6 个可读单元；本轮计划 1 个（上限 1）；5 个未纳入本轮',
+    },
+    {
+      id: 'VERIFICATION_PLAN',
+      title: '验证方案生成',
+      order: 5,
+      status: 'SKIPPED',
+      detail:
+        '1 条候选：0 条通过复核，1 条结论不确定，0 条已驳回，0 条待复核。仅对通过复核的发现生成验证方案；可在漏洞审计中查看复核依据并补充证据',
+    },
+  ];
+  await page.goto('/#/runs/limited-audit');
+  const progress = page.getByRole('region', { name: '任务阶段', exact: true });
+  await expect(progress).toContainText('已审计 1 / 6 个可读单元');
+  await expect(progress).toContainText('5 个未纳入本轮');
+  await expect(progress).toContainText('本轮完成');
+  await expect(progress).toContainText('已跳过');
+  await expect(progress).toContainText('1 条结论不确定');
+  await progress.getByRole('button', { name: /验证方案生成/ }).click();
+  await expect(page.getByRole('tab', { name: /^漏洞审计/ })).toHaveAttribute('aria-selected', 'true');
+  await page.reload();
+  await expect(progress).toContainText('已审计 1 / 6 个可读单元');
+  await page.screenshot({ path: info.outputPath('limited-coverage-desktop.png'), fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: info.outputPath('limited-coverage-mobile.png'), fullPage: true });
 });

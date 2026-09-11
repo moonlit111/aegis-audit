@@ -7,18 +7,28 @@
     GetAuditResponse,
     GetFindingResponse,
     ProgramUnit,
+    RuntimeRecord,
   } from '../gen/audit/v1/audit_pb';
   import AuditPlan from './AuditPlan.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
   import { artifactUrl, errorMessage, findingsApi, requestId } from '../lib/api';
   import { dateTime, isTerminal, parseJson, type Summary } from '../lib/format';
-  import { runtimeLabels, runtimePending } from '../lib/runtime';
+  import {
+    runtimeLabels,
+    runtimePending,
+    runtimeFeedback,
+    verificationPlans,
+    type RuntimeResult,
+  } from '../lib/runtime';
 
   let {
     run,
     active = true,
     onselectunit,
     onverify,
+    onresults,
+    loadAudit,
+    runtimeRecords,
     notify,
     knownUnits,
   }: {
@@ -26,6 +36,9 @@
     active?: boolean;
     onselectunit: (id: string) => void;
     onverify: (id: string) => void;
+    onresults: (id: string) => void;
+    loadAudit: () => Promise<GetAuditResponse>;
+    runtimeRecords: RuntimeRecord[];
     notify: (message: string) => void;
     knownUnits: ProgramUnit[];
   } = $props();
@@ -40,6 +53,7 @@
   let missingInformation = $state('');
   let reviewRevision = $state(0);
   let busy = $state(false);
+  let refreshing = $state(false);
   let detail = $state<GetFindingResponse>();
   let findings = $state<Finding[]>([]);
   let findingTotal = $state(0);
@@ -51,6 +65,10 @@
   const controller = new AbortController();
   const summary = $derived(parseJson<Summary>(run.summaryJson, {}));
   const selected = $derived(detail?.finding);
+  const selectedPlan = $derived(verificationPlans(data?.tasks).some((task) => task.itemKey === selected?.id));
+  const selectedRuntime = $derived(
+    [...runtimeRecords].reverse().find((record) => record.findingId === selected?.id),
+  );
   const reviews = $derived(detail?.reviews || []);
   const reviewCounts = $derived(
     ['UNREVIEWED', 'VALIDATED', 'REJECTED', 'INCONCLUSIVE'].map((status) => ({
@@ -94,8 +112,10 @@
     UNKNOWN: '待定',
   };
   const label = (value: string) => labels[value] || value;
+  const severityTone = (value: string) =>
+    ['CRITICAL', 'HIGH'].includes(value) ? 'danger' : value === 'MEDIUM' ? 'warning' : 'neutral';
   const runtimeStatus = $derived.by(() => {
-    const records = data?.runtime || [];
+    const records = runtimeRecords;
     if (records.some((record) => runtimePending(record.status))) return '执行中';
     const statuses = records
       .filter((record) => !runtimePending(record.status))
@@ -109,7 +129,7 @@
     return label(statuses[statuses.length - 1] || '');
   });
   const exploitationStatus = $derived.by(() => {
-    if (summary.exploitation === 'COMPLETED') return '利用证据已完成';
+    if (summary.exploitation === 'COMPLETED') return '复现证据已保存';
     if (summary.exploitation && summary.exploitation !== 'NOT_RUN') {
       return label(summary.exploitation);
     }
@@ -128,8 +148,9 @@
       return;
     }
     loading = true;
+    refreshing = true;
     try {
-      const response = await findingsApi.getAudit({ runId: run.id }, { signal: controller.signal });
+      const response = await loadAudit();
       if (!alive) return;
       data = response;
       error = '';
@@ -139,6 +160,7 @@
       if (alive) error = errorMessage(failure);
     } finally {
       loading = false;
+      refreshing = false;
       if (refreshAgain && alive) {
         refreshAgain = false;
         void refresh();
@@ -220,7 +242,7 @@
   onMount(() => {
     if (active) void refresh();
     const timer = setInterval(() => {
-      if (active && (!isTerminal(run.state) || data?.runtime.some((r) => runtimePending(r.status))))
+      if (active && (!isTerminal(run.state) || runtimeRecords.some((r) => runtimePending(r.status))))
         void refresh();
     }, 1800);
     return () => {
@@ -234,7 +256,21 @@
   });
 </script>
 
-<section class="audit-workspace">
+<section class="audit-workspace" aria-label="漏洞审计">
+  <div class="audit-heading">
+    <div>
+      <h2>漏洞审计</h2>
+      <p class="subtle">查看候选发现、代码证据与独立复核结论。</p>
+    </div>
+    <button
+      class="button secondary small"
+      disabled={refreshing}
+      onclick={() => refresh()}
+      aria-label="刷新审计结果"
+    >
+      <RefreshCw size={15} class={refreshing ? 'spin' : ''} />{refreshing ? '刷新中…' : '刷新结果'}
+    </button>
+  </div>
   <AuditPlan task={data?.tasks.find((t) => t.role === 'PLANNER')} units={knownUnits} {onselectunit} />
   <div class="audit-metrics">
     <div>
@@ -255,37 +291,43 @@
       >
     </div>
   </div>
-  {#if summary.audit_config}<dl class="audit-budget-summary">
-      <div>
-        <dt>模型调用</dt>
-        <dd>{data?.modelCalls.length || 0} / {summary.audit_config.max_model_calls}</dd>
-      </div>
-      <div>
-        <dt>工具轮数 / 子任务</dt>
-        <dd>{summary.audit_config.max_tool_rounds}</dd>
-      </div>
-      <div>
-        <dt>单元上限</dt>
-        <dd>{summary.audit_config.max_units}</dd>
-      </div>
-      <div>
-        <dt>任务时限</dt>
-        <dd>{summary.audit_config.timeout_seconds} s</dd>
-      </div>
-      {#if summary.audit_config.max_output_tokens}<div>
-          <dt>单次输出（含思考）</dt>
-          <dd>{summary.audit_config.max_output_tokens} token</dd>
-        </div>{/if}
-      {#if summary.audit_config.reasoning_effort}<div>
-          <dt>思考强度</dt>
-          <dd>{summary.audit_config.reasoning_effort}</dd>
-        </div>{/if}
-      {#if summary.audit_config.model_timeout_seconds}<div>
-          <dt>单次时限</dt>
-          <dd>{summary.audit_config.model_timeout_seconds} s</dd>
-        </div>{/if}
-    </dl>{/if}
-  {#if summary.audit_coverage_gap}<p class="audit-gap">{summary.audit_coverage_gap}</p>{/if}
+  {#if summary.audit_config}<details class="audit-budget">
+      <summary>审计预算与模型设置</summary>
+      <dl class="audit-budget-summary">
+        <div>
+          <dt>模型调用</dt>
+          <dd>{data?.modelCalls.length || 0} / {summary.audit_config.max_model_calls}</dd>
+        </div>
+        <div>
+          <dt>工具轮数 / 子任务</dt>
+          <dd>{summary.audit_config.max_tool_rounds}</dd>
+        </div>
+        <div>
+          <dt>单元上限</dt>
+          <dd>{summary.audit_config.max_units}</dd>
+        </div>
+        <div>
+          <dt>任务时限</dt>
+          <dd>{summary.audit_config.timeout_seconds} s</dd>
+        </div>
+        {#if summary.audit_config.max_output_tokens}<div>
+            <dt>单次输出（含思考）</dt>
+            <dd>{summary.audit_config.max_output_tokens} token</dd>
+          </div>{/if}
+        {#if summary.audit_config.reasoning_effort}<div>
+            <dt>思考强度</dt>
+            <dd>{summary.audit_config.reasoning_effort}</dd>
+          </div>{/if}
+        {#if summary.audit_config.model_timeout_seconds}<div>
+            <dt>单次时限</dt>
+            <dd>{summary.audit_config.model_timeout_seconds} s</dd>
+          </div>{/if}
+      </dl>
+    </details>{/if}
+  {#if summary.audit_coverage_gap}<div class="audit-gap">
+      <strong>审计覆盖缺口</strong>
+      <p>{summary.audit_coverage_gap}</p>
+    </div>{/if}
   {#if error}<div class="error-banner" role="alert">
       <span>{error}</span><button
         class="text-button"
@@ -326,9 +368,6 @@
       class:active={view === 'agents'}
       onclick={() => (view = 'agents')}><FileSearch size={15} />智能体记录</button
     >
-    <button class="text-button" onclick={() => refresh()} aria-label="刷新审计结果"
-      ><RefreshCw size={14} /></button
-    >
     {#if exploitationArtifacts.length}<span class="poc-links">
         <span class="poc-links-title">漏洞复用 PoC</span>
         {#each exploitationArtifacts as item (item.name)}<a
@@ -342,6 +381,10 @@
   {#if view === 'findings'}
     <div class="finding-layout">
       <aside class="finding-list">
+        <div class="finding-list-heading">
+          <h3>候选发现</h3>
+          <span class="badge neutral">{findingTotal} 项</span>
+        </div>
         <label class="field"
           >复核状态<select
             bind:value={filter}
@@ -358,7 +401,11 @@
             class:selected={selectedId === finding.id}
             class="finding-row"
             onclick={() => select(finding)}
-            ><strong>{finding.title}</strong><span>{finding.cwe} · {label(finding.severity)}</span><small
+            ><strong>{finding.title}</strong><span class="finding-row-meta"
+              ><span class={`badge ${severityTone(finding.severity)}`}>{label(finding.severity)}</span><code
+                >{finding.cwe}</code
+              ></span
+            ><small class="review-status" data-status={finding.reviewStatus}
               >{label(finding.reviewStatus)}</small
             ></button
           >{/each}
@@ -391,35 +438,80 @@
         {#if selected}
           <div class="panel-title">
             <h2>{selected.title}</h2>
-            <span class={`badge ${selected.reviewStatus === 'VALIDATED' ? 'warning' : 'neutral'}`}
+            <span class="badge review-status" data-status={selected.reviewStatus}
               >{label(selected.reviewStatus)}</span
             >
           </div>
-          <p class="subtle">
-            {selected.cwe} · {selected.staticScope === 'COMPONENT' ? '组件级静态审计 · ' : ''}{label(
-              selected.severity,
-            )} · 修订 {selected.revision} · {label(selected.verificationStatus)}
-          </p>
-          <button class="button secondary" onclick={() => onverify(selected.id)}
-            >查看验证方案与运行结果<ArrowUpRight size={14} /></button
-          >
-          <dl class="finding-facts">
-            <dt>输入来源</dt>
-            <dd>{selected.inputSource}</dd>
-            <dt>危险操作</dt>
-            <dd>{selected.sink}</dd>
-            <dt>防护缺口</dt>
-            <dd>{selected.missingGuard}</dd>
-            <dt>触发前提</dt>
-            <dd>{selected.preconditions}</dd>
-            <dt>预期影响</dt>
-            <dd>{selected.impact}</dd>
-            <dt>严重度依据</dt>
-            <dd>{selected.severityReason}</dd>
-            <dt>修复建议</dt>
-            <dd>{selected.recommendation}</dd>
-          </dl>
-          <h3>代码证据</h3>
+          <div class="finding-meta">
+            <span class={`badge ${severityTone(selected.severity)}`}>{label(selected.severity)}</span>
+            <code>{selected.cwe}</code>
+            {#if selected.staticScope === 'COMPONENT'}<span>组件级静态审计</span>{/if}
+            <span>修订 v{selected.revision}</span>
+          </div>
+          {#if selectedPlan || selectedRuntime}<div class="finding-next">
+              <div>
+                {#if selectedRuntime}
+                  {@const feedback = runtimeFeedback(
+                    selectedRuntime,
+                    parseJson<RuntimeResult | null>(selectedRuntime.resultJson, null),
+                  )}
+                  <span>运行验证：<strong>{feedback.title}</strong></span>
+                  <p class="subtle verification-hint">{feedback.detail}</p>
+                {:else}<span>运行验证：<strong>方案已生成，尚未执行</strong></span>
+                  <p class="subtle verification-hint">启动运行后才能判断是否复现。</p>{/if}
+              </div>
+              {#if selectedRuntime}<button
+                  class="button secondary small"
+                  onclick={() => onresults(selected.id)}
+                  >{runtimePending(selectedRuntime.status) ? '查看验证进度' : '查看验证结果'}<ArrowUpRight
+                    size={14}
+                  /></button
+                >{/if}
+              {#if selectedPlan}<button class="button secondary small" onclick={() => onverify(selected.id)}
+                  >查看验证方案<ArrowUpRight size={14} /></button
+                >{/if}
+            </div>{/if}
+          <section class="finding-key-points" aria-label="漏洞核心问题">
+            <h3>核心问题</h3>
+            <dl class="finding-facts">
+              <div>
+                <dt>防护缺口</dt>
+                <dd>{selected.missingGuard || '未记录'}</dd>
+              </div>
+              <div>
+                <dt>预期影响</dt>
+                <dd>{selected.impact || '未记录'}</dd>
+              </div>
+              <div class="finding-recommendation">
+                <dt>修复建议</dt>
+                <dd>{selected.recommendation || '未记录'}</dd>
+              </div>
+            </dl>
+          </section>
+          <section class="finding-context" aria-label="漏洞触发路径与前提">
+            <h3>触发路径与前提</h3>
+            <dl class="finding-facts">
+              <div>
+                <dt>输入来源</dt>
+                <dd>{selected.inputSource || '未记录'}</dd>
+              </div>
+              <div>
+                <dt>危险操作</dt>
+                <dd>{selected.sink || '未记录'}</dd>
+              </div>
+              <div>
+                <dt>触发前提</dt>
+                <dd>{selected.preconditions || '未记录'}</dd>
+              </div>
+              <div>
+                <dt>严重度依据</dt>
+                <dd>{selected.severityReason || '未记录'}</dd>
+              </div>
+            </dl>
+          </section>
+          <h3 class="finding-section-heading">
+            代码证据<span class="badge neutral">{selected.evidence.length} 处</span>
+          </h3>
           {#each selected.evidence as reference}<div class="evidence-card">
               <button class="text-button" onclick={() => onselectunit(reference.unitId)}
                 >{reference.path} · L{reference.startLine}–{reference.endLine}{reference.address
@@ -431,9 +523,11 @@
             </div>{/each}
           <h3>独立复核与修订历史</h3>
           {#each reviews as item}<article class="review-card">
-              <strong
-                >{label(item.verdict)} · {item.actor === 'HUMAN' ? '人工' : '独立复核智能体'} · v{item.revision}</strong
-              >
+              <div class="review-heading">
+                <strong class="review-status" data-status={item.verdict}>{label(item.verdict)}</strong><span
+                  >{item.actor === 'HUMAN' ? '人工' : '独立复核智能体'} · v{item.revision}</span
+                >
+              </div>
               <p>{item.rationale}</p>
               <p class="subtle">反证与防护：{item.counterEvidence || '未记录'}</p>
               <p class="subtle">待补信息：{item.missingInformation || '无补充记录'}</p>
@@ -602,6 +696,243 @@
 </section>
 
 <style>
+  .verification-hint {
+    margin-top: 6px;
+    line-height: 1.7;
+  }
+  .audit-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: var(--space-6);
+  }
+  .audit-heading .subtle {
+    margin-top: 5px;
+  }
+  .audit-metrics {
+    gap: 12px;
+    padding: 0 var(--space-6) var(--space-5);
+  }
+  .audit-metrics > div {
+    padding: 16px;
+    min-width: 0;
+    background: var(--surface-subtle);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+  .audit-metrics span {
+    font-size: var(--text-sm);
+    color: var(--muted);
+  }
+  .audit-metrics strong {
+    display: block;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .audit-metrics strong small {
+    display: block;
+    color: var(--muted);
+  }
+  .audit-metrics > div:last-child strong {
+    font-size: var(--text-lg);
+  }
+  .audit-budget {
+    margin: 0 var(--space-6) var(--space-4);
+    padding: 12px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+  .audit-budget summary {
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+  .audit-budget .audit-budget-summary {
+    padding: 16px 0 0;
+  }
+  .audit-gap {
+    border: 1px solid var(--warning-line);
+    line-height: 1.8;
+  }
+  .audit-gap > p {
+    margin-top: 5px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .finding-list {
+    background: var(--surface-subtle);
+  }
+  .finding-list-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    gap: 8px;
+  }
+  .finding-list-heading h3 {
+    font-size: var(--text-lg);
+  }
+  .finding-row {
+    margin: 12px 0;
+    gap: 10px;
+  }
+  .finding-row strong {
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .finding-row .badge {
+    font-size: var(--text-xs);
+  }
+  .finding-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .finding-row-meta code {
+    font-size: var(--text-xs);
+  }
+  .review-status[data-status='VALIDATED'] {
+    color: var(--accent-hover);
+  }
+  .badge.review-status[data-status='VALIDATED'] {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+  }
+  .review-status[data-status='INCONCLUSIVE'],
+  .review-status[data-status='UNREVIEWED'] {
+    color: var(--warning);
+  }
+  .badge.review-status[data-status='INCONCLUSIVE'],
+  .badge.review-status[data-status='UNREVIEWED'] {
+    background: var(--warning-soft);
+    border-color: var(--warning-line);
+  }
+  .review-status[data-status='REJECTED'] {
+    color: var(--muted);
+  }
+  .finding-detail > .panel-title {
+    padding: 0;
+    align-items: start;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .finding-detail > .panel-title h2 {
+    min-width: 0;
+    flex: 1 1 240px;
+    overflow-wrap: anywhere;
+  }
+  .finding-meta {
+    display: flex;
+    gap: 8px 14px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    font-size: var(--text-sm);
+    color: var(--muted);
+  }
+  .finding-next {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 0;
+    margin-bottom: 6px;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  .finding-key-points {
+    padding: 18px;
+    border: 1px solid var(--accent-line);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+  }
+  .finding-detail .finding-key-points h3 {
+    margin: 0;
+    color: var(--accent-hover);
+  }
+  .finding-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin: 14px 0 0;
+  }
+  .finding-facts > div {
+    display: grid;
+    grid-template-columns: 85px minmax(0, 1fr);
+    gap: 8px 14px;
+  }
+  .finding-facts dt {
+    font-size: var(--text-sm);
+    color: var(--muted);
+  }
+  .finding-facts dd {
+    white-space: pre-wrap;
+    line-height: 1.8;
+  }
+  .finding-recommendation {
+    padding-top: 14px;
+    border-top: 1px solid var(--accent-line);
+  }
+  .finding-recommendation dt {
+    color: var(--accent-hover);
+    font-weight: 600;
+  }
+  .finding-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .evidence-card .text-button {
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.7;
+  }
+  .evidence-card pre {
+    line-height: 1.8;
+    border-radius: var(--radius-sm);
+  }
+  .review-card {
+    background: var(--surface-subtle);
+    padding: 16px;
+  }
+  .review-heading {
+    display: flex;
+    gap: 8px 14px;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .review-heading > span {
+    font-size: var(--text-xs);
+    color: var(--muted);
+  }
+  .review-card p {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .review-card .subtle {
+    margin-top: 8px;
+  }
+  .review-editor {
+    border: 1px solid var(--line);
+    padding: 16px;
+    border-radius: var(--radius-md);
+  }
+  .review-editor summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .review-editor form {
+    display: grid;
+    gap: 14px;
+  }
   .review-counts,
   .queue-pagination {
     display: flex;
@@ -661,6 +992,34 @@
     font-variant-numeric: tabular-nums;
   }
   @media (max-width: 600px) {
+    .audit-heading {
+      padding: var(--space-4);
+    }
+    .audit-metrics {
+      padding-inline: var(--space-4);
+      gap: 10px;
+    }
+    .audit-metrics > div {
+      padding: 12px;
+    }
+    .audit-budget {
+      margin-inline: var(--space-4);
+    }
+    .finding-list,
+    .finding-detail {
+      padding: var(--space-4);
+    }
+    .finding-key-points {
+      padding: 14px;
+    }
+    .finding-facts > div {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
+    }
+    .finding-next .button {
+      white-space: normal;
+      text-align: left;
+    }
     .code-tabs {
       flex-wrap: wrap;
       row-gap: var(--space-1);

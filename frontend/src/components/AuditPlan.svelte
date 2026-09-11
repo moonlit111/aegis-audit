@@ -48,7 +48,8 @@
 
 <style>
   .plan-panel {
-    margin-bottom: var(--space-4);
+    margin: 0 var(--space-6) var(--space-5);
+    overflow: hidden;
   }
   .plan-body {
     display: grid;
@@ -68,12 +69,23 @@
     overflow-wrap: anywhere;
     line-height: 1.65;
   }
+  .approach {
+    padding: 16px;
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    font-weight: 500;
+    color: var(--ink);
+  }
   ol {
     padding-left: 24px;
   }
   ol li {
-    padding: var(--space-2);
-    border-bottom: 1px solid var(--line);
+    padding: 12px 14px;
+    margin: 10px 0;
+    border: 1px solid var(--line);
+    background: var(--surface-subtle);
+    border-radius: var(--radius-sm);
   }
   li p {
     margin: 6px 0;
@@ -84,6 +96,9 @@
     overflow-wrap: anywhere;
   }
   @media (max-width: 600px) {
+    .plan-panel {
+      margin-inline: var(--space-4);
+    }
     .plan-body {
       padding: var(--space-4);
     }

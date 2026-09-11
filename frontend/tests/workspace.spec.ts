@@ -34,7 +34,8 @@ test('runtime configuration → repeated component observations → reload → f
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: '仅结构分析', exact: true }).click();
   await expect(page.locator('.run-status')).toHaveText('分析完成');
-  await page.getByRole('tab', { name: '运行验证', exact: true }).click();
+  await page.getByRole('tab', { name: '覆盖与产物', exact: true }).click();
+  await page.getByRole('button', { name: '配置本地测试', exact: true }).click();
   const config = {
     mode: 'VERIFY',
     adapter: 'WINDOWS_PYTHON_CALL',
@@ -56,15 +57,16 @@ test('runtime configuration → repeated component observations → reload → f
   });
   await expect(page.locator('.runtime-record tbody tr')).toHaveCount(3);
   await page.reload();
-  await page.getByRole('tab', { name: '运行验证', exact: true }).click();
+  await page.getByRole('tab', { name: '覆盖与产物', exact: true }).click();
   await expect(page.locator('.runtime-record')).toContainText('组件内验证成立');
   await page.getByLabel('报告格式').selectOption('json');
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  await page.getByRole('button', { name: '确认生成', exact: true }).click();
   await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const report = JSON.parse(await readFile((await (await downloaded).path())!, 'utf8'));
   expect(report.checks.runtime_verification).toBe('COMPLETED');
-  expect(report.checks.exploitation).toBe('NOT_RUN');
+  expect(report.checks.exploitation).toBe('COMPLETED');
   expect(report.audit.runtime[0].result.target_scope).toBe('COMPONENT');
   expect(report.audit.runtime[0].result.observation.trials).toHaveLength(3);
   const trials = report.audit.runtime[0].result.observation.trials;
@@ -146,6 +148,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
     await page.getByLabel('报告格式').selectOption(format);
     const downloaded = page.waitForEvent('download');
     await page.getByRole('button', { name: '导出报告', exact: true }).click();
+    await page.getByRole('button', { name: '确认生成', exact: true }).click();
     await page.getByRole('button', { name: '下载文件', exact: true }).click();
     const download = await downloaded;
     const content = await readFile((await download.path())!, 'utf8');
@@ -162,6 +165,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
   await page.getByLabel('报告格式').selectOption('pdf');
   const pdfDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  await page.getByRole('button', { name: '确认生成', exact: true }).click();
   await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const pdfFile = await pdfDownload;
   expect((await readFile((await pdfFile.path())!)).subarray(0, 5).toString()).toBe('%PDF-');

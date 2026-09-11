@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import { Code, ConnectError } from '@connectrpc/connect';
   import {
     ArrowLeft,
@@ -19,9 +19,7 @@
     ChevronRight,
     RefreshCw,
     AlertCircle,
-    FolderOpen,
     Hash,
-    FileJson,
   } from '@lucide/svelte';
   import type {
     AuditRun,
@@ -31,9 +29,26 @@
     Artifact,
     RunEvent,
     RunPhase,
+    GetAuditResponse,
+    RuntimeRecord,
   } from '../gen/audit/v1/audit_pb';
   import { RunState } from '../gen/audit/v1/audit_pb';
-  import { runsApi, projectsApi, programsApi, artifactUrl, errorMessage } from '../lib/api';
+  import {
+    runsApi,
+    projectsApi,
+    programsApi,
+    findingsApi,
+    runtimeApi,
+    artifactUrl,
+    errorMessage,
+  } from '../lib/api';
+  import {
+    mergeRuntimeRecords,
+    runtimeFeedback,
+    runtimePending,
+    verificationPlans,
+    type RuntimeResult,
+  } from '../lib/runtime';
   import {
     isTerminal,
     runLabel,
@@ -41,7 +56,6 @@
     tone,
     parseJson,
     dateTime,
-    bytes,
     type Summary,
     type UnitMetadata,
   } from '../lib/format';
@@ -49,8 +63,11 @@
   import CallGraph from './CallGraph.svelte';
   import AuditPanel from './AuditPanel.svelte';
   import RuntimePanel from './RuntimePanel.svelte';
+  import RuntimeResults from './RuntimeResults.svelte';
   import RecoveryPanel from './RecoveryPanel.svelte';
   import RunProgress from './RunProgress.svelte';
+  import RunEvents from './RunEvents.svelte';
+  import CoveragePanel from './CoveragePanel.svelte';
   import AnnotationsPanel from './AnnotationsPanel.svelte';
   import ReportHistory from './ReportHistory.svelte';
   import ReportExport from './ReportExport.svelte';
@@ -79,6 +96,17 @@
   let tab = $state('program');
   let initialTabSelected = false;
   let runtimeFinding = $state('');
+  let runtimeAudit = $state<GetAuditResponse>();
+  let runtimeRecords = $state<RuntimeRecord[]>([]);
+  let runtimeRefreshing = $state(false);
+  let runtimeLoadError = $state('');
+  let runtimeFocusId = $state('');
+  let runtimeFocusVersion = $state(0);
+  let runtimePanelElement = $state<HTMLDivElement>();
+  let manualRuntimeOpen = $state(false);
+  let runtimeReadState: RunState | undefined;
+  let loadingAudit: Promise<GetAuditResponse> | undefined;
+  let loadingRuntime: Promise<void> | undefined;
   let viewer = $state('code');
   let events = $state<RunEvent[]>([]);
   let phases = $state<RunPhase[]>([]);
@@ -101,8 +129,36 @@
   const summary = $derived(parseJson<Summary>(run?.summaryJson || '', {}));
   const metadata = $derived(parseJson<UnitMetadata>(unit?.metadataJson || '', {}));
   const files = $derived(summary.files || []);
-  const parsedCount = $derived(files.filter((file) => file.status === 'PARSED').length);
   const gaps = $derived(files.filter((file) => !['PARSED', 'NOT_SOURCE'].includes(file.status)));
+  const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run?.scope || ''));
+  const plans = $derived(verificationPlans(runtimeAudit?.tasks));
+  const runtimeTabVisible = $derived(plans.length > 0 || manualRuntimeOpen);
+  const canConfigureRuntime = $derived(
+    !isRuntimeRun &&
+      (plans.length > 0 ||
+        runtimeRecords.length > 0 ||
+        (run?.scope === 'STRUCTURE_ANALYSIS' && isTerminal(run.state) && run.unitCount > 0n)),
+  );
+  const visiblePhases = $derived(
+    phases.map((phase) => {
+      if (phase.id === 'VERIFICATION_PLAN' && plans.length)
+        return {
+          ...phase,
+          detail: `已生成 ${plans.length} 份方案；${runtimeRecords.length ? '实际验证结论见“覆盖与产物”。' : '尚未启动运行验证。'}`,
+        };
+      if (phase.id === 'RUNTIME') {
+        const record = runtimeRecords.find((record) => record.runId === runId);
+        return {
+          ...phase,
+          title: '运行验证',
+          detail: record
+            ? runtimeFeedback(record, parseJson<RuntimeResult | null>(record.resultJson, null)).title
+            : phase.detail,
+        };
+      }
+      return phase;
+    }),
+  );
   const capabilityLabels: Record<string, string> = {
     import: '导入与逆向',
     'tree-sitter': '源码解析',
@@ -162,6 +218,96 @@
     return true;
   }
 
+  function acceptRuntime(records: RuntimeRecord[]) {
+    const completed = records.some(
+      (record) =>
+        !runtimePending(record.status) &&
+        runtimeRecords.find((previous) => previous.id === record.id)?.status !== record.status,
+    );
+    runtimeRecords = mergeRuntimeRecords(runtimeRecords, records);
+    if (completed) void loadRun();
+  }
+
+  // AuditPanel and runtime views share this request and snapshot. Plans can be
+  // discovered while their tab is hidden, and a completed audit keeps polling
+  // its independently running verification tasks.
+  function loadAudit() {
+    if (loadingAudit) return loadingAudit;
+    const readState = run?.state;
+    runtimeRefreshing = true;
+    loadingAudit = findingsApi
+      .getAudit({ runId }, { signal: controller.signal })
+      .then((response) => {
+        if (alive) {
+          runtimeAudit = response;
+          acceptRuntime(response.runtime);
+          runtimeReadState = readState;
+          runtimeLoadError = '';
+        }
+        return response;
+      })
+      .catch((failure) => {
+        if (alive) runtimeLoadError = errorMessage(failure);
+        throw failure;
+      })
+      .finally(() => {
+        loadingAudit = undefined;
+        runtimeRefreshing = false;
+      });
+    return loadingAudit;
+  }
+
+  function refreshRuntime() {
+    if (loadingRuntime) return loadingRuntime;
+    loadingRuntime = (async () => {
+      try {
+        if (run?.scope === 'SECURITY_AUDIT') await loadAudit();
+        else {
+          const readState = run?.state;
+          runtimeRefreshing = true;
+          const response = await runtimeApi.listRuntime({ runId }, { signal: controller.signal });
+          if (alive) {
+            acceptRuntime(response.records);
+            runtimeReadState = readState;
+            runtimeLoadError = '';
+          }
+        }
+      } catch (failure) {
+        if (alive) runtimeLoadError = errorMessage(failure);
+      }
+    })().finally(() => {
+      loadingRuntime = undefined;
+      runtimeRefreshing = false;
+    });
+    return loadingRuntime;
+  }
+
+  async function openRuntimePlans(findingId = '') {
+    runtimeFinding = findingId;
+    manualRuntimeOpen = true;
+    tab = 'runtime';
+    await tick();
+    runtimePanelElement?.scrollIntoView({ block: 'start' });
+    runtimePanelElement?.focus({ preventScroll: true });
+  }
+
+  function openRuntimeResults(recordId = '', findingId = '') {
+    runtimeFocusId =
+      recordId ||
+      [...runtimeRecords].reverse().find((record) => !findingId || record.findingId === findingId)?.id ||
+      '';
+    runtimeFocusVersion += 1;
+    tab = 'coverage';
+  }
+
+  function runtimeStarted(record: RuntimeRecord) {
+    acceptRuntime([record]);
+    openRuntimeResults(record.id);
+    void refreshRuntime();
+    void loadRun();
+    void onchanged();
+  }
+
   function loadRun() {
     if (loadingRun) return loadingRun;
     loadingRun = (async () => {
@@ -176,7 +322,7 @@
             run.scope === 'SECURITY_AUDIT'
               ? 'audit'
               : ['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope)
-                ? 'runtime'
+                ? 'coverage'
                 : 'program';
           initialTabSelected = true;
         }
@@ -275,7 +421,7 @@
           streamStatus = '实时连接';
           if (message.event && message.event.seq > cursor) {
             cursor = message.event.seq;
-            events = [...events, message.event].slice(-500);
+            events = [message.event, ...events].slice(0, 500);
             if (
               ['RUN_COMPLETED', 'RUN_FINISHED', 'LEASE_EXPIRED', 'CANCEL_REQUESTED'].includes(
                 message.event.kind,
@@ -331,6 +477,15 @@
     void watch();
     const poll = setInterval(() => {
       if (!notFound && (!run || !isTerminal(run.state))) void loadRun();
+      if (
+        run &&
+        (run.scope !== 'SECURITY_AUDIT' || tab !== 'audit') &&
+        (!isTerminal(run.state) ||
+          runtimeReadState !== run.state ||
+          runtimeLoadError ||
+          runtimeRecords.some((record) => runtimePending(record.status)))
+      )
+        void refreshRuntime();
     }, 1800);
     return () => {
       alive = false;
@@ -341,6 +496,16 @@
   });
   $effect(() => {
     if (tab === 'recovery' && !summary.recovery) tab = 'events';
+  });
+  $effect(() => {
+    const state = run?.state;
+    if (state !== undefined)
+      untrack(() => {
+        if (tab !== 'audit' || isTerminal(state)) void refreshRuntime();
+      });
+  });
+  $effect(() => {
+    if (tab === 'runtime' || tab === 'coverage') void refreshRuntime();
   });
 </script>
 
@@ -357,15 +522,27 @@
     </div>
   </section>
 {:else}
-  <a href="#/runs" class="back-link"><ArrowLeft size={14} />全部分析任务</a>
+  <a href="#/runs" class="back-link run-back-link"><ArrowLeft size={14} />全部分析任务</a>
   <div class="run-heading">
     <div class="run-identity">
-      <div class="eyebrow">{scopeLabel(run?.scope || '')}</div>
-      <h1 title={snapshot?.name}>{snapshot?.name || '程序结构分析'}</h1>
-      <p class="run-meta">
-        <code>{runId.slice(0, 8)}</code><span>·</span>{dateTime(run?.createdAt || '')}<span>·</span
-        >{projectName || '固定快照分析'}
-      </p>
+      <div class="run-title-line">
+        <h1 title={snapshot?.name}>{snapshot?.name || '程序结构分析'}</h1>
+        <span class="run-scope">{scopeLabel(run?.scope || '')}</span>
+      </div>
+      <dl class="run-meta" aria-label="任务信息">
+        <div>
+          <dt>任务</dt>
+          <dd><code title={runId}>{runId.slice(0, 8)}</code></dd>
+        </div>
+        <div>
+          <dt>创建于</dt>
+          <dd><time datetime={run?.createdAt || undefined}>{dateTime(run?.createdAt || '')}</time></dd>
+        </div>
+        <div class="run-meta-project">
+          <dt>项目</dt>
+          <dd title={projectName || '固定快照分析'}>{projectName || '固定快照分析'}</dd>
+        </div>
+      </dl>
       {#if run && !isTerminal(run.state)}
         <div class="run-control">
           <button
@@ -468,18 +645,25 @@
         <a class="text-button" href={`#/runs/${summary.analysis_reuse.source_run_id}`}>查看来源任务</a>
       </p>{/if}
     <RunProgress
-      {phases}
+      phases={visiblePhases}
       runState={run.state}
       {statusMessage}
       showEnvironmentLink={!isTerminal(run.state)}
-      canSelect={(phase) => phase.id !== 'RECOVERY' || Boolean(summary.recovery)}
+      canSelect={(phase) =>
+        (phase.id !== 'RECOVERY' || Boolean(summary.recovery)) &&
+        (phase.id !== 'RUNTIME' || runtimeRecords.length > 0 || plans.length > 0 || isRuntimeRun)}
       onselect={(phase) => {
         if (phase.unitId) {
           tab = 'program';
           void selectUnit(phase.unitId);
         } else if (phase.id === 'RECOVERY') tab = 'recovery';
-        else if (phase.id === 'RUNTIME') tab = 'runtime';
-        else if (phase.id === 'STRUCTURE') tab = 'program';
+        else if (phase.id === 'RUNTIME') {
+          if (runtimeRecords.length || isRuntimeRun) openRuntimeResults();
+          else void openRuntimePlans();
+        } else if (phase.id === 'VERIFICATION_PLAN') {
+          if (plans.length) void openRuntimePlans();
+          else tab = 'audit';
+        } else if (phase.id === 'STRUCTURE') tab = 'program';
         else if (phase.id === 'PREPARATION') tab = 'events';
         else tab = 'audit';
       }}
@@ -511,15 +695,12 @@
           class:active={tab === 'recovery'}
           onclick={() => (tab = 'recovery')}><Code2 size={16} />逆向与解混淆</button
         >{/if}
-      <button
-        role="tab"
-        aria-selected={tab === 'runtime'}
-        class:active={tab === 'runtime'}
-        onclick={() => {
-          runtimeFinding = '';
-          tab = 'runtime';
-        }}><ListChecks size={16} />运行验证</button
-      >
+      {#if runtimeTabVisible}<button
+          role="tab"
+          aria-selected={tab === 'runtime'}
+          class:active={tab === 'runtime'}
+          onclick={() => void openRuntimePlans()}><ListChecks size={16} />运行验证</button
+        >{/if}
       {#if run.scope === 'SECURITY_AUDIT'}<button
           role="tab"
           aria-selected={tab === 'audit'}
@@ -562,27 +743,37 @@
     {:else if tab === 'recovery' && summary.recovery}
       <RecoveryPanel recovery={summary.recovery} />
     {/if}
-    <div class:hidden-panel={tab !== 'runtime'}>
-      <RuntimePanel
-        {run}
-        {snapshot}
-        {unit}
-        {notify}
-        {onchanged}
-        findingId={runtimeFinding}
-        active={tab === 'runtime'}
-      />
-    </div>
+    {#if runtimeTabVisible}<div
+        class:hidden-panel={tab !== 'runtime'}
+        bind:this={runtimePanelElement}
+        tabindex="-1"
+        style:scroll-margin-top="80px"
+      >
+        <RuntimePanel
+          {run}
+          {snapshot}
+          {unit}
+          {notify}
+          audit={runtimeAudit}
+          records={runtimeRecords}
+          refreshing={runtimeRefreshing}
+          loadError={runtimeLoadError}
+          onrefresh={refreshRuntime}
+          onstarted={runtimeStarted}
+          onshowresults={openRuntimeResults}
+          findingId={runtimeFinding}
+        />
+      </div>{/if}
     {#if run.scope === 'SECURITY_AUDIT'}<div class:hidden-panel={tab !== 'audit'}>
         <AuditPanel
           {run}
           {notify}
+          {loadAudit}
+          {runtimeRecords}
           knownUnits={units}
           active={tab === 'audit'}
-          onverify={(id) => {
-            runtimeFinding = id;
-            tab = 'runtime';
-          }}
+          onverify={(id) => void openRuntimePlans(id)}
+          onresults={(id) => openRuntimeResults('', id)}
           onselectunit={(id) => {
             tab = 'program';
             void selectUnit(id);
@@ -798,123 +989,36 @@
         </section>
       </div>
     {:else if tab === 'coverage'}
-      <div class="coverage-grid">
-        <section class="panel coverage-panel">
-          <div class="panel-title">
-            <h2>文件覆盖</h2>
-            <span>{parsedCount} 已解析 / {files.length} 个文件</span>
-          </div>
-          {#if summary.warnings?.length}<div class="warning-list">
-              {#each summary.warnings as warning}<p><AlertCircle size={15} />{warning}</p>{/each}
-            </div>{/if}
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>文件</th><th>状态</th><th>单元</th><th>说明</th></tr></thead><tbody
-                >{#each files.slice(0, 500) as file}<tr
-                    ><td class="file-cell">{file.path}<small>{file.language}</small></td><td
-                      ><span
-                        class={`badge ${file.status === 'PARSED' ? 'success' : file.status === 'NOT_SOURCE' ? 'neutral' : 'warning'}`}
-                        >{(
-                          {
-                            PARSED: '已解析',
-                            PARTIAL: '部分解析',
-                            FAILED: '失败',
-                            UNSUPPORTED: '不支持',
-                            NOT_SOURCE: '资源文件',
-                          } as Record<string, string>
-                        )[file.status] || file.status}</span
-                      ></td
-                    ><td>{file.unit_count}</td><td>{file.reason || '—'}</td></tr
-                  >{/each}</tbody
+      <CoveragePanel {summary} {artifacts}>
+        {#snippet verification()}
+          {#if runtimeRecords.length || plans.length || isRuntimeRun}
+            <RuntimeResults
+              {runId}
+              records={runtimeRecords}
+              findings={runtimeAudit?.findings}
+              focusId={runtimeFocusId}
+              focusVersion={runtimeFocusVersion}
+              refreshing={runtimeRefreshing}
+              loadError={runtimeLoadError}
+              hasPlans={plans.length > 0}
+              onrefresh={refreshRuntime}
+              onconfigure={canConfigureRuntime ? () => void openRuntimePlans() : undefined}
+              onupdate={(record) => acceptRuntime([record])}
+              onevents={() => (tab = 'events')}
+              {notify}
+            />
+          {:else if canConfigureRuntime}
+            <div>
+              <button class="button secondary" onclick={() => void openRuntimePlans()}
+                >配置本地测试<ArrowUpRight size={14} /></button
               >
-            </table>
-          </div>
-          {#if !files.length}<div class="empty-panel compact">
-              尚无覆盖记录。
-            </div>{/if}{#if files.length > 500}<p class="field-help">
-              显示前 500 个文件。完整记录见分析产物与 JSON 报告。
-            </p>{/if}
-        </section>
-        <section class="panel tool-panel">
-          <div class="panel-title">
-            <h2>工具记录</h2>
-            <span>{summary.tools?.length || 0}</span>
-          </div>
-          {#each summary.tools || [] as tool}<div class="tool-record">
-              <div>
-                <strong>{tool.name}</strong><span class="badge neutral"
-                  >{tool.exit_code === null ? '进程内解析' : `退出码 ${tool.exit_code}`}</span
-                >
-              </div>
-              <p>{tool.version}</p>
-              <small>{dateTime(tool.started_at)} → {dateTime(tool.finished_at)}</small
-              >{#if tool.log_artifact_id}<a href={artifactUrl(tool.log_artifact_id)} class="text-button"
-                  >工具日志<Download size={13} /></a
-                >{/if}
-            </div>{/each}{#if !summary.tools?.length}<p class="muted inset">
-              尚无工具结果。失败过程可在产物和任务事件中查看。
-            </p>{/if}
-        </section>
-      </div>
-      <section class="panel artifacts-panel">
-        <div class="panel-title">
-          <h2>归档产物</h2>
-          <span>下载后可按 SHA-256 核对</span>
-        </div>
-        <div class="artifact-list">
-          {#each artifacts as artifact}<a href={artifactUrl(artifact.id)} class="artifact-row"
-              ><span class="file-icon"><FileJson size={20} /></span><span
-                ><strong>{artifact.name}</strong><small
-                  >{bytes(artifact.size)}<i>·</i><code title={artifact.sha256}
-                    >SHA256 {artifact.sha256.slice(0, 24)}…</code
-                  ></small
-                ></span
-              ><Download size={16} /></a
-            >{/each}
-        </div>
-      </section>
-      {#if summary.exclusions?.length}<section class="panel exclusions-panel">
-          <details>
-            <summary><FolderOpen size={16} />导入时排除的文件或目录 · {summary.exclusions.length} 项</summary>
-            <table>
-              <tbody
-                >{#each summary.exclusions.slice(0, 100) as exclusion}<tr
-                    ><td>{exclusion.path}</td><td>{exclusion.reason}</td></tr
-                  >{/each}</tbody
-              >
-            </table>
-            {#if summary.exclusions.length > 100}<p>这里列出前 100 项，完整列表在快照清单中。</p>{/if}
-          </details>
-        </section>{/if}
-    {:else}<section class="panel events-panel">
-        <div class="panel-title">
-          <div>
-            <h2>持久化任务事件</h2>
-            <span class="subtle">按序号恢复 · 断线后自动补读 · 页面保留最近 500 条</span>
-          </div>
-          <span class="badge neutral">游标 {cursor.toString()}</span>
-        </div>
-        <div class="event-list">
-          {#each events as event}<div class="event-row">
-              <span class="event-seq">{event.seq.toString().padStart(3, '0')}</span><time
-                >{dateTime(event.createdAt)}</time
-              >
-              <div>
-                <span class="event-kind">{event.kind}</span>
-                {#if event.phaseId}<span class="subtle">
-                    · 阶段 {event.phaseOrder}/{event.phaseCount}
-                    {phases.find((p) => p.id === event.phaseId)?.title || event.phaseId}</span
-                  >{/if}
-                <pre>{event.message}</pre>
-                {#if event.total > 0n && event.kind === 'TOOL_PROGRESS'}<div class="event-progress">
-                    <progress max={Number(event.total)} value={Number(event.current)}></progress><span
-                      >{event.current.toString()} / {event.total.toString()}</span
-                    >
-                  </div>{/if}
-              </div>
-            </div>{/each}{#if !events.length}<div class="empty-panel">正在读取事件…</div>{/if}
-        </div>
-      </section>{/if}
+            </div>
+          {/if}
+        {/snippet}
+      </CoveragePanel>
+    {:else if tab === 'events'}
+      <RunEvents {events} {phases} {streamStatus} runState={run.state} />
+    {/if}
   {:else if !error}<div class="empty-panel">
       <RefreshCw class="spin" size={24} />
       <p>正在读取分析任务…</p>

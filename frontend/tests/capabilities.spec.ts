@@ -84,6 +84,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.getByLabel('报告格式').selectOption('json');
   const interimDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出阶段报告', exact: true }).click();
+  await page.getByRole('button', { name: '确认生成', exact: true }).click();
   await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const interim = JSON.parse(await readFile((await (await interimDownload).path())!, 'utf8'));
   expect(interim.interim).toBe(true);
@@ -140,6 +141,7 @@ test('web model settings → human references → typed phases and plan → revi
   await page.getByLabel('报告格式').selectOption('json');
   const finalDownload = page.waitForEvent('download');
   await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  await page.getByRole('button', { name: '确认生成', exact: true }).click();
   await page.getByRole('button', { name: '下载文件', exact: true }).click();
   const finalReport = JSON.parse(await readFile((await (await finalDownload).path())!, 'utf8'));
   expect(finalReport.interim).toBe(false);

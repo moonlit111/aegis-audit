@@ -12,6 +12,7 @@
   import { RunState, type AuditRun, type Report } from '../gen/audit/v1/audit_pb';
   import { artifactUrl, errorMessage, reportsApi, requestId } from '../lib/api';
   import { isTerminal } from '../lib/format';
+  import ReportExportDialog from './ReportExportDialog.svelte';
 
   let {
     run,
@@ -26,6 +27,7 @@
   } = $props();
   let format = $state('html');
   let busy = $state(false);
+  let confirming = $state(false);
   let error = $state('');
   let generated = $state<Report>();
   let attempt: { format: string; id: string } | undefined;
@@ -57,7 +59,8 @@
   }
 
   async function exportReport() {
-    if (busy || !run) return;
+    if (busy || !run || !confirming) return;
+    confirming = false;
     busy = true;
     error = '';
     generated = undefined;
@@ -103,7 +106,7 @@
       </select>
       <ChevronDown size={14} />
     </div>
-    <button class="button primary" disabled={busy || !run} onclick={exportReport}>
+    <button class="button primary" disabled={busy || !run} onclick={() => (confirming = true)}>
       {#if busy}<LoaderCircle size={16} class="spin" />{:else}<Download size={16} />{/if}
       {busy ? '正在生成…' : error ? '重试导出' : active ? '导出阶段报告' : '导出报告'}
     </button>
@@ -132,6 +135,17 @@
     </div>
   {/if}
 </section>
+
+{#if confirming && run}
+  <ReportExportDialog
+    {run}
+    {snapshotName}
+    {format}
+    {description}
+    onclose={() => (confirming = false)}
+    onconfirm={exportReport}
+  />
+{/if}
 
 <style>
   .report-export {
