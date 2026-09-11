@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Cable, Check, LoaderCircle, ArrowUpRight, Settings2, Save } from '@lucide/svelte';
+  import { Cable, Check, LoaderCircle, FileSearch, Settings2, Save } from '@lucide/svelte';
   import type { ModelCall, ModelConnection } from '../gen/audit/v1/audit_pb';
   import { artifactUrl, errorMessage, requestId, systemApi } from '../lib/api';
   import { dateTime } from '../lib/format';
+  import ModelCallPreviewDialog from './ModelCallPreviewDialog.svelte';
   let { connection, onchanged }: { connection?: ModelConnection; onchanged: () => Promise<void> } = $props();
   let staged = $state<ModelCall>();
   let submitting = $state(false);
@@ -16,6 +17,11 @@
   let apiKey = $state('');
   let keyAction = $state('REPLACE');
   let revision = $state('');
+  let previewCall = $state<ModelCall>();
+  let previewLoading = $state(false);
+  let previewError = $state('');
+  let requestText = $state('');
+  let responseText = $state('');
   const keySources: Record<string, string> = {
     WEB_SAVED: '网页保存（Windows 加密）',
     LOCAL_FILE: '本地凭据文件',
@@ -40,6 +46,31 @@
       error = errorMessage(failure);
     } finally {
       submitting = false;
+    }
+  }
+  async function readArtifact(id: string): Promise<string> {
+    const response = await fetch(artifactUrl(id), { credentials: 'same-origin', cache: 'no-store' });
+    if (!response.ok) throw new Error(`读取产物失败：HTTP ${response.status.toString()}`);
+    return await response.text();
+  }
+  async function openCallPreview(selected: ModelCall) {
+    if (!selected.artifactId) return;
+    previewCall = selected;
+    previewLoading = true;
+    previewError = '';
+    requestText = '';
+    responseText = '';
+    try {
+      const [request, response] = await Promise.all([
+        selected.requestArtifactId ? readArtifact(selected.requestArtifactId) : Promise.resolve(''),
+        readArtifact(selected.artifactId),
+      ]);
+      requestText = request;
+      responseText = response;
+    } catch (failure) {
+      previewError = failure instanceof Error ? failure.message : String(failure);
+    } finally {
+      previewLoading = false;
     }
   }
   function edit() {
@@ -211,14 +242,30 @@
           >输入 <b>{call.inputTokens.toString()}</b> / 输出 <b>{call.outputTokens.toString()}</b> tokens</span
         >{:else if call.status !== 'RUNNING'}<span>用量未确认</span>{/if}{#if call.latencyMs > 0n}<span
           >{(Number(call.latencyMs) / 1000).toFixed(2)} 秒</span
-        >{/if}{#if call.artifactId}<a href={artifactUrl(call.artifactId)} class="text-button"
-          >调用记录<ArrowUpRight size={12} /></a
+        >{/if}{#if call.artifactId}<button
+          class="text-button"
+          onclick={() => {
+            void openCallPreview(call);
+          }}><FileSearch size={12} />调用记录</button
         >{/if}
     </div>{/if}
   {#if error || call?.error || connection?.statusMessage}<div class="error-banner model-error" role="alert">
       {error || call?.error || connection?.statusMessage}
     </div>{/if}
 </section>
+{#if previewCall}<ModelCallPreviewDialog
+    call={previewCall}
+    {requestText}
+    {responseText}
+    loading={previewLoading}
+    error={previewError}
+    onclose={() => {
+      previewCall = undefined;
+      requestText = '';
+      responseText = '';
+      previewError = '';
+    }}
+  />{/if}
 
 <style>
   .model-settings {

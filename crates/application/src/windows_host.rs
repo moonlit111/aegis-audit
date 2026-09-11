@@ -382,9 +382,61 @@ pub async fn run(
             && output.processes_reaped
             && !output.timed_out
             && !output.cancelled,
-        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        stdout: decode_guest_output(&output.stdout),
+        stderr: decode_guest_output(&output.stderr),
     })
+}
+
+/// Decode captured guest output.
+///
+/// A redirected PowerShell stdout is written in the console output code page
+/// (CP936 on a Chinese Windows), so a guest that prints a path or a message
+/// containing non-ASCII characters delivers ANSI bytes. Decoding those as UTF-8
+/// replaces every such character with U+FFFD, which turns a successful run that
+/// merely mentioned a non-ASCII path into unreadable output. Prefer UTF-8 and
+/// fall back to the OEM code page.
+fn decode_guest_output(bytes: &[u8]) -> String {
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        return text.to_owned();
+    }
+    #[cfg(windows)]
+    if let Some(text) = decode_oem_code_page(bytes) {
+        return text;
+    }
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+#[cfg(windows)]
+fn decode_oem_code_page(bytes: &[u8]) -> Option<String> {
+    use windows_sys::Win32::Globalization::{CP_OEMCP, MultiByteToWideChar};
+    let length = i32::try_from(bytes.len()).ok()?;
+    if length == 0 {
+        return Some(String::new());
+    }
+    // A zero cchWideChar asks for the required buffer length; the conversion
+    // does not NUL-terminate, so truncate to what was actually written.
+    let needed = unsafe {
+        MultiByteToWideChar(CP_OEMCP, 0, bytes.as_ptr(), length, std::ptr::null_mut(), 0)
+    };
+    if needed <= 0 {
+        return None;
+    }
+    let mut wide = vec![0u16; needed as usize];
+    let written = unsafe {
+        MultiByteToWideChar(
+            CP_OEMCP,
+            0,
+            bytes.as_ptr(),
+            length,
+            wide.as_mut_ptr(),
+            needed,
+        )
+    };
+    if written <= 0 {
+        return None;
+    }
+    wide.truncate(written as usize);
+    String::from_utf16(&wide).ok()
 }
 
 pub fn collect_output(

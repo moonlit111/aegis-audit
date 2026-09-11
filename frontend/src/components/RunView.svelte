@@ -258,7 +258,7 @@
     cancelBusy = true;
     try {
       run = (await runsApi.cancelRun({ runId })).run;
-      notify('取消请求已记录，正在确认工具进程回收。');
+      notify('取消请求已记录，正在确认工具进程回收');
       await onchanged();
     } catch (failure) {
       error = errorMessage(failure);
@@ -273,16 +273,14 @@
       const link = document.createElement('a');
       link.href = artifactUrl(response.report!.artifactId);
       link.download = '';
+      link.dataset.aegisDownloadNotice = response.report?.interim
+        ? '阶段报告已生成，保留导出时的进度与证据'
+        : '报告已生成，可在报告历史中再次下载';
       document.body.appendChild(link);
       link.click();
       link.remove();
       reportVersion += 1;
       await loadRun();
-      notify(
-        response.report?.interim
-          ? '阶段报告已生成，保留导出时的进度与证据。'
-          : '报告已生成，可在报告历史中再次下载。',
-      );
     } catch (failure) {
       error = errorMessage(failure);
     } finally {
