@@ -12,7 +12,15 @@
   import { RunState, type AuditRun, type Finding, type RuntimeRecord } from '../gen/audit/v1/audit_pb';
   import { artifactUrl, errorMessage, runsApi } from '../lib/api';
   import { dateTime, parseJson, type Summary } from '../lib/format';
-  import { runtimeFeedback, runtimeLabel, runtimePending, type RuntimeResult } from '../lib/runtime';
+  import {
+    readRuntimeConfig,
+    runtimeFeedback,
+    runtimeLabel,
+    runtimePending,
+    withRuntimeDefaults,
+    type RuntimeMode,
+    type RuntimeResult,
+  } from '../lib/runtime';
 
   let {
     runId,
@@ -38,7 +46,7 @@
     loadError: string;
     hasPlans: boolean;
     onrefresh: () => Promise<void>;
-    onconfigure?: () => void;
+    onconfigure?: (mode: RuntimeMode, record?: RuntimeRecord) => void;
     onupdate: (record: RuntimeRecord) => void;
     onevents: () => void;
     notify: (message: string) => void;
@@ -52,6 +60,10 @@
   const controller = new AbortController();
   const newest = $derived([...records].reverse());
   const current = $derived(newest.find((record) => record.id === focusId) || newest[0]);
+  const currentMode = $derived(
+    readRuntimeConfig(current?.configJson || '')?.mode === 'FUZZ' ? 'FUZZ' : 'VERIFY',
+  );
+  const title = $derived(currentMode === 'FUZZ' ? '模糊测试进度与结果' : '验证进度与结果');
   const history = $derived(newest.filter((record) => record.id !== current?.id));
   const pendingCount = $derived(records.filter((record) => runtimePending(record.status)).length);
   const detailKey = $derived(current ? `${current.runId}:${current.status}` : '');
@@ -104,7 +116,7 @@
       if (controller.signal.aborted) return;
       if (!response.run) throw new Error('未收到取消后的任务状态，请刷新后重试');
       onupdate({ ...record, status: RunState[response.run.state] });
-      notify('取消请求已记录，验证状态会自动更新');
+      notify('取消请求已记录，运行状态会自动更新');
       void onrefresh();
     } catch (failure) {
       if (!controller.signal.aborted) actionError = errorMessage(failure);
@@ -132,13 +144,13 @@
   }
 </script>
 
-<section class="runtime-results panel" aria-label="验证进度与结果">
+<section class="runtime-results panel" aria-label={title}>
   <div class="panel-title">
     <div>
-      <h2 tabindex="-1" bind:this={heading}>验证进度与结果</h2>
+      <h2 tabindex="-1" bind:this={heading}>{title}</h2>
       <p class="subtle">
         {pendingCount
-          ? `${pendingCount} 项验证处理中，状态自动更新。`
+          ? `${pendingCount} 项运行处理中，状态自动更新。`
           : '查看是否复现、实际观察到的效果和已保存的证据。'}结果保留在本次分析中。
       </p>
     </div>
@@ -149,13 +161,13 @@
         detailVersion += 1;
         void onrefresh();
       }}
-      aria-label="刷新验证结果"
+      aria-label={currentMode === 'FUZZ' ? '刷新模糊测试结果' : '刷新验证结果'}
     >
       <RefreshCw size={15} class={refreshing ? 'spin' : ''} />{refreshing ? '刷新中…' : '刷新结果'}
     </button>
   </div>
   {#if loadError}<div class="error-banner" role="alert">
-      验证记录暂未更新：{loadError}。已显示的记录会保留。
+      运行记录暂未更新：{loadError}。已显示的记录会保留。
     </div>{/if}
   {#if actionError}<div class="error-banner" role="alert">取消请求未确认：{actionError}</div>{/if}
   {#if current}
@@ -167,8 +179,8 @@
         open={history.some((record) => runtimePending(record.status))}
       >
         <summary
-          >其他验证记录 · {history.length} 次{#if pendingCount > Number(runtimePending(current.status))}
-            · 包含正在执行的验证{/if}</summary
+          >其他运行记录 · {history.length} 次{#if pendingCount > Number(runtimePending(current.status))}
+            · 包含正在执行的任务{/if}</summary
         >
         <div class="runtime-records">
           {#each history as record (record.id)}{@render recordCard(record, false)}{/each}
@@ -183,24 +195,30 @@
         </p>{/if}
     </div>{/if}
   {#if onconfigure}<div class="runtime-footer">
-      <button class="button secondary" onclick={onconfigure}
-        >{hasPlans ? '查看验证方案与配置' : '配置本地测试'}<ArrowUpRight size={14} /></button
+      <button class="button secondary" onclick={() => onconfigure?.(currentMode, current)}
+        >{currentMode === 'FUZZ'
+          ? '配置模糊测试'
+          : hasPlans
+            ? '查看验证方案与配置'
+            : '配置本地测试'}<ArrowUpRight size={14} /></button
       >
     </div>{/if}
 </section>
 
 {#snippet recordCard(record: RuntimeRecord, featured: boolean)}
-  {@const config = parseJson<Record<string, unknown>>(record.configJson, {})}
+  {@const config = readRuntimeConfig(record.configJson) || {}}
+  {@const fuzzConfig = withRuntimeDefaults(config).fuzz as Record<string, unknown>}
   {@const result = parseJson<RuntimeResult | null>(record.resultJson, null)}
   {@const feedback = runtimeFeedback(record, result)}
   {@const pending = runtimePending(record.status)}
+  {@const action = config.mode === 'FUZZ' ? '模糊测试' : '验证'}
   {@const baseline = result?.observation.trials.filter((trial) => trial.label === 'baseline') || []}
   {@const probes = result?.observation.trials.filter((trial) => trial.label !== 'baseline') || []}
   <article class="runtime-record" class:featured data-status={record.status} data-record-id={record.id}>
     <div class="runtime-record-heading">
       <div>
         <span class="runtime-record-label"
-          >{featured ? (focusId === record.id ? '本次验证' : '最近验证') : '历史验证'} · {dateTime(
+          >{featured ? (focusId === record.id ? `本次${action}` : `最近${action}`) : `历史${action}`} · {dateTime(
             record.createdAt,
           )}</span
         >
@@ -233,13 +251,13 @@
         <p>{feedback.detail}</p>
       </div>
     </div>
-    <ol class="runtime-steps" aria-label="验证阶段">
+    <ol class="runtime-steps" aria-label={`${action}阶段`}>
       <li class:done={true}><CheckCircle2 size={15} />任务已创建</li>
       <li class:done={Boolean(result)} class:current={record.status === 'RUNNING'}>
         {record.status === 'RUNNING'
-          ? '正在执行验证'
+          ? `正在执行${action}`
           : result
-            ? '验证已执行'
+            ? `${action}已执行`
             : ['QUEUED', 'WAITING_EXECUTOR'].includes(record.status)
               ? '等待执行'
               : '执行未完成'}
@@ -248,22 +266,29 @@
     </ol>
     {#if result}
       <div class="runtime-observations">
-        <h4>验证效果</h4>
+        <h4>{action}效果</h4>
         <dl>
           <div>
-            <dt>验证范围</dt>
+            <dt>{action}范围</dt>
             <dd>{runtimeLabel(result.target_scope)}</dd>
           </div>
           {#if config.mode === 'FUZZ'}
+            <!-- The Windows runner's executions field currently repeats the configured limit. -->
             <div>
-              <dt>测试次数</dt>
+              <dt>执行预算</dt>
+              <dd>最多 {String(fuzzConfig.max_cases)} 次 · {String(fuzzConfig.budget_seconds)} 秒</dd>
+            </div>
+            <div>
+              <dt>去重后的崩溃</dt>
               <dd>
-                {result.observation.fuzz.executions ?? 0} 次 · {result.observation.fuzz.timeouts ?? 0} 次超时
+                {result.observation.crashes.length} 个 · {result.observation.crashes.filter(
+                  (crash) => crash.reproduced,
+                ).length} 个稳定复现
               </dd>
             </div>
             <div>
-              <dt>稳定复现的崩溃</dt>
-              <dd>{result.observation.crashes.filter((crash) => crash.reproduced).length} 个</dd>
+              <dt>超时记录</dt>
+              <dd>{result.observation.fuzz.timeouts ?? 0} 次</dd>
             </div>
           {:else}
             <div>
@@ -310,18 +335,47 @@
         </div>{/if}
       {#if config.mode === 'FUZZ'}
         <p class="subtle">
-          {runtimeLabel(result.observation.fuzz.engine || '')} · {result.observation.fuzz.coverage_feedback
-            ? `覆盖反馈：${result.observation.fuzz.bitmap_cvg || '见原始统计'}`
-            : '未使用覆盖反馈。'}
+          {runtimeLabel(result.observation.fuzz.engine || '')} · {result.observation.fuzz
+            .coverage_feedback === true
+            ? `覆盖反馈：${result.observation.fuzz.bitmap_cvg || '已启用，未记录覆盖量'}`
+            : result.observation.fuzz.coverage_feedback === false
+              ? '未启用覆盖反馈'
+              : '覆盖反馈未记录'}
+          {#if result.observation.fuzz.stop_reason}
+            · 停止原因：{runtimeLabel(result.observation.fuzz.stop_reason)}{/if}
         </p>
         {#each result.observation.crashes as crash}<div class="runtime-crash">
             <strong>{crash.signature}</strong>
             <p>
               {crash.reproduced ? '已重复复现' : '尚未稳定复现'} · {crash.minimized
                 ? '已缩减输入'
-                : '保留原始输入'}
+                : '保留原始输入'}{#if crash.replays?.length}
+                · {crash.replays.filter(
+                  (trial) =>
+                    trial.observed &&
+                    trial.processes_reaped &&
+                    !trial.timed_out &&
+                    !trial.truncated &&
+                    !trial.exception &&
+                    trial.crash_signature === crash.signature,
+                ).length} / {crash.replays.length} 次复放通过{/if}
             </p>
             <code>SHA-256 {crash.input_sha256}</code>
+            <details>
+              <summary>崩溃输入与复放</summary>
+              <p>{crash.input_hex.length / 2} 字节 · HEX <code>{crash.input_hex || '空输入'}</code></p>
+              {#each crash.replays || [] as replay, index}<p>
+                  复放 {index + 1}：退出码 {replay.exit_code ?? '未知'} · {replay.observed
+                    ? '观察到异常'
+                    : '未观察到异常'} · {replay.timed_out
+                    ? '超时'
+                    : replay.processes_reaped
+                      ? '进程已回收'
+                      : '回收未确认'}{replay.truncated ? ' · 日志已截断' : ''}{replay.exception
+                    ? ` · ${replay.exception}`
+                    : ''}
+                </p>{/each}
+            </details>
           </div>{/each}
       {/if}
     {/if}
@@ -340,7 +394,8 @@
       {#if record.runId === runId}<button class="text-button" onclick={onevents}
           >查看任务事件<ArrowUpRight size={13} /></button
         ><a class="text-button" href={`#/runs/${record.sourceRunId}`}>原始分析<ArrowUpRight size={13} /></a>
-      {:else}<a class="text-button" href={`#/runs/${record.runId}`}>打开验证任务<ArrowUpRight size={13} /></a
+      {:else}<a class="text-button" href={`#/runs/${record.runId}`}
+          >打开{action}任务<ArrowUpRight size={13} /></a
         >{/if}
       {#if result?.recipe_artifact_id}<a class="text-button" href={artifactUrl(result.recipe_artifact_id)}
           >测试配置与脚本<Download size={13} /></a

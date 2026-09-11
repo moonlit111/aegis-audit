@@ -87,6 +87,59 @@ async function importFile(page: Page, project: string, name: string, bytes: Buff
   return page.locator('.snapshot-card').filter({ has: page.getByRole('heading', { name, exact: true }) });
 }
 
+test('prebuilt libFuzzer -> frontend configuration -> Windows host observation -> reload', async ({
+  page,
+}, info) => {
+  test.setTimeout(240_000);
+  const target = process.env.AEGIS_E2E_FUZZ_TARGET || '';
+  test.skip(
+    process.env.AEGIS_TEST_RUNTIME !== '1' || !target,
+    'Run scripts/e2e.py --runtime with AEGIS_E2E_FUZZ_TARGET pointing to a benign prebuilt libFuzzer probe',
+  );
+  const card = await importFile(
+    page,
+    'libFuzzer 界面接线验证',
+    'fuzz-ui-probe.exe',
+    await readFile(target),
+    true,
+  );
+  await expect(card.getByText('可分析', { exact: true })).toBeVisible();
+  await card.getByRole('button', { name: '动态模糊测试', exact: true }).click();
+  const panel = page.getByRole('region', { name: '动态模糊测试配置', exact: true });
+  await expect(panel.getByLabel('目标入口（快照内 EXE）')).toHaveValue('fuzz-ui-probe.exe');
+  await panel.getByLabel('最大执行次数', { exact: true }).fill('20');
+  await panel.getByLabel('时间预算（秒）').fill('10');
+  await panel.getByLabel('种子 1（UTF-8）').fill('hello');
+  await panel.getByRole('checkbox', { name: '已确认目标支持 libFuzzer，并获授权在本机执行' }).check();
+  await panel.getByRole('button', { name: '开始模糊测试', exact: true }).click();
+  const results = page.getByRole('region', { name: '模糊测试进度与结果', exact: true });
+  await expect(results).toContainText('本次未观察到崩溃', { timeout: 180_000 });
+  await expect(results).toContainText('最多 20 次 · 10 秒');
+  await expect(results).toContainText('LLVM libFuzzer');
+  const response = await page.request.get(
+    (await results.getByRole('link', { name: '原始观察', exact: true }).getAttribute('href'))!,
+  );
+  expect(response.ok()).toBe(true);
+  const observation = await response.json();
+  expect(observation).toMatchObject({
+    mode: 'FUZZ',
+    adapter: 'WINDOWS_LIBFUZZER_PREBUILT',
+    error: '',
+    fuzz: { engine: 'LLVM_LIBFUZZER', coverage_feedback: true },
+    crashes: [],
+  });
+  await info.attach('fuzz-observation', {
+    body: JSON.stringify(observation, null, 2),
+    contentType: 'application/json',
+  });
+  await page.screenshot({ path: info.outputPath('fuzz-live-result.png'), fullPage: true });
+  await page.reload();
+  await page.getByRole('tab', { name: '覆盖与产物', exact: true }).click();
+  await expect(results).toContainText('本次未观察到崩溃');
+  await results.getByRole('link', { name: '打开模糊测试任务', exact: true }).click();
+  await expect(results).toContainText('本次未观察到崩溃');
+});
+
 test('ZIP → source positions → inferred graph → reports → event replay after refresh', async ({
   page,
 }, testInfo) => {

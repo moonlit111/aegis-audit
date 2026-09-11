@@ -9,6 +9,7 @@ const snapshot = {
   targetSha256: 'a'.repeat(64),
   fileCount: '1',
   totalBytes: '1024',
+  metadataJson: JSON.stringify({ format: 'PE', architecture: 'x86_64' }),
   createdAt: '2026-09-11T10:00:00Z',
 };
 type Run = {
@@ -39,6 +40,7 @@ async function workspace(page: Page) {
     phases: [] as Record<string, unknown>[],
     failCreate: false,
   };
+  await page.route('**/api/session', (route) => route.fulfill({ json: { csrf_token: 'workflow-fixture' } }));
   await page.route('**/rpc/**', async (route) => {
     const method = route.request().url().split('/').pop();
     let json: unknown = {};
@@ -98,6 +100,25 @@ async function workspace(page: Page) {
   });
   return state;
 }
+
+test('snapshot workflow opens fuzz configuration directly from the target card and after reload', async ({
+  page,
+}) => {
+  const state = await workspace(page);
+  await page.goto('/#/projects');
+  await page.locator('.snapshot-card').getByRole('button', { name: '动态模糊测试', exact: true }).click();
+  await expect(page).toHaveURL(/runs\/round-1\?view=fuzz/);
+  const panel = page.getByRole('region', { name: '动态模糊测试配置', exact: true });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByLabel('目标入口（快照内 EXE）')).toHaveValue('workflow.exe');
+  await page.reload();
+  await expect(panel).toBeVisible();
+  await page.goto('/#/projects');
+  await page.locator('.snapshot-card').getByRole('link', { name: '动态模糊测试', exact: true }).click();
+  await expect(panel).toBeVisible();
+  expect(state.requests).toHaveLength(1);
+  expect(state.requests[0].scope).toBe('STRUCTURE_ANALYSIS');
+});
 
 test('snapshot workflow follows running and completed rounds, including reload and mobile', async ({
   page,

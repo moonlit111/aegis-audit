@@ -20,6 +20,7 @@
     RefreshCw,
     AlertCircle,
     Hash,
+    FlaskConical,
   } from '@lucide/svelte';
   import type {
     AuditRun,
@@ -47,6 +48,9 @@
     runtimeFeedback,
     runtimePending,
     verificationPlans,
+    supportsFuzz,
+    readVerificationPlan,
+    type RuntimeMode,
     type RuntimeResult,
   } from '../lib/runtime';
   import {
@@ -75,11 +79,13 @@
 
   let {
     runId,
+    initialView = '',
     onchanged,
     notify,
     projectName = '',
   }: {
     runId: string;
+    initialView?: string;
     onchanged: () => Promise<void>;
     notify: (message: string) => void;
     projectName?: string;
@@ -96,6 +102,8 @@
   let tab = $state('program');
   let initialTabSelected = false;
   let runtimeFinding = $state('');
+  let runtimeMode = $state<RuntimeMode>('VERIFY');
+  let runtimePreset = $state<RuntimeRecord>();
   let runtimeAudit = $state<GetAuditResponse>();
   let runtimeRecords = $state<RuntimeRecord[]>([]);
   let runtimeRefreshing = $state(false);
@@ -131,11 +139,18 @@
   const files = $derived(summary.files || []);
   const gaps = $derived(files.filter((file) => !['PARSED', 'NOT_SOURCE'].includes(file.status)));
   const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run?.scope || ''));
+  const canFuzz = $derived(
+    ['STRUCTURE_ANALYSIS', 'SECURITY_AUDIT'].includes(run?.scope || '') && supportsFuzz(snapshot),
+  );
   const plans = $derived(verificationPlans(runtimeAudit?.tasks));
+  $effect(() => {
+    if (initialView === 'fuzz' && canFuzz) untrack(() => void openRuntimePlans('', 'FUZZ'));
+  });
   const runtimeTabVisible = $derived(plans.length > 0 || manualRuntimeOpen);
   const canConfigureRuntime = $derived(
     !isRuntimeRun &&
-      (plans.length > 0 ||
+      (canFuzz ||
+        plans.length > 0 ||
         runtimeRecords.length > 0 ||
         (run?.scope === 'STRUCTURE_ANALYSIS' && isTerminal(run.state) && run.unitCount > 0n)),
   );
@@ -150,7 +165,7 @@
         const record = runtimeRecords.find((record) => record.runId === runId);
         return {
           ...phase,
-          title: '运行验证',
+          title: run?.scope === 'DYNAMIC_TESTING' ? '动态模糊测试' : '运行验证',
           detail: record
             ? runtimeFeedback(record, parseJson<RuntimeResult | null>(record.resultJson, null)).title
             : phase.detail,
@@ -282,8 +297,11 @@
     return loadingRuntime;
   }
 
-  async function openRuntimePlans(findingId = '') {
+  async function openRuntimePlans(findingId = '', mode?: RuntimeMode, preset?: RuntimeRecord) {
     runtimeFinding = findingId;
+    const plan = findingId ? plans.find((task) => task.itemKey === findingId) : plans[0];
+    runtimeMode = mode || (plan && readVerificationPlan(plan).config?.mode === 'FUZZ' ? 'FUZZ' : 'VERIFY');
+    if (preset) runtimePreset = { ...preset };
     manualRuntimeOpen = true;
     tab = 'runtime';
     await tick();
@@ -697,9 +715,15 @@
         >{/if}
       {#if runtimeTabVisible}<button
           role="tab"
-          aria-selected={tab === 'runtime'}
-          class:active={tab === 'runtime'}
-          onclick={() => void openRuntimePlans()}><ListChecks size={16} />运行验证</button
+          aria-selected={tab === 'runtime' && runtimeMode === 'VERIFY'}
+          class:active={tab === 'runtime' && runtimeMode === 'VERIFY'}
+          onclick={() => void openRuntimePlans('', 'VERIFY')}><ListChecks size={16} />运行验证</button
+        >{/if}
+      {#if canFuzz}<button
+          role="tab"
+          aria-selected={tab === 'runtime' && runtimeMode === 'FUZZ'}
+          class:active={tab === 'runtime' && runtimeMode === 'FUZZ'}
+          onclick={() => void openRuntimePlans('', 'FUZZ')}><FlaskConical size={16} />动态模糊测试</button
         >{/if}
       {#if run.scope === 'SECURITY_AUDIT'}<button
           role="tab"
@@ -753,6 +777,8 @@
           {run}
           {snapshot}
           {unit}
+          bind:mode={runtimeMode}
+          preset={runtimePreset}
           {notify}
           audit={runtimeAudit}
           records={runtimeRecords}
@@ -773,6 +799,7 @@
           knownUnits={units}
           active={tab === 'audit'}
           onverify={(id) => void openRuntimePlans(id)}
+          onfuzz={canFuzz ? (id) => void openRuntimePlans(id, 'FUZZ') : undefined}
           onresults={(id) => openRuntimeResults('', id)}
           onselectunit={(id) => {
             tab = 'program';
@@ -1002,7 +1029,9 @@
               loadError={runtimeLoadError}
               hasPlans={plans.length > 0}
               onrefresh={refreshRuntime}
-              onconfigure={canConfigureRuntime ? () => void openRuntimePlans() : undefined}
+              onconfigure={canConfigureRuntime
+                ? (mode, record) => void openRuntimePlans(record?.findingId || '', mode, record)
+                : undefined}
               onupdate={(record) => acceptRuntime([record])}
               onevents={() => (tab = 'events')}
               {notify}

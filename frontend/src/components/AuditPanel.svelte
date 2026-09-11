@@ -1,6 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ArrowUpRight, ShieldCheck, FileSearch, RefreshCw, Save, Code2 } from '@lucide/svelte';
+  import {
+    ArrowUpRight,
+    ShieldCheck,
+    FileSearch,
+    RefreshCw,
+    Save,
+    Code2,
+    FlaskConical,
+  } from '@lucide/svelte';
   import type {
     AuditRun,
     Finding,
@@ -17,6 +25,7 @@
     runtimeLabels,
     runtimePending,
     runtimeFeedback,
+    readRuntimeConfig,
     verificationPlans,
     type RuntimeResult,
   } from '../lib/runtime';
@@ -26,6 +35,7 @@
     active = true,
     onselectunit,
     onverify,
+    onfuzz,
     onresults,
     loadAudit,
     runtimeRecords,
@@ -36,6 +46,7 @@
     active?: boolean;
     onselectunit: (id: string) => void;
     onverify: (id: string) => void;
+    onfuzz?: (id: string) => void;
     onresults: (id: string) => void;
     loadAudit: () => Promise<GetAuditResponse>;
     runtimeRecords: RuntimeRecord[];
@@ -68,6 +79,9 @@
   const selectedPlan = $derived(verificationPlans(data?.tasks).some((task) => task.itemKey === selected?.id));
   const selectedRuntime = $derived(
     [...runtimeRecords].reverse().find((record) => record.findingId === selected?.id),
+  );
+  const runtimeAction = $derived(
+    readRuntimeConfig(selectedRuntime?.configJson || '')?.mode === 'FUZZ' ? '模糊测试' : '验证',
   );
   const reviews = $derived(detail?.reviews || []);
   const reviewCounts = $derived(
@@ -448,27 +462,34 @@
             {#if selected.staticScope === 'COMPONENT'}<span>组件级静态审计</span>{/if}
             <span>修订 v{selected.revision}</span>
           </div>
-          {#if selectedPlan || selectedRuntime}<div class="finding-next">
+          {#if selectedPlan || selectedRuntime || (onfuzz && selected.category === 'MEMORY_BOUNDS')}<div
+              class="finding-next"
+            >
               <div>
                 {#if selectedRuntime}
                   {@const feedback = runtimeFeedback(
                     selectedRuntime,
                     parseJson<RuntimeResult | null>(selectedRuntime.resultJson, null),
                   )}
-                  <span>运行验证：<strong>{feedback.title}</strong></span>
+                  <span>{runtimeAction}：<strong>{feedback.title}</strong></span>
                   <p class="subtle verification-hint">{feedback.detail}</p>
-                {:else}<span>运行验证：<strong>方案已生成，尚未执行</strong></span>
-                  <p class="subtle verification-hint">启动运行后才能判断是否复现。</p>{/if}
+                {:else if selectedPlan}<span>运行验证：<strong>方案已生成，尚未执行</strong></span>
+                  <p class="subtle verification-hint">启动运行后才能判断是否复现。</p>
+                {:else}<span>动态模糊测试：<strong>尚未执行</strong></span>{/if}
               </div>
               {#if selectedRuntime}<button
                   class="button secondary small"
                   onclick={() => onresults(selected.id)}
-                  >{runtimePending(selectedRuntime.status) ? '查看验证进度' : '查看验证结果'}<ArrowUpRight
-                    size={14}
-                  /></button
+                  >{runtimePending(selectedRuntime.status)
+                    ? `查看${runtimeAction}进度`
+                    : `查看${runtimeAction}结果`}<ArrowUpRight size={14} /></button
                 >{/if}
               {#if selectedPlan}<button class="button secondary small" onclick={() => onverify(selected.id)}
                   >查看验证方案<ArrowUpRight size={14} /></button
+                >{/if}
+              {#if onfuzz && selected.category === 'MEMORY_BOUNDS'}<button
+                  class="button secondary small"
+                  onclick={() => onfuzz?.(selected.id)}><FlaskConical size={14} />配置模糊测试</button
                 >{/if}
             </div>{/if}
           <section class="finding-key-points" aria-label="漏洞核心问题">

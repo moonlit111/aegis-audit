@@ -55,6 +55,7 @@
   let projectId = $state(localStorage.getItem('aegis.project') || '');
   let page = $state('projects');
   let runId = $state('');
+  let runInitialView = $state('');
   let loading = $state(true);
   let snapshotsLoading = $state(false);
   let connected = $state(false);
@@ -83,16 +84,19 @@
   ]);
 
   function route() {
-    const parts = location.hash.replace(/^#\/?/, '').split('/');
+    const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
+    const parts = path.split('/');
     const nextPage = ['projects', 'runs', 'environment'].includes(parts[0]) ? parts[0] : 'projects';
     const nextRunId = nextPage === 'runs' ? parts[1] || '' : '';
     if (nextPage !== parts[0] || parts.length > 2) {
       history.replaceState(null, '', '#/projects');
       page = 'projects';
       runId = '';
+      runInitialView = '';
     } else {
       page = nextPage;
       runId = nextRunId;
+      runInitialView = nextPage === 'runs' && new URLSearchParams(query).get('view') === 'fuzz' ? 'fuzz' : '';
     }
     window.scrollTo({ top: 0 });
   }
@@ -209,7 +213,7 @@
     await refresh();
     notify('快照已创建，执行器将检查并归档目标文件');
   }
-  async function analyze(snapshot: Snapshot, scope = 'STRUCTURE_ANALYSIS') {
+  async function analyze(snapshot: Snapshot, scope = 'STRUCTURE_ANALYSIS', view = '') {
     if (creatingIds[snapshot.id]) return;
     const active = runs.find(
       (run) =>
@@ -218,7 +222,7 @@
         !isTerminal(run.state),
     );
     if (active) {
-      location.hash = `/runs/${active.id}`;
+      location.hash = `/runs/${active.id}${view === 'fuzz' ? '?view=fuzz' : ''}`;
       return;
     }
     actionError = '';
@@ -234,7 +238,7 @@
       analysisRequests.delete(key);
       runs = [response.run!, ...runs.filter((run) => run.id !== response.run!.id)];
       actionError = '';
-      location.hash = `/runs/${response.run!.id}`;
+      location.hash = `/runs/${response.run!.id}${view === 'fuzz' ? '?view=fuzz' : ''}`;
       await refresh();
     } catch (failure) {
       actionError = errorMessage(failure);
@@ -513,6 +517,7 @@
                       modelConfigured={Boolean(capabilities?.modelConnection?.configured)}
                       busy={Boolean(creatingIds[snapshot.id])}
                       onanalyze={() => analyze(snapshot)}
+                      onfuzz={() => analyze(snapshot, 'STRUCTURE_ANALYSIS', 'fuzz')}
                       onaudit={() => {
                         auditSnapshot = snapshot;
                       }}
@@ -526,6 +531,7 @@
       {:else if page === 'runs' && runId}
         {#key runId}<RunView
             {runId}
+            initialView={runInitialView}
             onchanged={refresh}
             {notify}
             projectName={currentRunProject?.name}

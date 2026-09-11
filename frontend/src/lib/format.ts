@@ -2,8 +2,9 @@ import { RunState, SnapshotState, TargetKind } from '../gen/audit/v1/audit_pb';
 
 export const isTerminal = (state: RunState) => state >= RunState.COMPLETED;
 export const scopeLabel = (scope: string) =>
-  ({ SECURITY_AUDIT: '漏洞审计', RUNTIME_VERIFICATION: '运行验证', DYNAMIC_TESTING: '动态测试' })[scope] ||
-  '程序结构分析';
+  ({ SECURITY_AUDIT: '漏洞审计', RUNTIME_VERIFICATION: '运行验证', DYNAMIC_TESTING: '动态模糊测试' })[
+    scope
+  ] || '程序结构分析';
 export function runLabel(state: RunState): string {
   return (
     [

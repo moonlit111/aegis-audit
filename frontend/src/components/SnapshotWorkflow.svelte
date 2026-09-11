@@ -1,9 +1,10 @@
 <script lang="ts">
-  import { ArrowRight, ArrowUpRight } from '@lucide/svelte';
+  import { ArrowRight, ArrowUpRight, FlaskConical } from '@lucide/svelte';
   import type { AuditRun, Snapshot } from '../gen/audit/v1/audit_pb';
   import { RunState, SnapshotState, TargetKind } from '../gen/audit/v1/audit_pb';
   import { artifactUrl } from '../lib/api';
   import { isTerminal, runLabel, scopeLabel } from '../lib/format';
+  import { supportsFuzz } from '../lib/runtime';
 
   let {
     snapshot,
@@ -13,6 +14,7 @@
     modelConfigured,
     busy,
     onanalyze,
+    onfuzz,
     onaudit,
   }: {
     snapshot: Snapshot;
@@ -22,6 +24,7 @@
     modelConfigured: boolean;
     busy: boolean;
     onanalyze: () => void;
+    onfuzz: () => void;
     onaudit: () => void;
   } = $props();
   const binary = $derived(snapshot.kind === TargetKind.BINARY);
@@ -30,6 +33,8 @@
   );
   const active = $derived(analyses.find((run) => !isTerminal(run.state)));
   const latest = $derived(analyses[0]);
+  const fuzzSource = $derived(active || latest);
+  const canFuzz = $derived(supportsFuzz(snapshot));
   const ready = $derived(
     connected && !busy && [SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state),
   );
@@ -79,6 +84,20 @@
           {busy ? '正在创建…' : binary ? '仅反编译' : '仅结构分析'}<ArrowRight size={14} />
         </button>
       {/if}
+    {/if}
+    {#if canFuzz && fuzzSource}
+      <a class="button secondary small" href={`#/runs/${fuzzSource.id}?view=fuzz`}>
+        <FlaskConical size={14} />动态模糊测试
+      </a>
+    {:else}
+      <button
+        class="button secondary small"
+        disabled={!ready || !canFuzz}
+        onclick={onfuzz}
+        title={canFuzz ? '配置预构建 libFuzzer 目标' : '仅支持 Windows x86/x64 的预构建 libFuzzer EXE'}
+      >
+        <FlaskConical size={14} />动态模糊测试
+      </button>
     {/if}
     {#if !active && latest}
       <details class="rerun-options">
