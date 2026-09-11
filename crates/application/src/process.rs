@@ -86,6 +86,8 @@ impl ProcessGroup {
                 Foundation::*,
                 System::{Diagnostics::ToolHelp::*, Threading::*},
             };
+            let started = std::time::Instant::now();
+            let pid = child.id();
             let threads = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
             anyhow::ensure!(
                 threads != INVALID_HANDLE_VALUE,
@@ -95,11 +97,19 @@ impl ProcessGroup {
             entry.dwSize = std::mem::size_of_val(&entry) as u32;
             let mut found = Thread32First(threads, &mut entry) != 0;
             let mut resumed = false;
+            let mut scanned = 0usize;
+            let mut matched_tid = 0u32;
+            let mut opened = false;
+            let mut previous_suspend_count = u32::MAX;
             while found {
-                if Some(entry.th32OwnerProcessID) == child.id() {
+                scanned += 1;
+                if Some(entry.th32OwnerProcessID) == pid {
+                    matched_tid = entry.th32ThreadID;
                     let thread = OpenThread(THREAD_SUSPEND_RESUME, 0, entry.th32ThreadID);
                     if !thread.is_null() {
-                        resumed = ResumeThread(thread) != u32::MAX;
+                        opened = true;
+                        previous_suspend_count = ResumeThread(thread);
+                        resumed = previous_suspend_count != u32::MAX;
                         CloseHandle(thread);
                     }
                     break;
@@ -107,6 +117,12 @@ impl ProcessGroup {
                 found = Thread32Next(threads, &mut entry) != 0;
             }
             CloseHandle(threads);
+            eprintln!(
+                "aegis-process-diag: pid={pid:?} scanned_threads={scanned} matched_tid={matched_tid} \
+                 opened={opened} resume_previous_suspend_count={previous_suspend_count} \
+                 resumed={resumed} elapsed_ms={}",
+                started.elapsed().as_millis()
+            );
             anyhow::ensure!(resumed, "resume suspended child after job assignment");
             Ok(job)
         }
@@ -213,6 +229,14 @@ pub async fn run(
     let mut child = command
         .spawn()
         .with_context(|| format!("launch {}", spec.program.display()))?;
+    let spawned_at = std::time::Instant::now();
+    eprintln!(
+        "aegis-process-diag: spawned pid={:?} program={} dir={} timeout_ms={}",
+        child.id(),
+        spec.program.display(),
+        spec.directory.display(),
+        spec.timeout.as_millis()
+    );
     let group = match ProcessGroup::new(&child) {
         Ok(group) => group,
         Err(error) => {
@@ -247,7 +271,25 @@ pub async fn run(
             status = child.wait() => { output.exit_code = status?.code(); break; }
             chunk = rx.recv() => if let Some((stream, data)) = chunk { append(&mut output, stream, &data, &mut progress); },
             _ = cancel.cancelled() => { output.cancelled = true; group.terminate(); output.exit_code = child.wait().await?.code(); break; }
-            _ = &mut deadline => { output.timed_out = true; group.terminate(); output.exit_code = child.wait().await?.code(); break; }
+            _ = &mut deadline => {
+                eprintln!(
+                    "aegis-process-diag: deadline fired pid={:?} ran_ms={} stdout_bytes={} stderr_bytes={}",
+                    child.id(),
+                    spawned_at.elapsed().as_millis(),
+                    output.stdout.len(),
+                    output.stderr.len()
+                );
+                output.timed_out = true;
+                group.terminate();
+                output.exit_code = child.wait().await?.code();
+                eprintln!(
+                    "aegis-process-diag: terminated pid={:?} exit={:?} reaped_ms={}",
+                    child.id(),
+                    output.exit_code,
+                    spawned_at.elapsed().as_millis()
+                );
+                break;
+            }
         }
     }
     group.terminate();
