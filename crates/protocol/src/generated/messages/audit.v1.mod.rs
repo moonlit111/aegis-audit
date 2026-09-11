@@ -29,6 +29,7 @@ pub mod __buffa {
         reg.register_json_any(super::__PROGRAM_UNIT_JSON_ANY);
         reg.register_json_any(super::__PROGRAM_EDGE_JSON_ANY);
         reg.register_json_any(super::__RUN_EVENT_JSON_ANY);
+        reg.register_json_any(super::__RUN_PHASE_JSON_ANY);
         reg.register_json_any(super::__REPORT_JSON_ANY);
         reg.register_json_any(super::__TOOL_CAPABILITY_JSON_ANY);
         reg.register_json_any(super::__EXECUTOR_JSON_ANY);
@@ -53,12 +54,19 @@ pub mod __buffa {
         reg.register_json_any(super::__WATCH_RUN_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__CANCEL_RUN_REQUEST_JSON_ANY);
         reg.register_json_any(super::__CANCEL_RUN_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__EVIDENCE_INPUT_JSON_ANY);
+        reg.register_json_any(super::__CREATE_ANNOTATION_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__CREATE_ANNOTATION_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__LIST_ANNOTATIONS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__LIST_ANNOTATIONS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__LIST_UNITS_REQUEST_JSON_ANY);
         reg.register_json_any(super::__LIST_UNITS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_UNIT_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_UNIT_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_GRAPH_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_GRAPH_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__LIST_REPORTS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__LIST_REPORTS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__CREATE_REPORT_REQUEST_JSON_ANY);
         reg.register_json_any(super::__CREATE_REPORT_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_REPORT_REQUEST_JSON_ANY);
@@ -73,6 +81,8 @@ pub mod __buffa {
         reg.register_json_any(super::__REPORT_PROGRESS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__COMPLETE_WORK_REQUEST_JSON_ANY);
         reg.register_json_any(super::__COMPLETE_WORK_RESPONSE_JSON_ANY);
+        reg.register_json_any(super::__SAVE_MODEL_SETTINGS_REQUEST_JSON_ANY);
+        reg.register_json_any(super::__SAVE_MODEL_SETTINGS_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__GET_CAPABILITIES_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_CAPABILITIES_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__MODEL_CALL_JSON_ANY);
@@ -84,6 +94,8 @@ pub mod __buffa {
         reg.register_json_any(super::__REVIEW_JSON_ANY);
         reg.register_json_any(super::__LOGIC_ANNOTATION_JSON_ANY);
         reg.register_json_any(super::__AGENT_TASK_JSON_ANY);
+        reg.register_json_any(super::__AUDIT_PLAN_JSON_ANY);
+        reg.register_json_any(super::__AUDIT_PRIORITY_JSON_ANY);
         reg.register_json_any(super::__GET_AUDIT_REQUEST_JSON_ANY);
         reg.register_json_any(super::__GET_AUDIT_RESPONSE_JSON_ANY);
         reg.register_json_any(super::__LIST_FINDINGS_REQUEST_JSON_ANY);
@@ -133,6 +145,10 @@ pub use self::__buffa::view::ProgramEdgeOwnedView;
 pub use self::__buffa::view::RunEventView;
 #[doc(inline)]
 pub use self::__buffa::view::RunEventOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::RunPhaseView;
+#[doc(inline)]
+pub use self::__buffa::view::RunPhaseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::ReportView;
 #[doc(inline)]
@@ -230,6 +246,26 @@ pub use self::__buffa::view::CancelRunResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::CancelRunResponseOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::EvidenceInputView;
+#[doc(inline)]
+pub use self::__buffa::view::EvidenceInputOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::CreateAnnotationResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::ListAnnotationsResponseOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::ListUnitsRequestView;
 #[doc(inline)]
 pub use self::__buffa::view::ListUnitsRequestOwnedView;
@@ -253,6 +289,14 @@ pub use self::__buffa::view::GetGraphRequestOwnedView;
 pub use self::__buffa::view::GetGraphResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::GetGraphResponseOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::ListReportsResponseOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::CreateReportRequestView;
 #[doc(inline)]
@@ -310,6 +354,14 @@ pub use self::__buffa::view::CompleteWorkResponseView;
 #[doc(inline)]
 pub use self::__buffa::view::CompleteWorkResponseOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsRequestView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsRequestOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsResponseView;
+#[doc(inline)]
+pub use self::__buffa::view::SaveModelSettingsResponseOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::GetCapabilitiesRequestView;
 #[doc(inline)]
 pub use self::__buffa::view::GetCapabilitiesRequestOwnedView;
@@ -353,6 +405,14 @@ pub use self::__buffa::view::LogicAnnotationOwnedView;
 pub use self::__buffa::view::AgentTaskView;
 #[doc(inline)]
 pub use self::__buffa::view::AgentTaskOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPlanView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPlanOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPriorityView;
+#[doc(inline)]
+pub use self::__buffa::view::AuditPriorityOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::GetAuditRequestView;
 #[doc(inline)]

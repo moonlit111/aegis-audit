@@ -95,11 +95,36 @@ test('ZIP → source positions → inferred graph → reports → event replay a
   await expect(page.locator('.unit-row')).toHaveCount(1);
   await page.locator('.unit-row').click();
   await expect(page.locator('.unit-meta')).toContainText('原文件 L5–L6');
+  await expect(page.locator('.unit-row .unit-location')).toHaveText('L5–L6');
+  await expect(page.getByRole('region', { name: '任务阶段', exact: true })).toContainText('程序结构解析');
   await expect(page.locator('.monaco-editor .view-lines')).toContainText('helper(7)');
   await page.screenshot({ path: testInfo.outputPath('source-view.png'), fullPage: true });
   await page.getByRole('tab', { name: '调用图', exact: true }).click();
   await expect(page.locator('.relation-list')).toContainText('推断');
   await expect(page.locator('.relation-list')).toContainText('helper');
+  await expect(page.getByRole('region', { name: '图节点代码预览' })).toContainText('helper(7)');
+  const helperOption = page
+    .getByLabel('预览图节点')
+    .locator('option')
+    .filter({ hasText: /^helper ·/ });
+  await page.getByLabel('预览图节点').selectOption((await helperOption.getAttribute('value')) || '');
+  await expect(page.getByRole('region', { name: '图节点代码预览' })).toContainText('return value + 1');
+  await page.getByRole('tab', { name: '关键逻辑', exact: true }).click();
+  await page.getByRole('button', { name: '新建人工标注', exact: true }).click();
+  await page.getByLabel('搜索标注单元').fill('entry');
+  await expect(page.getByLabel('标注程序单元').locator('option')).toHaveCount(1);
+  await page.getByLabel('标注依据', { exact: true }).fill('人工新增入口标注：核对调用原文');
+  await page.getByRole('button', { name: '保存人工标注', exact: true }).click();
+  await expect(page.locator('.annotation-list')).toContainText('人工新增入口标注');
+  await page.getByRole('button', { name: '修订标注', exact: true }).click();
+  await page.getByLabel('修订逻辑类型').selectOption('REGISTRATION');
+  await page.getByLabel('修订标注依据').fill('人工修订入口标注，待后续审计独立核对');
+  await page.getByRole('button', { name: '保存标注修订', exact: true }).click();
+  await expect(page.locator('.annotation-list')).toContainText('v2');
+  await page.reload();
+  await page.getByRole('tab', { name: '关键逻辑', exact: true }).click();
+  await expect(page.locator('.annotation-list')).toContainText('人工修订入口标注');
+  await expect(page.locator('.annotation-list')).toContainText('helper(7)');
   await page.getByRole('tab', { name: '覆盖与产物' }).click();
   await expect(page.getByRole('row').filter({ hasText: 'future.ts' })).toContainText('不支持');
   await page.getByText('导入时排除的文件或目录', { exact: false }).click();
@@ -111,6 +136,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
     const download = await downloaded;
     const content = await readFile((await download.path())!, 'utf8');
     expect(content).toContain('NOT_RUN');
+    expect(content).toContain('人工修订入口标注');
     if (format === 'json') {
       const report = JSON.parse(content);
       expect(report.checks.exploitation).toBe('NOT_RUN');
@@ -119,6 +145,19 @@ test('ZIP → source positions → inferred graph → reports → event replay a
       expect(report.artifacts.length).toBeGreaterThan(2);
     }
   }
+  await page.getByLabel('报告格式').selectOption('pdf');
+  const pdfDownload = page.waitForEvent('download');
+  await page.getByRole('button', { name: '导出报告', exact: true }).click();
+  const pdfFile = await pdfDownload;
+  expect((await readFile((await pdfFile.path())!)).subarray(0, 5).toString()).toBe('%PDF-');
+  await page.getByRole('tab', { name: '报告历史', exact: true }).click();
+  await expect(page.locator('.report-history tbody tr')).toHaveCount(4);
+  await page.reload();
+  await page.getByRole('tab', { name: '报告历史', exact: true }).click();
+  await expect(page.locator('.report-history tbody tr').first()).toContainText('PDF');
+  const historic = page.waitForEvent('download');
+  await page.locator('.report-history tbody tr').first().getByRole('button', { name: '下载报告' }).click();
+  expect((await readFile((await (await historic).path())!)).subarray(0, 5).toString()).toBe('%PDF-');
   await page.getByRole('tab', { name: '任务事件' }).click();
   await expect(page.locator('.event-list')).toContainText('RUN_COMPLETED');
   const before = await page.locator('.event-seq').allTextContents();

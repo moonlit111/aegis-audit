@@ -3,6 +3,8 @@ pub mod audits;
 pub mod convert;
 pub mod error;
 pub mod model;
+pub mod model_settings;
+pub mod progress;
 pub mod recovery;
 pub mod rpc;
 pub mod runtime;

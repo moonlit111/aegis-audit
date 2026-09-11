@@ -243,7 +243,7 @@
       </p>
     {/if}
     <div class="scope-note">
-      <span class="mini-label">本轮能力</span>程序结构解析。漏洞审计、动态测试和利用验证尚未执行。
+      <span class="mini-label">本轮能力</span>程序结构解析、可选漏洞审计、动态测试与利用证据留痕。
     </div>
     {#if error}<div class="error-banner" role="alert">{error}</div>{/if}
     {#if busy}<div class="upload-status" role="status">

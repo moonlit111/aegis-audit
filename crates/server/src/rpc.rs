@@ -199,6 +199,13 @@ impl p::RunService for Api {
         req: ServiceRequest<'_, p::GetRunRequest>,
     ) -> ServiceResult<p::GetRunResponse> {
         Response::ok(p::GetRunResponse {
+            phases: self
+                .store
+                .run_phases(req.run_id)
+                .await?
+                .into_iter()
+                .map(c::phase)
+                .collect(),
             run: c::run(self.store.get("audit_runs", req.run_id).await?).into(),
             artifacts: self
                 .store
@@ -247,6 +254,53 @@ impl p::RunService for Api {
     }
 }
 impl p::ProgramService for Api {
+    async fn create_annotation(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::CreateAnnotationRequest>,
+    ) -> ServiceResult<p::CreateAnnotationResponse> {
+        let draft = d::AnnotationDraft {
+            unit_id: req.unit_id.into(),
+            tag: req.tag.into(),
+            subtype: String::new(),
+            rationale: req.rationale.into(),
+            evidence: req
+                .evidence
+                .iter()
+                .map(|reference| d::EvidenceInput {
+                    unit_id: reference.unit_id.into(),
+                    start_line: reference.start_line,
+                    end_line: reference.end_line,
+                    quote: reference.quote.into(),
+                })
+                .collect(),
+        };
+        Response::ok(p::CreateAnnotationResponse {
+            annotation: c::annotation(
+                self.store
+                    .create_annotation(req.request_id, req.run_id, draft)
+                    .await?,
+            )
+            .into(),
+            ..Default::default()
+        })
+    }
+    async fn list_annotations(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::ListAnnotationsRequest>,
+    ) -> ServiceResult<p::ListAnnotationsResponse> {
+        Response::ok(p::ListAnnotationsResponse {
+            annotations: self
+                .store
+                .annotations(req.run_id)
+                .await?
+                .into_iter()
+                .map(c::annotation)
+                .collect(),
+            ..Default::default()
+        })
+    }
     async fn update_annotation(
         &self,
         _: RequestContext,
@@ -459,6 +513,21 @@ impl p::RuntimeService for Api {
     }
 }
 impl p::ReportService for Api {
+    async fn list_reports(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::ListReportsRequest>,
+    ) -> ServiceResult<p::ListReportsResponse> {
+        let (reports, total) = self
+            .store
+            .reports(req.run_id, req.offset, req.limit)
+            .await?;
+        Response::ok(p::ListReportsResponse {
+            reports: reports.into_iter().map(c::report).collect(),
+            total,
+            ..Default::default()
+        })
+    }
     async fn create_report(
         &self,
         _: RequestContext,
@@ -606,6 +675,30 @@ impl p::ExecutorService for Api {
     }
 }
 impl p::SystemService for Api {
+    async fn save_model_settings(
+        &self,
+        _: RequestContext,
+        req: ServiceRequest<'_, p::SaveModelSettingsRequest>,
+    ) -> ServiceResult<p::SaveModelSettingsResponse> {
+        Response::ok(p::SaveModelSettingsResponse {
+            connection: self
+                .store
+                .save_model_settings(
+                    req.request_id,
+                    crate::model_settings::ModelSettingsInput {
+                        provider_kind: req.provider_kind,
+                        endpoint: req.endpoint,
+                        model: req.model,
+                        api_key: req.api_key,
+                        key_action: req.key_action,
+                        expected_revision: req.expected_revision,
+                    },
+                )
+                .await?
+                .into(),
+            ..Default::default()
+        })
+    }
     async fn get_capabilities(
         &self,
         _: RequestContext,
@@ -622,8 +715,8 @@ impl p::SystemService for Api {
                 .map(c::executor)
                 .collect(),
             pending_features: vec![
-                "去壳与解混淆".into(),
-                "动态模糊测试与自动利用".into(),
+                "复杂保护与通用解混淆".into(),
+                "更广泛目标构建与通用自动利用".into(),
                 "六项正式软件验收".into(),
             ],
             model_connection: self.store.model_connection().await?.into(),

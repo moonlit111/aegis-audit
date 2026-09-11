@@ -7,7 +7,9 @@
     RuntimeRecord,
     GetAuditResponse,
     AgentTask,
+    Snapshot,
   } from '../gen/audit/v1/audit_pb';
+  import { TargetKind } from '../gen/audit/v1/audit_pb';
   import { artifactUrl, errorMessage, findingsApi, requestId, runsApi, runtimeApi } from '../lib/api';
   import { dateTime, isTerminal, parseJson } from '../lib/format';
   import {
@@ -20,12 +22,14 @@
 
   let {
     run,
+    snapshot,
     unit,
     findingId = '',
     onchanged,
     notify,
   }: {
     run: AuditRun;
+    snapshot?: Snapshot;
     unit?: ProgramUnit;
     findingId?: string;
     onchanged: () => Promise<void>;
@@ -42,6 +46,35 @@
   let loading = false;
   let alive = true;
   const controller = new AbortController();
+  const snapshotMetadata = $derived(
+    parseJson<{ architecture?: string; format?: string }>(snapshot?.metadataJson || '', {}),
+  );
+  const adapterOptions = $derived.by(() => {
+    if (mode === 'FUZZ') {
+      return snapshot?.kind === TargetKind.BINARY && snapshotMetadata.format === 'PE'
+        ? [{ value: 'WINDOWS_LIBFUZZER_PREBUILT', label: '预构建 libFuzzer' }]
+        : [];
+    }
+    if (snapshot?.kind === TargetKind.BINARY) {
+      return snapshotMetadata.format === 'PE'
+        ? [
+            { value: 'WINDOWS_ORIGINAL_PE32', label: '原始 PE32' },
+            { value: 'WINDOWS_ORIGINAL_PE64', label: '原始 PE64' },
+          ]
+        : [];
+    }
+    return [
+      { value: 'WINDOWS_PYTHON_CALL', label: 'Python 函数' },
+      { value: 'WINDOWS_NATIVE_SOURCE', label: 'C / C++' },
+    ];
+  });
+  const runtimeAdapterSupported = $derived(adapterOptions.length > 0);
+  const fuzzSupported = $derived(snapshot?.kind === TargetKind.BINARY && snapshotMetadata.format === 'PE');
+  $effect(() => {
+    if (adapterOptions.length && !adapterOptions.some((option) => option.value === adapter)) {
+      adapter = adapterOptions[0].value;
+    }
+  });
   const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope));
   const plans = $derived(
     (audit?.tasks || []).filter((t) => t.role === 'VERIFIER' && t.status === 'SUCCEEDED'),
@@ -132,7 +165,9 @@
       unit?.language === 'python'
         ? 'WINDOWS_PYTHON_CALL'
         : unit?.language === 'binary'
-          ? 'WINDOWS_ORIGINAL_PE64'
+          ? snapshotMetadata.architecture === 'x86'
+            ? 'WINDOWS_ORIGINAL_PE32'
+            : 'WINDOWS_ORIGINAL_PE64'
           : 'WINDOWS_NATIVE_SOURCE';
     template();
     void refresh();
@@ -192,9 +227,12 @@
     <details class="runtime-config" open={!plans.length}>
       <summary>配置本地测试</summary>
       <p class="muted">
-        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口插桩构建，原始二进制支持 PE
+        填写快照内的入口文件及输入。Python 支持函数级测试，C/C++ 支持单入口本地构建，原始二进制支持 PE
         x86/x64，预构建 libFuzzer 支持动态测试。
       </p>
+      {#if !runtimeAdapterSupported}<div class="error-banner" role="alert">
+          当前运行器仅支持 PE x86/x64；ELF 目标只能进行静态分析。
+        </div>{/if}
       <form
         onsubmit={(event) => {
           event.preventDefault();
@@ -204,17 +242,15 @@
         <div class="runtime-config-row">
           <label class="field"
             >配置模板<select bind:value={adapter}
-              ><option value="WINDOWS_NATIVE_SOURCE">C / C++</option><option value="WINDOWS_PYTHON_CALL"
-                >Python 函数</option
-              ><option value="WINDOWS_ORIGINAL_PE32">原始 PE32</option><option value="WINDOWS_ORIGINAL_PE64"
-                >原始 PE64</option
-              ><option value="WINDOWS_LIBFUZZER_PREBUILT">预构建 libFuzzer</option></select
+              >{#each adapterOptions as option}<option value={option.value}>{option.label}</option
+                >{/each}</select
             ></label
           >
           <label class="field"
             >测试方式<select bind:value={mode}
-              ><option value="VERIFY">正常输入与重复验证</option><option value="FUZZ"
-                >动态测试（libFuzzer）</option
+              ><option value="VERIFY">正常输入与重复验证</option><option
+                value="FUZZ"
+                disabled={!fuzzSupported}>动态测试（libFuzzer）</option
               ></select
             ></label
           >
@@ -243,7 +279,7 @@
             required
           ></textarea></label
         >
-        <button class="button primary" disabled={busy || !configJson.trim()}
+        <button class="button primary" disabled={busy || !configJson.trim() || !runtimeAdapterSupported}
           ><Play size={15} />{busy ? '创建中…' : '开始本地测试'}</button
         >
       </form>
