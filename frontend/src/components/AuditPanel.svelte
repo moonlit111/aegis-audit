@@ -16,12 +16,14 @@
 
   let {
     run,
+    active = true,
     onselectunit,
     onverify,
     notify,
     knownUnits,
   }: {
     run: AuditRun;
+    active?: boolean;
     onselectunit: (id: string) => void;
     onverify: (id: string) => void;
     notify: (message: string) => void;
@@ -123,6 +125,7 @@
       const response = await findingsApi.getAudit({ runId: run.id }, { signal: controller.signal });
       if (!alive) return;
       data = response;
+      error = '';
       await loadQueue();
       if (selectedId) await loadDetail(selectedId, false);
     } catch (failure) {
@@ -208,9 +211,10 @@
     }
   }
   onMount(() => {
-    void refresh();
+    if (active) void refresh();
     const timer = setInterval(() => {
-      if (!isTerminal(run.state) || data?.runtime.some((r) => runtimePending(r.status))) void refresh();
+      if (active && (!isTerminal(run.state) || data?.runtime.some((r) => runtimePending(r.status))))
+        void refresh();
     }, 1800);
     return () => {
       alive = false;
@@ -219,7 +223,7 @@
     };
   });
   $effect(() => {
-    if (isTerminal(run.state)) void refresh();
+    if (active && isTerminal(run.state)) void refresh();
   });
 </script>
 
@@ -276,7 +280,12 @@
     </dl>{/if}
   {#if summary.audit_coverage_gap}<p class="audit-gap">{summary.audit_coverage_gap}</p>{/if}
   {#if error}<div class="error-banner" role="alert">
-      {error}<button
+      <span>{error}</span><button
+        class="text-button"
+        onclick={() => {
+          error = '';
+        }}>关闭</button
+      ><button
         class="text-button"
         onclick={() => {
           error = '';

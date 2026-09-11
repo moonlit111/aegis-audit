@@ -55,17 +55,20 @@
   let runId = $state('');
   let loading = $state(true);
   let connected = $state(false);
-  let error = $state('');
+  let connectionError = $state('');
+  let actionError = $state('');
   let toast = $state('');
   let showImport = $state(false);
   let auditSnapshot = $state<Snapshot>();
   let importProject = $state('');
-  let creating = $state('');
-  let refreshing = false;
+  let creatingIds = $state<Record<string, boolean>>({});
+  let refreshing: Promise<void> | undefined;
   let toastTimer: ReturnType<typeof setTimeout>;
   const project = $derived(projects.find((item) => item.id === projectId));
   const projectRuns = $derived(runs.filter((run) => run.projectId === projectId));
   const activeRuns = $derived(runs.filter((run) => !isTerminal(run.state)).length);
+  const currentRun = $derived(runs.find((run) => run.id === runId));
+  const currentRunProject = $derived(projects.find((project) => project.id === currentRun?.projectId));
   const availableTools = $derived([
     ...new Set(
       capabilities?.executors.flatMap((executor) =>
@@ -76,8 +79,17 @@
 
   function route() {
     const parts = location.hash.replace(/^#\/?/, '').split('/');
-    page = ['projects', 'runs', 'environment'].includes(parts[0]) ? parts[0] : 'projects';
-    runId = page === 'runs' ? parts[1] || '' : '';
+    const nextPage = ['projects', 'runs', 'environment'].includes(parts[0]) ? parts[0] : 'projects';
+    const nextRunId = nextPage === 'runs' ? parts[1] || '' : '';
+    if (nextPage !== parts[0] || parts.length > 2) {
+      history.replaceState(null, '', '#/projects');
+      page = 'projects';
+      runId = '';
+    } else {
+      page = nextPage;
+      runId = nextRunId;
+    }
+    window.scrollTo({ top: 0 });
   }
   function notify(message: string) {
     toast = message;
@@ -86,8 +98,7 @@
       toast = '';
     }, 5000);
   }
-  async function loadProject() {
-    const id = projectId;
+  async function loadProject(id = projectId) {
     if (!id) {
       snapshots = [];
       return;
@@ -95,29 +106,40 @@
     const response = await projectsApi.getProject({ projectId: id });
     if (id === projectId) snapshots = response.snapshots;
   }
-  async function refresh() {
-    if (refreshing) return;
-    refreshing = true;
-    try {
-      const [p, r, c] = await Promise.all([
-        projectsApi.listProjects({}),
-        runsApi.listRuns({}),
-        systemApi.getCapabilities({}),
-      ]);
-      projects = p.projects;
-      runs = r.runs;
-      capabilities = c;
-      connected = true;
-      error = '';
-      if (!projects.some((item) => item.id === projectId)) projectId = projects[0]?.id || '';
-      await loadProject();
-    } catch (failure) {
-      connected = false;
-      error = errorMessage(failure);
-    } finally {
-      refreshing = false;
-      loading = false;
-    }
+  function refresh() {
+    if (refreshing) return refreshing;
+    refreshing = (async () => {
+      try {
+        const requestedProjectId = projectId;
+        const [p, r, c] = await Promise.all([
+          projectsApi.listProjects({}),
+          runsApi.listRuns({}),
+          systemApi.getCapabilities({}),
+        ]);
+        projects = p.projects;
+        runs = r.runs;
+        capabilities = c;
+        connected = true;
+        connectionError = '';
+        if (!requestedProjectId && projects.length) {
+          projectId = projects[0].id;
+          localStorage.setItem('aegis.project', projectId);
+          await loadProject(projectId);
+        } else if (requestedProjectId && !projects.some((item) => item.id === requestedProjectId)) {
+          snapshots = [];
+        } else {
+          await loadProject(requestedProjectId);
+        }
+      } catch (failure) {
+        connected = false;
+        connectionError = errorMessage(failure);
+      } finally {
+        loading = false;
+      }
+    })().finally(() => {
+      refreshing = undefined;
+    });
+    return refreshing;
   }
   async function selectProject(id: string) {
     projectId = id;
@@ -126,13 +148,17 @@
     try {
       await loadProject();
     } catch (failure) {
-      error = errorMessage(failure);
+      actionError = errorMessage(failure);
+      notify(errorMessage(failure));
     }
   }
   function importTarget(id = '') {
     importProject = id;
     showImport = true;
   }
+  $effect(() => {
+    if (currentRun?.projectId && currentRun.projectId !== projectId) void selectProject(currentRun.projectId);
+  });
   async function imported(id: string) {
     showImport = false;
     projectId = id;
@@ -142,16 +168,19 @@
     notify('快照已创建，执行器将检查并归档目标文件。');
   }
   async function analyze(snapshot: Snapshot, scope = 'STRUCTURE_ANALYSIS') {
-    if (creating) return;
-    creating = snapshot.id;
+    if (creatingIds[snapshot.id]) return;
+    actionError = '';
+    creatingIds = { ...creatingIds, [snapshot.id]: true };
     try {
       const response = await runsApi.createRun({ requestId: requestId(), snapshotId: snapshot.id, scope });
+      actionError = '';
       location.hash = `/runs/${response.run!.id}`;
       await refresh();
     } catch (failure) {
-      error = errorMessage(failure);
+      actionError = errorMessage(failure);
     } finally {
-      creating = '';
+      const { [snapshot.id]: _finished, ...remaining } = creatingIds;
+      creatingIds = remaining;
     }
   }
   onMount(() => {
@@ -161,7 +190,7 @@
         await establishSession();
         await refresh();
       } catch (failure) {
-        error = errorMessage(failure);
+        connectionError = errorMessage(failure);
         loading = false;
       }
     };
@@ -227,17 +256,25 @@
       </div>
     </header>
     <main class:run-page={page === 'runs' && runId}>
-      {#if error}<div class="error-banner global-error" role="alert">
-          <span>{error}</span><button
+      {#if connectionError}<div class="error-banner global-error" role="alert">
+          <span>{connectionError}</span><button
             class="text-button"
             onclick={async () => {
               try {
                 await establishSession();
                 await refresh();
               } catch (failure) {
-                error = errorMessage(failure);
+                connectionError = errorMessage(failure);
               }
             }}>重新连接</button
+          >
+        </div>{/if}
+      {#if actionError}<div class="error-banner global-error" role="alert">
+          <span>{actionError}</span><button
+            class="text-button"
+            onclick={() => {
+              actionError = '';
+            }}>关闭</button
           >
         </div>{/if}
       {#if page === 'projects'}
@@ -363,10 +400,14 @@
                           >快照清单<ArrowUpRight size={13} /></a
                         >{:else}<span></span>{/if}<button
                         class="button secondary small"
-                        disabled={creating !== '' ||
-                          ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state)}
+                        disabled={creatingIds[snapshot.id] ||
+                          !connected ||
+                          ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state) ||
+                          !availableTools.includes(
+                            snapshot.kind === TargetKind.BINARY ? 'ghidra' : 'tree-sitter',
+                          )}
                         onclick={() => analyze(snapshot)}
-                        >{creating === snapshot.id
+                        >{creatingIds[snapshot.id]
                           ? '正在创建…'
                           : snapshot.kind === TargetKind.BINARY
                             ? '开始反编译'
@@ -374,9 +415,12 @@
                       >
                       <button
                         class="button primary small"
-                        disabled={creating !== '' ||
+                        disabled={creatingIds[snapshot.id] ||
                           ![SnapshotState.READY, SnapshotState.PARTIAL].includes(snapshot.state) ||
-                          !capabilities?.modelConnection?.configured}
+                          !capabilities?.modelConnection?.configured ||
+                          !availableTools.includes(
+                            snapshot.kind === TargetKind.BINARY ? 'import' : 'tree-sitter',
+                          )}
                         title={capabilities?.modelConnection?.configured
                           ? '解析代码后进行语义审计与独立复核'
                           : '请先在执行环境配置模型连接'}
@@ -384,6 +428,13 @@
                           auditSnapshot = snapshot;
                         }}>开始漏洞审计<ArrowRight size={14} /></button
                       >
+                      {#if !capabilities?.modelConnection?.configured}<a
+                          class="text-button"
+                          href="#/environment">先配置模型连接</a
+                        >{:else if !availableTools.includes(snapshot.kind === TargetKind.BINARY ? 'ghidra' : 'tree-sitter') || !availableTools.includes(snapshot.kind === TargetKind.BINARY ? 'import' : 'tree-sitter')}<a
+                          class="text-button"
+                          href="#/environment">先启动所需执行器</a
+                        >{/if}
                     </div>
                   </article>{/each}
               </div>
@@ -392,7 +443,12 @@
         {/if}
         <div class="footnote"><Shield size={14} />解析成功表示已建立程序结构，不能据此判定目标安全。</div>
       {:else if page === 'runs' && runId}
-        {#key runId}<RunView {runId} onchanged={refresh} {notify} />{/key}
+        {#key runId}<RunView
+            {runId}
+            onchanged={refresh}
+            {notify}
+            projectName={currentRunProject?.name}
+          />{/key}
       {:else if page === 'runs'}
         <div class="page-heading">
           <div>

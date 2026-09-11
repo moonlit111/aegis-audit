@@ -76,6 +76,7 @@ export type ToolRecord = {
 };
 export type Summary = {
   result_artifact_id?: string;
+  required_capability?: string;
   recovery?: RecoverySummary;
   vulnerability_audit?: string;
   verification?: string;

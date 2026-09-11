@@ -25,6 +25,7 @@
     snapshot,
     unit,
     findingId = '',
+    active = true,
     onchanged,
     notify,
   }: {
@@ -32,6 +33,7 @@
     snapshot?: Snapshot;
     unit?: ProgramUnit;
     findingId?: string;
+    active?: boolean;
     onchanged: () => Promise<void>;
     notify: (message: string) => void;
   } = $props();
@@ -43,7 +45,8 @@
   let selectedFinding = $state('');
   let error = $state('');
   let busy = $state(false);
-  let loading = false;
+  let loading: Promise<void> | undefined;
+  let loaded = false;
   let alive = true;
   const controller = new AbortController();
   const snapshotMetadata = $derived(
@@ -73,7 +76,11 @@
   $effect(() => {
     if (adapterOptions.length && !adapterOptions.some((option) => option.value === adapter)) {
       adapter = adapterOptions[0].value;
+      configJson = runtimeTemplate(adapter, mode, unit);
     }
+  });
+  $effect(() => {
+    selectedFinding = findingId;
   });
   const isRuntimeRun = $derived(['RUNTIME_VERIFICATION', 'DYNAMIC_TESTING'].includes(run.scope));
   const plans = $derived(
@@ -83,21 +90,26 @@
   function template() {
     configJson = runtimeTemplate(adapter, mode, unit);
   }
-  async function refresh() {
-    if (loading) return;
-    loading = true;
-    try {
-      const response = await runtimeApi.listRuntime({ runId: run.id }, { signal: controller.signal });
-      if (alive) records = response.records;
-      if (run.scope === 'SECURITY_AUDIT') {
-        const response = await findingsApi.getAudit({ runId: run.id }, { signal: controller.signal });
-        if (alive) audit = response;
+  function refresh() {
+    if (loading) return loading;
+    loading = (async () => {
+      try {
+        const response = await runtimeApi.listRuntime({ runId: run.id }, { signal: controller.signal });
+        if (alive) {
+          records = response.records;
+          error = '';
+        }
+        if (run.scope === 'SECURITY_AUDIT') {
+          const response = await findingsApi.getAudit({ runId: run.id }, { signal: controller.signal });
+          if (alive) audit = response;
+        }
+      } catch (failure) {
+        if (alive) error = errorMessage(failure);
       }
-    } catch (failure) {
-      if (alive) error = errorMessage(failure);
-    } finally {
-      loading = false;
-    }
+    })().finally(() => {
+      loading = undefined;
+    });
+    return loading;
   }
   function loadPlan(task: AgentTask) {
     const plan = parseJson<VerificationPlan>(task.resultJson, {
@@ -160,7 +172,6 @@
     }
   }
   onMount(() => {
-    selectedFinding = findingId;
     adapter =
       unit?.language === 'python'
         ? 'WINDOWS_PYTHON_CALL'
@@ -170,15 +181,20 @@
             : 'WINDOWS_ORIGINAL_PE64'
           : 'WINDOWS_NATIVE_SOURCE';
     template();
-    void refresh();
     const timer = setInterval(() => {
-      if (!isTerminal(run.state) || records.some((r) => runtimePending(r.status))) void refresh();
+      if (active && (!isTerminal(run.state) || records.some((r) => runtimePending(r.status)))) void refresh();
     }, 1800);
     return () => {
       alive = false;
       controller.abort();
       clearInterval(timer);
     };
+  });
+  $effect(() => {
+    if (active && !loaded) {
+      loaded = true;
+      void refresh();
+    }
   });
 </script>
 
@@ -192,7 +208,14 @@
       ><RefreshCw size={16} /></button
     >
   </div>
-  {#if error}<div class="error-banner" role="alert">{error}</div>{/if}
+  {#if error}<div class="error-banner" role="alert">
+      <span>{error}</span><button
+        class="text-button"
+        onclick={() => {
+          error = '';
+        }}>关闭</button
+      >
+    </div>{/if}
   {#if !isRuntimeRun}
     {#if plans.length}
       <div class="runtime-plans">
