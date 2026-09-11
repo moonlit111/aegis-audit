@@ -19,6 +19,10 @@ struct ScriptedModel {
     malformed_before_action: usize,
     truncate_first: bool,
     delay_ms: u64,
+    /// When greater than one, a call holds itself open until this many calls are
+    /// in flight at once, so a test can observe overlap without racing a fixed
+    /// delay against storage latency. Zero disables the wait.
+    overlap_target: usize,
     in_flight: Arc<AtomicUsize>,
     peak_in_flight: Arc<AtomicUsize>,
     requests: Mutex<Vec<ModelRequest>>,
@@ -34,6 +38,7 @@ impl ScriptedModel {
             malformed_before_action: 0,
             truncate_first: false,
             delay_ms: 0,
+            overlap_target: 0,
             in_flight: Arc::new(AtomicUsize::new(0)),
             peak_in_flight: Arc::new(AtomicUsize::new(0)),
             requests: Mutex::new(vec![]),
@@ -48,6 +53,21 @@ impl ModelClient for ScriptedModel {
         Box::pin(async move {
             let active = self.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
             self.peak_in_flight.fetch_max(active, Ordering::SeqCst);
+            // Hold this call open until `overlap_target` calls are in flight, so a
+            // test observes overlap instead of racing a fixed delay against however
+            // long the storage writes that precede a call happen to take. The wait
+            // is skipped once the target has been seen, so a run that does overlap
+            // pays nothing, and capped so a run that does not still terminates.
+            if self.overlap_target > 1
+                && self.peak_in_flight.load(Ordering::SeqCst) < self.overlap_target
+            {
+                let deadline = std::time::Instant::now() + Duration::from_secs(1);
+                while self.in_flight.load(Ordering::SeqCst) < self.overlap_target
+                    && std::time::Instant::now() < deadline
+                {
+                    tokio::time::sleep(Duration::from_millis(2)).await;
+                }
+            }
             if self.delay_ms > 0 {
                 tokio::time::sleep(Duration::from_millis(self.delay_ms)).await;
             }
@@ -840,6 +860,7 @@ async fn independent_audit_units_overlap_without_losing_coverage() {
     let run = prepared(&store, config.clone()).await;
     let mut model = ScriptedModel::new(false);
     model.delay_ms = 25;
+    model.overlap_target = 2;
     let peak = model.peak_in_flight.clone();
     store
         .drive_audit_with_model(
