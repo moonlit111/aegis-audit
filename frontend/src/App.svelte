@@ -55,7 +55,6 @@
   let page = $state('projects');
   let runId = $state('');
   let loading = $state(true);
-  let snapshotsLoading = $state(false);
   let connected = $state(false);
   let connectionError = $state('');
   let actionError = $state('');
@@ -63,7 +62,7 @@
   let showImport = $state(false);
   let auditSnapshot = $state<Snapshot>();
   let importProject = $state('');
-  let pendingDownload = $state<{ url: string; label: string; artifactId: string; notice?: string }>();
+  let pendingDownload = $state<{ url: string; label: string; artifactId: string }>();
   let creatingIds = $state<Record<string, boolean>>({});
   let refreshing: Promise<void> | undefined;
   let toastTimer: ReturnType<typeof setTimeout>;
@@ -130,11 +129,6 @@
           await loadProject(projectId);
         } else if (requestedProjectId && !projects.some((item) => item.id === requestedProjectId)) {
           snapshots = [];
-          if (projects.length) {
-            projectId = projects[0].id;
-            localStorage.setItem('aegis.project', projectId);
-            await loadProject(projectId);
-          }
         } else {
           await loadProject(requestedProjectId);
         }
@@ -153,14 +147,11 @@
     projectId = id;
     localStorage.setItem('aegis.project', id);
     snapshots = [];
-    snapshotsLoading = true;
     try {
       await loadProject();
     } catch (failure) {
       actionError = errorMessage(failure);
       notify(errorMessage(failure));
-    } finally {
-      snapshotsLoading = false;
     }
   }
   function importTarget(id = '') {
@@ -175,12 +166,10 @@
     if (url.origin !== location.origin || !url.pathname.startsWith('/api/artifacts/')) return;
     event.preventDefault();
     event.stopPropagation();
-    const artifactId = decodeURIComponent(url.pathname.split('/').pop() || '');
     pendingDownload = {
       url: url.href,
       label: (anchor.textContent || '分析产物').replace(/\s+/g, ' ').trim(),
-      artifactId,
-      notice: anchor.dataset.aegisDownloadNotice || '',
+      artifactId: decodeURIComponent(url.pathname.split('/').pop() || ''),
     };
   }
   function confirmDownload() {
@@ -194,7 +183,6 @@
     document.body.appendChild(link);
     link.click();
     link.remove();
-    if (request.notice) notify(request.notice);
   }
   $effect(() => {
     if (currentRun?.projectId && currentRun.projectId !== projectId) void selectProject(currentRun.projectId);
@@ -205,7 +193,7 @@
     localStorage.setItem('aegis.project', id);
     location.hash = '/projects';
     await refresh();
-    notify('快照已创建，执行器将检查并归档目标文件');
+    notify('快照已创建，执行器将检查并归档目标文件。');
   }
   async function analyze(snapshot: Snapshot, scope = 'STRUCTURE_ANALYSIS') {
     if (creatingIds[snapshot.id]) return;
@@ -269,25 +257,10 @@
       <a href="#/environment" class:active={page === 'environment'}><Server size={18} />执行环境</a>
     </nav>
     <div class="sidebar-scope">
-      <span class="nav-label">当前项目</span>
-      <a class="scope-project" href="#/projects" title={project?.name || '未选择项目'}>
-        <FolderKanban size={17} /><span>{project?.name || '未选择项目'}</span>
-      </a>
-      <dl class="scope-summary">
-        <div>
-          <dt>快照</dt>
-          <dd>{snapshots.length}</dd>
-        </div>
-        <div>
-          <dt>任务</dt>
-          <dd>{runs.length}</dd>
-        </div>
-        <div>
-          <dt>执行中</dt>
-          <dd>{activeRuns}</dd>
-        </div>
-      </dl>
-      <span class="version">v{capabilities?.version || '0.1.0'}</span>
+      <span class="nav-label">当前阶段</span>
+      <div><Layers size={17} />程序理解与漏洞审计</div>
+      <p>把代码、函数与证据<br />放回同一个上下文。</p>
+      <span class="version">MILESTONE 02 <span>/</span> v{capabilities?.version || '0.1.0'}</span>
     </div>
     <div class="sidebar-bottom">
       <a href="https://github.com/moonlit111/aegis-audit" target="_blank" rel="noreferrer"
@@ -339,29 +312,27 @@
           <div>
             <div class="eyebrow">PROJECT WORKSPACE</div>
             <h1>让程序结构清晰可见<span class="heading-dot">.</span></h1>
-            <p>
-              项目用于组织目标；每次导入生成一个不可变快照；结构分析、反编译和漏洞审计都基于所选快照运行。
-            </p>
+            <p>从一个不可变快照开始，追踪每次分析的代码、位置与原始产物。</p>
           </div>
           <button class="button primary" onclick={() => importTarget()} disabled={!connected}
-            ><Plus size={17} />导入新项目</button
+            ><Plus size={17} />新建项目</button
           >
         </div>
         <div class="metric-grid">
           <div class="metric">
             <span>分析项目<FolderKanban size={17} /></span><strong
               >{projects.length.toString().padStart(2, '0')}</strong
-            ><small>工作区累计</small>
+            ><small>本地持久化保存</small>
           </div>
           <div class="metric">
             <span>分析任务<Activity size={17} /></span><strong
               >{runs.length.toString().padStart(2, '0')}</strong
-            ><small>工作区累计 · {activeRuns} 项正在等待或执行</small>
+            ><small>{activeRuns} 项正在等待或执行</small>
           </div>
           <div class="metric">
             <span>已索引程序单元<FileCode2 size={17} /></span><strong
               >{runs.reduce((total, run) => total + Number(run.unitCount), 0).toLocaleString()}</strong
-            ><small>按任务累计，未按代码去重</small>
+            ><small>模块与函数，按任务累计</small>
           </div>
           <div class="metric scope-metric">
             <span>当前能力边界<CircleHelp size={17} /></span><strong>静态审计</strong><small
@@ -406,28 +377,18 @@
                 <div>
                   <h2>{project?.name || '选择项目'}</h2>
                   <span class="subtle">{snapshots.length} 个快照 · {projectRuns.length} 次分析</span>
-                  <span class="subtle">每次导入生成一个不可变快照，分析任务基于快照运行。</span>
                 </div>
-                <button
-                  class="button secondary small"
-                  onclick={() => importTarget(projectId)}
-                  disabled={!connected}><Plus size={15} />导入快照</button
+                <button class="button secondary small" onclick={() => importTarget(projectId)}
+                  ><Plus size={15} />导入快照</button
                 >
               </div>
-              {#if snapshotsLoading}<div class="empty-panel compact">
-                  <Layers size={30} strokeWidth={1.2} />
-                  <h3>正在读取快照…</h3>
-                  <p>正在同步当前项目的固定版本。</p>
-                </div>{:else if !snapshots.length}<div class="empty-panel compact">
+              {#if !snapshots.length}<div class="empty-panel compact">
                   <Layers size={30} strokeWidth={1.2} />
                   <h3>项目还没有快照</h3>
                   <p>导入一个目标来建立可分析的版本。</p>
                 </div>{/if}
               <div class="snapshot-list">
-                {#each snapshots as snapshot}{@const snapshotRuns = runs
-                    .filter((run) => run.snapshotId === snapshot.id)
-                    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))}
-                  <article class="snapshot-card">
+                {#each snapshots as snapshot}<article class="snapshot-card">
                     <div class="snapshot-card-top">
                       <span class="file-icon"
                         >{#if snapshot.kind === TargetKind.BINARY}<Binary
@@ -443,7 +404,6 @@
                       <span
                         class="badge"
                         class:success={snapshot.state === SnapshotState.READY}
-                        class:warning={snapshot.state === SnapshotState.PARTIAL}
                         class:danger={snapshot.state === SnapshotState.FAILED}
                         class:neutral={snapshot.state === SnapshotState.IMPORTING}
                         >{snapshotLabel(snapshot.state)}</span
@@ -463,21 +423,6 @@
                     {#if snapshot.resolvedRevision}<div class="revision">
                         <GitBranch size={13} />{snapshot.resolvedRevision}
                       </div>{/if}
-                    <div class="snapshot-runs">
-                      <span>此快照的分析</span>
-                      {#if snapshotRuns.length}
-                        {#each snapshotRuns.slice(0, 2) as run}<a
-                            class="snapshot-run"
-                            href={`#/runs/${run.id}`}
-                          >
-                            <span>{run.id.slice(0, 8)} · {scopeLabel(run.scope)}</span>
-                            <span class={`badge ${tone(run.state)}`}>{runLabel(run.state)}</span>
-                          </a>{/each}
-                        {#if snapshotRuns.length > 2}<span class="snapshot-run-more"
-                            >+{snapshotRuns.length - 2}</span
-                          >{/if}
-                      {:else}<span class="snapshot-run-empty">尚未创建分析任务</span>{/if}
-                    </div>
                     <div class="snapshot-actions">
                       {#if snapshot.manifestArtifactId}<a
                           class="text-button"

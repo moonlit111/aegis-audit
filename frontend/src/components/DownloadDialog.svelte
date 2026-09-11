@@ -34,9 +34,7 @@
     <button class="icon-button" aria-label="关闭下载确认" onclick={onclose}><X size={20} /></button>
   </div>
   <h2 id="download-dialog-title">下载文件确认</h2>
-  <p class="muted">
-    即将从本地控制服务下载文件。请确认该产物与分析任务相关，下载后可按响应中的 SHA-256 核对。
-  </p>
+  <p class="muted">即将从本地控制服务下载文件，请确认该产物与分析任务相关。</p>
   <div class="download-meta">
     <div><span>文件</span><strong title={label}>{label}</strong></div>
     <div><span>产物 ID</span><code>{artifactId}</code></div>

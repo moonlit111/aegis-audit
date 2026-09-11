@@ -330,53 +330,19 @@ h3 {
 .sidebar-scope .nav-label {
   margin: 0 0 var(--space-3);
 }
-.scope-project {
-  min-width: 0;
+.sidebar-scope > div {
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
   color: var(--ink);
+  font-weight: 600;
+}
+.sidebar-scope p {
   font-size: var(--text-sm);
-  font-weight: 600;
-}
-.scope-project > span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.scope-project:hover {
-  background: var(--surface-hover);
-  border-color: var(--accent-line);
-  color: var(--accent-hover);
-}
-.scope-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  margin: 10px 0 12px;
-}
-.scope-summary > div {
-  padding: 7px 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface-subtle);
-  text-align: center;
-}
-.scope-summary dt {
-  font-size: var(--text-xs);
   color: var(--muted);
-}
-.scope-summary dd {
-  margin: 2px 0 0;
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
+  line-height: 1.8;
+  margin: var(--space-3) 0 var(--space-4);
 }
 .version {
   font-family: var(--font-ui);
@@ -672,7 +638,7 @@ main.run-page {
 }
 .project-row small {
   display: block;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--muted);
   margin-top: 6px;
 }
@@ -732,7 +698,7 @@ main.run-page {
 .snapshot-name > span {
   display: block;
   color: var(--muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   margin-top: 4px;
 }
 .snapshot-name i,
@@ -779,11 +745,11 @@ main.run-page {
   align-items: center;
   gap: 10px;
   margin: 22px 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .snapshot-facts code {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   background: var(--surface-subtle);
   padding: 3px 5px;
   border-radius: 2px;
@@ -801,11 +767,11 @@ main.run-page {
   align-items: center;
   gap: 9px;
   margin: 23px 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .revision {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-family: var(--font-mono);
   display: flex;
   gap: 7px;
@@ -1033,52 +999,6 @@ tbody tr:last-child td {
   font-size: var(--text-xs);
   color: var(--muted);
   overflow-wrap: anywhere;
-}
-.snapshot-runs {
-  display: grid;
-  gap: 8px;
-  margin: 16px 0 18px;
-  padding: 10px 12px;
-  background: var(--surface-subtle);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-.snapshot-runs > span:first-child {
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-.snapshot-run {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 8px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-.snapshot-run:hover {
-  background: var(--surface-hover);
-  border-color: var(--accent-line);
-}
-.snapshot-run > span:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-.snapshot-run .badge {
-  font-size: var(--text-sm);
-  line-height: 20px;
-  padding: 3px var(--space-2);
-}
-.snapshot-run-empty,
-.snapshot-run-more {
-  font-size: var(--text-sm);
-  color: var(--muted);
 }
 .capability-row p {
   font-size: var(--text-sm);
@@ -1920,10 +1840,7 @@ tbody tr:last-child td {
   padding: 22px 25px;
 }
 .event-list {
-  display: grid;
-  gap: 10px;
-  padding: var(--space-4);
-  background: var(--surface-subtle);
+  padding: 5px 0;
   max-height: 760px;
   overflow: auto;
 }
@@ -1931,47 +1848,44 @@ tbody tr:last-child td {
   display: grid;
   grid-template-columns: 36px 95px minmax(0, 1fr);
   gap: 15px;
-  padding: 16px 18px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  padding: 20px 25px;
+  border-bottom: 1px solid var(--line);
 }
 .event-row:last-child {
-  border: 1px solid var(--line);
+  border: 0;
 }
 .event-seq {
-  color: var(--text-secondary);
-  font: 500 var(--text-sm) var(--font-mono);
-  line-height: 1.7;
+  color: var(--muted);
+  font: var(--text-xs) monospace;
+  line-height: 1.8;
 }
 .event-row time {
-  font: var(--text-sm) var(--font-mono);
+  font: var(--text-xs) monospace;
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 2;
 }
 .event-kind {
-  font: 500 var(--text-sm) var(--font-mono);
+  font: var(--text-xs) monospace;
   letter-spacing: 0.6px;
-  color: var(--accent-hover);
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  padding: 2px 7px;
+  color: var(--muted);
+  background: var(--surface-subtle);
+  padding: 3px 5px;
   border-radius: 2px;
   display: inline-block;
   margin-bottom: 8px;
 }
 .event-row pre {
-  font: var(--text-base) / 1.7 var(--font-mono);
+  font: var(--text-sm) / 1.8 var(--font-mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
-  color: var(--ink);
+  color: var(--muted);
 }
 .event-progress {
   display: flex;
   align-items: center;
   gap: 15px;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   color: var(--muted);
   margin-top: 12px;
 }
@@ -2206,7 +2120,6 @@ progress::-webkit-progress-value {
 }
 .download-dialog {
   width: 480px;
-  padding: var(--space-8) var(--space-8) 0;
 }
 .download-dialog > .muted {
   margin-bottom: var(--space-5);
@@ -2328,6 +2241,11 @@ progress::-webkit-progress-value {
   font-size: var(--text-sm);
   color: var(--muted);
 }
+.model-call-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
 .upload-status {
   display: flex;
   flex-wrap: wrap;
@@ -2394,6 +2312,8 @@ progress::-webkit-progress-value {
   font-size: var(--text-sm);
 }
 .unit-row small,
+.snapshot-name > span,
+.snapshot-facts,
 .unit-meta,
 .code-note,
 .field-help,
@@ -2416,13 +2336,10 @@ progress::-webkit-progress-value {
   color: var(--muted);
 }
 .event-row pre {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
 }
 .event-kind {
-  color: var(--accent-hover);
-}
-.event-row .subtle {
-  font-size: var(--text-sm);
+  color: var(--text-secondary);
 }
 .running-banner {
   color: var(--accent-hover);
@@ -2625,10 +2542,6 @@ progress::-webkit-progress-value {
   }
   .snapshot-list {
     padding: 16px;
-  }
-  .snapshot-run {
-    flex-direction: column;
-    align-items: flex-start;
   }
   .panel-title {
     padding: 18px;

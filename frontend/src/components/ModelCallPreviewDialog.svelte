@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Cable, Download, FileJson, LoaderCircle, MessageSquareText, X } from '@lucide/svelte';
+  import { Cable, Download, FileJson, LoaderCircle, X } from '@lucide/svelte';
   import type { ModelCall } from '../gen/audit/v1/audit_pb';
   import { artifactUrl } from '../lib/api';
   import { dateTime } from '../lib/format';
@@ -22,11 +22,10 @@
   } = $props();
 
   let dialog: HTMLDialogElement;
-  let tab = $state<'output' | 'reasoning' | 'request' | 'response'>('output');
+  let tab = $state<'output' | 'request' | 'response'>('output');
 
   type ChatMessage = {
     content?: string;
-    reasoning_content?: string;
     role?: string;
   };
   type ChatResponse = {
@@ -51,13 +50,36 @@
     }
   }
 
+  function withoutReasoning(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map(withoutReasoning);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([key]) => !['reasoning_content', 'reasoning'].includes(key))
+        .map(([key, item]) => [key, withoutReasoning(item)]),
+    );
+  }
+
+  function statusLabel(status: string): string {
+    return (
+      {
+        RUNNING: '调用中',
+        SUCCEEDED: '调用成功',
+        FAILED: '调用失败',
+        INVALID_RESPONSE: '响应无效',
+        INTERRUPTED: '调用中断',
+      }[status] || status
+    );
+  }
+
   const artifact = $derived(parseJson<CallArtifact | null>(responseText, null));
   const response = $derived(artifact?.choices ? artifact : artifact?.response);
   const message = $derived(response?.choices?.[0]?.message);
   const outputText = $derived(message?.content ? prettyJson(message.content) : '暂无模型输出');
-  const reasoningText = $derived(message?.reasoning_content || '该响应未包含推理内容');
-  const requestJson = $derived(requestText ? prettyJson(requestText) : '该调用没有请求产物');
-  const responseJson = $derived(responseText ? prettyJson(responseText) : '暂无响应产物');
+  const requestJson = $derived(requestText ? prettyJson(requestText) : '');
+  const responseJson = $derived(
+    responseText ? JSON.stringify(withoutReasoning(parseJson(responseText, null)), null, 2) : '',
+  );
 
   onMount(() => {
     dialog.showModal();
@@ -72,14 +94,16 @@
   <h2>模型调用记录</h2>
   <div class="model-call-summary">
     <div><span>模型</span><strong>{call.model}</strong></div>
-    <div><span>状态</span><strong>{call.status}</strong></div>
+    <div><span>状态</span><strong>{statusLabel(call.status)}</strong></div>
     <div><span>时间</span><strong>{dateTime(call.finishedAt || call.createdAt)}</strong></div>
-    <div><span>耗时</span><strong>{Number(call.latencyMs) / 1000 || 0} 秒</strong></div>
+    <div><span>耗时</span><strong>{(Number(call.latencyMs) / 1000).toFixed(2)} 秒</strong></div>
     <div>
-      <span>Tokens</span><strong>{call.inputTokens.toString()} / {call.outputTokens.toString()}</strong>
+      <span>Token 用量</span>
+      <strong>输入 {call.inputTokens.toString()} · 输出 {call.outputTokens.toString()}</strong>
     </div>
     <div>
-      <span>服务商请求</span><strong title={call.providerRequestId}>{call.providerRequestId || '—'}</strong>
+      <span>服务商请求</span>
+      <strong title={call.providerRequestId}>{call.providerRequestId || '—'}</strong>
     </div>
   </div>
   <div class="model-call-tabs" role="tablist" aria-label="调用记录视图">
@@ -88,29 +112,20 @@
       role="tab"
       aria-selected={tab === 'output'}
       class:active={tab === 'output'}
-      onclick={() => (tab = 'output')}><MessageSquareText size={15} />模型输出</button
+      onclick={() => (tab = 'output')}>模型输出</button
     >
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === 'reasoning'}
-      class:active={tab === 'reasoning'}
-      onclick={() => (tab = 'reasoning')}>推理内容</button
-    >
-    <button
-      type="button"
-      role="tab"
-      aria-selected={tab === 'request'}
-      class:active={tab === 'request'}
-      disabled={!requestText}
-      onclick={() => (tab = 'request')}><FileJson size={15} />请求 JSON</button
-    >
+    {#if requestText}<button
+        type="button"
+        role="tab"
+        aria-selected={tab === 'request'}
+        class:active={tab === 'request'}
+        onclick={() => (tab = 'request')}><FileJson size={15} />请求 JSON</button
+      >{/if}
     <button
       type="button"
       role="tab"
       aria-selected={tab === 'response'}
       class:active={tab === 'response'}
-      disabled={!responseText}
       onclick={() => (tab = 'response')}><FileJson size={15} />响应 JSON</button
     >
   </div>
@@ -120,10 +135,10 @@
       </div>
     {:else if error}<div class="error-banner" role="alert">{error}</div>
     {:else if tab === 'output'}<pre>{outputText}</pre>
-    {:else if tab === 'reasoning'}<pre>{reasoningText}</pre>
     {:else if tab === 'request'}<pre>{requestJson}</pre>
     {:else}<pre>{responseJson}</pre>{/if}
   </div>
+  <p class="model-call-note">在线视图隐藏服务商 reasoning 字段；下载的原始 JSON 保留完整调试信息。</p>
   <div class="dialog-actions">
     <button type="button" class="button secondary" onclick={onclose}>关闭</button>
     <a class="button primary" href={artifactUrl(call.artifactId)}><Download size={15} />下载响应 JSON</a>
