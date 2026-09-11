@@ -251,17 +251,6 @@
       >
     </div>
   </div>
-  {#if exploitationArtifacts.length}
-    <div class="poc-links">
-      <span class="poc-links-title">漏洞复用 PoC</span>
-      {#each exploitationArtifacts as item (item.name)}<a
-          href={artifactUrl(item.id)}
-          download
-          title={item.hint}>{item.name}</a
-        >{/each}
-      <small>证据 / 配方 / 脚本可下载，脚本对同一目标重放记录的输入</small>
-    </div>
-  {/if}
   {#if summary.audit_config}<dl class="audit-budget-summary">
       <div>
         <dt>模型调用</dt>
@@ -331,6 +320,15 @@
     <button class="text-button" onclick={() => refresh()} aria-label="刷新审计结果"
       ><RefreshCw size={14} /></button
     >
+    {#if exploitationArtifacts.length}<span class="poc-links">
+        <span class="poc-links-title">漏洞复用 PoC</span>
+        {#each exploitationArtifacts as item (item.name)}<a
+            class="text-button"
+            href={artifactUrl(item.id)}
+            download
+            title={`${item.name}：${item.hint}`}>{item.name}</a
+          >{/each}
+      </span>{/if}
   </div>
   {#if view === 'findings'}
     <div class="finding-layout">
@@ -625,13 +623,12 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--space-2) var(--space-3);
-    padding: 0 var(--space-6) var(--space-4);
+    margin-left: auto;
+    padding-left: var(--space-3);
     font-size: var(--text-sm);
+    white-space: nowrap;
   }
   .poc-links-title {
-    color: var(--muted);
-  }
-  .poc-links small {
     color: var(--muted);
   }
   .audit-budget-summary {
