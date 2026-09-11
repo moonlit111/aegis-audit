@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 pub const AUDIT_SCOPE: &str = "SECURITY_AUDIT";
-pub const PROMPT_VERSION: &str = "audit-14-structure-reuse";
+pub const PROMPT_VERSION: &str = "audit-16-component-review";
 pub const MAX_MODEL_TIMEOUT_SECONDS: u32 = 3_600;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -273,11 +273,17 @@ impl ReviewDraft {
                 evidence(&assessment.evidence, units)?;
             }
         }
-        if self.verdict == "VALIDATED" && self.assessments.iter().any(|a| a.status != "SUPPORTED") {
-            return Err("存在未知或被反证的必要攻击条件，不能判为 VALIDATED；请使用 INCONCLUSIVE 或 REJECTED".into());
-        }
-        if self.verdict == "REJECTED" && !self.assessments.iter().any(|a| a.status == "REFUTED") {
-            return Err("REJECTED 必须至少有一项原始代码支持的 REFUTED 反证".into());
+        let expected = if self.assessments.iter().any(|a| a.status == "REFUTED") {
+            "REJECTED"
+        } else if self.assessments.iter().any(|a| a.status == "UNKNOWN") {
+            "INCONCLUSIVE"
+        } else {
+            "VALIDATED"
+        };
+        if self.verdict != expected {
+            return Err(format!(
+                "复核总判定与逐项证据不一致：按 assessments 应为 {expected}；必要条件被反证时为 REJECTED，否则有未知项时为 INCONCLUSIVE，全部支持时为 VALIDATED。请核对原始代码后修正判定或具体评估项"
+            ));
         }
         Ok(())
     }
@@ -480,6 +486,11 @@ mod tests {
             "counter_evidence":"none in this expression","missing_information":"","evidence":[citation],
             "assessments":(["INPUT_CONTROL","REACHABILITY","DEFENSE_GAP"].map(|check|json!({"check":check,"status":"SUPPORTED","rationale":"visible in the component","evidence":[citation]})))})).unwrap();
         assert!(review.validate_model(&units).is_ok());
+        review.verdict = "INCONCLUSIVE".into();
+        assert!(review.validate_model(&units).is_err());
+        review.verdict = "REJECTED".into();
+        assert!(review.validate_model(&units).is_err());
+        review.verdict = "VALIDATED".into();
         review.assessments.push(ReviewAssessment { check: "EXTRA_PRECONDITION".into(), status: "UNKNOWN".into(),
             rationale: "attacker-controlled concurrent symlink replacement has not been established".into(), evidence: vec![] });
         assert!(review.validate_model(&units).is_err());
@@ -487,6 +498,11 @@ mod tests {
         assert!(review.validate_model(&units).is_ok());
         review.verdict = "REJECTED".into();
         assert!(review.validate_model(&units).is_err());
+        review.assessments[2].status = "REFUTED".into();
+        assert!(review.validate_model(&units).is_ok());
+        review.verdict = "INCONCLUSIVE".into();
+        assert!(review.validate_model(&units).is_err());
+        review.assessments[2].status = "SUPPORTED".into();
         review.assessments[0].evidence[0].quote = "invented()".into();
         review.verdict = "INCONCLUSIVE".into();
         assert!(review.validate_model(&units).is_err());
