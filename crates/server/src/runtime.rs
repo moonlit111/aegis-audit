@@ -458,6 +458,7 @@ impl Store {
         let exploitation_status;
         let mut exploitation_artifact_id = String::new();
         let mut exploitation_input_artifact_id = String::new();
+        let mut exploitation_runner_artifact_id = String::new();
         if record.config.mode == "FUZZ" {
             if let Some(crash) = result
                 .observation
@@ -534,9 +535,11 @@ impl Store {
                 exploitation_status = "COMPLETED";
                 exploitation_artifact_id = evidence_artifact.id.clone();
                 exploitation_input_artifact_id = input_artifact.id.clone();
+                exploitation_runner_artifact_id = runner_artifact.id.clone();
                 run.summary["exploitation"] = json!(exploitation_status);
                 run.summary["exploitation_artifact_id"] = json!(evidence_artifact.id);
                 run.summary["exploitation_input_artifact_id"] = json!(input_artifact.id);
+                run.summary["exploitation_runner_artifact_id"] = json!(runner_artifact.id);
             } else {
                 exploitation_status = if verdict == "ERROR" {
                     "ERROR"
@@ -671,9 +674,11 @@ impl Store {
             exploitation_status = "COMPLETED";
             exploitation_artifact_id = evidence_artifact.id.clone();
             exploitation_input_artifact_id = recipe_artifact.id.clone();
+            exploitation_runner_artifact_id = runner_artifact.id.clone();
             run.summary["exploitation"] = json!(exploitation_status);
             run.summary["exploitation_artifact_id"] = json!(evidence_artifact.id);
             run.summary["exploitation_input_artifact_id"] = json!(recipe_artifact.id);
+            run.summary["exploitation_runner_artifact_id"] = json!(runner_artifact.id);
         } else {
             exploitation_status = if verdict == "ERROR" {
                 "ERROR"
@@ -732,13 +737,15 @@ impl Store {
                 .execute(&mut *conn)
                 .await?;
         }
-        if record.config.mode == "FUZZ" {
+        {
             let mut source: d::AuditRun = load(conn, "audit_runs", &record.source_run_id).await?;
             source.summary["exploitation"] = json!(exploitation_status);
             if !exploitation_artifact_id.is_empty() {
                 source.summary["exploitation_artifact_id"] = json!(exploitation_artifact_id);
                 source.summary["exploitation_input_artifact_id"] =
                     json!(exploitation_input_artifact_id);
+                source.summary["exploitation_runner_artifact_id"] =
+                    json!(exploitation_runner_artifact_id);
             }
             update_run(conn, &source).await?;
         }

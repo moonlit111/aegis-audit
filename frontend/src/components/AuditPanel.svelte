@@ -113,6 +113,13 @@
     }
     return '';
   });
+  const exploitationArtifacts = $derived.by(() =>
+    [
+      { id: summary.exploitation_artifact_id, name: '利用证据', hint: '目标哈希、探针与两次运行观察' },
+      { id: summary.exploitation_input_artifact_id, name: '复现配方', hint: '测试文件与探针参数' },
+      { id: summary.exploitation_runner_artifact_id, name: '复放脚本', hint: '自建目录重放同一输入' },
+    ].filter((item): item is { id: string; name: string; hint: string } => !!item.id),
+  );
   async function refresh() {
     if (loading) {
       refreshAgain = true;
@@ -244,6 +251,17 @@
       >
     </div>
   </div>
+  {#if exploitationArtifacts.length}
+    <div class="poc-links">
+      <span class="poc-links-title">漏洞复用 PoC</span>
+      {#each exploitationArtifacts as item (item.name)}<a
+          href={artifactUrl(item.id)}
+          download
+          title={item.hint}>{item.name}</a
+        >{/each}
+      <small>证据 / 配方 / 脚本可下载，脚本对同一目标重放记录的输入</small>
+    </div>
+  {/if}
   {#if summary.audit_config}<dl class="audit-budget-summary">
       <div>
         <dt>模型调用</dt>
@@ -601,6 +619,20 @@
     display: block;
     color: var(--muted);
     margin-top: var(--space-1);
+  }
+  .poc-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: 0 var(--space-6) var(--space-4);
+    font-size: var(--text-sm);
+  }
+  .poc-links-title {
+    color: var(--muted);
+  }
+  .poc-links small {
+    color: var(--muted);
   }
   .audit-budget-summary {
     display: flex;

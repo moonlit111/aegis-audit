@@ -83,6 +83,7 @@ export type Summary = {
   exploitation?: string;
   exploitation_artifact_id?: string;
   exploitation_input_artifact_id?: string;
+  exploitation_runner_artifact_id?: string;
   audited_unit_count?: number;
   eligible_unit_count?: number;
   finding_count?: number;
