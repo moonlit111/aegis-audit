@@ -9,7 +9,7 @@ from aegis import ROOT
 
 # 产品侧代码。evaluation/、Docs/、tests/ 属于评测与材料侧，允许出现候选软件名。
 PRODUCT_ROOTS = ['crates', 'tools/ghidra', 'tools/runtime', 'proto']
-SUFFIXES = {'.rs', '.java', '.py', '.proto', '.ts', '.svelte'}
+SUFFIXES = {'.rs', '.java', '.py', '.proto', '.ts', '.svelte', '.txt'}
 SKIP_DIRS = {'generated', 'gen', 'target', 'node_modules', '__pycache__', '.git'}
 
 CVE = re.compile(r'CVE-\d{4}-\d{4,}', re.IGNORECASE)
@@ -66,7 +66,10 @@ class GeneralityTests(unittest.TestCase):
     def test_scan_actually_covers_the_audit_engine(self):
         covered = {path.relative_to(ROOT).as_posix() for path in product_files()}
         for expected in ['crates/application/src/audit.rs', 'crates/application/src/sast.rs',
-                         'crates/server/src/agents.rs', 'crates/executor/src/jobs.rs']:
+                         'crates/server/src/agents.rs', 'crates/executor/src/jobs.rs',
+                         'crates/application/src/prompts/protocol.txt',
+                         'crates/application/src/prompts/auditor.txt',
+                         'crates/application/src/prompts/reviewer.txt']:
             self.assertIn(expected, covered, '通用性扫描遗漏了审计引擎文件')
 
 
