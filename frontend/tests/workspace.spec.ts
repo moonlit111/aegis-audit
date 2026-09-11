@@ -5,6 +5,18 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
+test('canceling the file picker keeps the import dialog open', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '导入新项目', exact: true }).click();
+  const fileInput = page.getByLabel('选择 ZIP 文件', { exact: true });
+  await fileInput.evaluate((input) => {
+    input.dispatchEvent(new Event('cancel', { bubbles: true, cancelable: true }));
+  });
+  await expect(page.getByRole('dialog', { name: '导入分析目标', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '导入分析目标', exact: true })).toHaveCount(0);
+});
+
 test('runtime configuration → repeated component observations → reload → factual report', async ({
   page,
 }) => {
@@ -20,7 +32,7 @@ test('runtime configuration → repeated component observations → reload → f
   });
   const card = await importFile(page, '运行证据浏览器验证', 'runtime-ui.zip', Buffer.from(data));
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
-  await card.getByRole('button', { name: '开始结构分析', exact: true }).click();
+  await card.getByRole('button', { name: '仅结构分析', exact: true }).click();
   await expect(page.locator('.run-status')).toHaveText('分析完成');
   await page.getByRole('tab', { name: '运行验证', exact: true }).click();
   const config = {
@@ -89,7 +101,7 @@ test('ZIP → source positions → inferred graph → reports → event replay a
   });
   const card = await importFile(page, '浏览器源码验证', 'source-ui.zip', Buffer.from(data));
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
-  await card.getByRole('button', { name: '开始结构分析', exact: true }).click();
+  await card.getByRole('button', { name: '仅结构分析', exact: true }).click();
   await expect(page.locator('.run-status')).toHaveText('部分完成');
   await page.getByLabel('语言筛选').selectOption('python');
   await page.getByLabel('搜索函数或文件').fill('entry');
@@ -187,7 +199,7 @@ test('browser folder import uses the same persistent structure pipeline', async 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   const card = page.locator('.snapshot-card').filter({ hasText: 'source.zip' });
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
-  await card.getByRole('button', { name: '开始结构分析' }).click();
+  await card.getByRole('button', { name: '仅结构分析' }).click();
   await expect(page.locator('.run-status')).toHaveText('分析完成');
   await expect(page.locator('.explorer-title')).toContainText('11');
   await page.reload();
@@ -203,7 +215,7 @@ test('real Ghidra run survives stream loss and refresh; explicit cancellation is
   const card = await importFile(page, '二进制浏览器验证', 'target.exe', fixture, true);
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
   await page.route('**/audit.v1.RunService/WatchRun', (route) => route.abort('connectionfailed'));
-  await card.getByRole('button', { name: '开始反编译' }).click();
+  await card.getByRole('button', { name: '仅反编译' }).click();
   await expect(page.locator('.run-status')).toHaveText('分析中');
   await page.reload();
   await expect(page.locator('.run-status')).toHaveText('分析完成', { timeout: 60_000 });
@@ -217,16 +229,20 @@ test('real Ghidra run survives stream loss and refresh; explicit cancellation is
   const sequence = await page.locator('.event-seq').allTextContents();
   expect(new Set(sequence).size).toBe(sequence.length);
   await page.getByRole('link', { name: '项目与快照' }).click();
-  await page
-    .locator('.snapshot-card')
-    .filter({ hasText: 'target.exe' })
-    .getByRole('button', { name: '开始反编译' })
-    .click();
+  const completedCard = page.locator('.snapshot-card').filter({ hasText: 'target.exe' });
+  await completedCard.getByText('重新运行', { exact: true }).click();
+  await completedCard.getByRole('button', { name: '重新反编译', exact: true }).click();
   await expect(page.locator('.run-status')).toHaveText('分析中');
   await page.getByRole('button', { name: '取消任务', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: '取消当前任务？', exact: true })
+    .getByRole('button', { name: '确认取消', exact: true })
+    .click();
   await expect(page.locator('.run-status')).toHaveText('已取消');
+  await expect(page.locator('.cancel-feedback')).toContainText('任务已取消');
   await page.reload();
   await expect(page.locator('.run-status')).toHaveText('已取消');
+  await expect(page.locator('.cancel-feedback')).toContainText('任务已取消');
 });
 
 test('invalid ZIP paths and unrecognized binaries fail visibly without an analysis action', async ({
@@ -236,11 +252,11 @@ test('invalid ZIP paths and unrecognized binaries fail visibly without an analys
   const card = await importFile(page, '导入边界验证', 'unsafe.zip', maliciousPath);
   await expect(card.getByText('导入失败', { exact: true })).toBeVisible();
   await expect(card.locator('.inline-error')).toContainText('path traversal');
-  await expect(card.getByRole('button', { name: '开始结构分析' })).toBeDisabled();
+  await expect(card.getByRole('button', { name: '仅结构分析' })).toBeDisabled();
   const invalid = await importFile(page, '文件格式验证', 'invalid.exe', Buffer.from('not a PE file'), true);
   await expect(invalid.getByText('导入失败', { exact: true })).toBeVisible();
   await expect(invalid.locator('.inline-error')).toContainText('unsupported binary format');
-  await expect(invalid.getByRole('button', { name: '开始反编译' })).toBeDisabled();
+  await expect(invalid.getByRole('button', { name: '仅反编译' })).toBeDisabled();
   await expect(invalid.getByRole('button', { name: '开始漏洞审计' })).toBeDisabled();
 });
 
@@ -264,7 +280,8 @@ test('audit budget dialog submits explicit limits and stays usable on mobile', a
   const card = await importFile(page, '审计预算界面验证', 'small.zip', Buffer.from(data));
   await expect(card.getByText('可分析', { exact: true })).toBeVisible();
   await card.getByRole('button', { name: '开始漏洞审计', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: '审计预算' });
+  const dialog = page.getByRole('dialog', { name: '开始漏洞审计' });
+  await dialog.getByText('高级设置：模型与预算', { exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel('总模型调用上限')).toHaveValue('240');
   await expect(dialog.getByLabel('单次输出预算（0 = 不限制）')).toHaveValue('0');

@@ -153,6 +153,9 @@ mod audit_behaviors;
 #[path = "support/runtime_behaviors.rs"]
 mod runtime_behaviors;
 
+#[path = "support/workflow_behaviors.rs"]
+mod workflow_behaviors;
+
 #[tokio::test]
 async fn concurrent_idempotent_creates_and_conflicting_bodies() {
     let directory = tempfile::tempdir().unwrap();

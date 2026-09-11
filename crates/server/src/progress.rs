@@ -28,8 +28,11 @@ pub(crate) async fn event_phase(
             .await?;
     let explicit = if let Some(role) = role {
         d::role_phase(&role).to_string()
-    } else if kind == "STRUCTURE_COMPLETED" {
-        "STRUCTURE".into()
+    } else if matches!(
+        kind,
+        "STRUCTURE_COMPLETED" | "PREPARATION_COMPLETED" | "STRUCTURE_REUSED"
+    ) {
+        phases[0].id.clone()
     } else if kind == "AUDIT_STARTED" {
         if snapshot.kind == "BINARY" {
             "RECOVERY"
@@ -44,7 +47,7 @@ pub(crate) async fn event_phase(
         "AUDIT_REVIEW".into()
     } else {
         match work_kind.as_deref() {
-            Some("ANALYZE") => "STRUCTURE",
+            Some("ANALYZE") => phases[0].id.as_str(),
             Some("RECOVER") => "RECOVERY",
             Some("RUNTIME") => "RUNTIME",
             _ => "",
@@ -85,7 +88,7 @@ impl Store {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut phases = d::workflow_phases(&run, snapshot.kind == "BINARY", &tasks);
         for phase in &mut phases {
-            if ["STRUCTURE", "RECOVERY", "RUNTIME"].contains(&phase.id.as_str()) {
+            if ["STRUCTURE", "PREPARATION", "RECOVERY", "RUNTIME"].contains(&phase.id.as_str()) {
                 let row: Option<String> = sqlx::query_scalar("SELECT data FROM run_events WHERE run_id=? AND json_extract(data,'$.kind')='TOOL_PROGRESS' AND (json_extract(data,'$.phase_id')=? OR (?=1 AND json_extract(data,'$.phase_id') IS NULL)) ORDER BY seq DESC LIMIT 1")
                     .bind(run_id).bind(&phase.id).bind(phase.order).fetch_optional(&self.pool).await?;
                 if let Some(row) = row {

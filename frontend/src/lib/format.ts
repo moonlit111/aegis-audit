@@ -75,6 +75,12 @@ export type ToolRecord = {
   command: string[];
 };
 export type Summary = {
+  analysis_reuse?: {
+    source_run_id: string;
+    source_artifact_id: string;
+    input_sha256: string;
+    tool_version: string;
+  };
   result_artifact_id?: string;
   required_capability?: string;
   recovery?: RecoverySummary;

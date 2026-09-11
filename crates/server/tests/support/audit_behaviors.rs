@@ -1222,6 +1222,9 @@ async fn audit_budget_rpc_preserves_custom_values_and_rejects_invalid_limits() {
     }
     let default_request =
         json!({"requestId":d::id(),"snapshotId":fixture.snapshot.id,"scope":d::AUDIT_SCOPE});
+    // A different budget is a new round and must wait for the current one to end.
+    assert_eq!(send(default_request.clone()).await.unwrap().status(), 409);
+    store.cancel_run(id).await.unwrap();
     let response = send(default_request)
         .await
         .unwrap()
