@@ -1,0 +1,3 @@
+[正常] NewNonce(rand.Reader, 16) -> "OMKu_Os5TT3LBK0a5JsNNQ" err=<nil>
+[极端] length=math.MaxInt64 -> panic: runtime error: makeslice: len out of range
+[极端] length=负数 -1 -> panic: runtime error: makeslice: len out of range

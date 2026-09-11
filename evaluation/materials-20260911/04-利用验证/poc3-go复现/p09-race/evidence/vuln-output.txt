@@ -1,0 +1,1069 @@
+=== RUN   TestImageEmbedRace
+==================
+WARNING: DATA RACE
+Read at 0x00c0000245e0 by goroutine 15:
+  hash/maphash.(*Hash).initSeed()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:128 +0x28
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:227 +0x65
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c0000245e0 by goroutine 8:
+  hash/maphash.(*Hash).initSeed()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:130 +0x5b
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:227 +0x65
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 8 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0000245e8 by goroutine 15:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:228 +0x87
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c0000245e8 by goroutine 8:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:228 +0x87
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 8 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 15:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 8:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 8 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0000245f0 by goroutine 15:
+  runtime.slicecopy()
+      D:/kechngsheji/tools/go/src/runtime/slice.go:392 +0x0
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:173 +0x230
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c0000245f0 by goroutine 8:
+  runtime.slicecopy()
+      D:/kechngsheji/tools/go/src/runtime/slice.go:392 +0x0
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:173 +0x230
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 8 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0000245e8 by goroutine 12:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:228 +0x87
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous read at 0x00c0000245e8 by goroutine 15:
+  hash/maphash.(*Hash).Sum64()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:251 +0x67
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:142 +0xd7
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 15:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:174 +0x23a
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 10:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:153 +0x55
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 13:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 13 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 10:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:153 +0x75
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 9:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 9 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous read at 0x00c000024670 by goroutine 10:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:154 +0xb1
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous read at 0x00c000024670 by goroutine 11:
+  hash/maphash.(*Hash).Sum64()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:251 +0x44
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:142 +0xd7
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 11 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0000245f9 by goroutine 10:
+  runtime.slicecopy()
+      D:/kechngsheji/tools/go/src/runtime/slice.go:392 +0x0
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:154 +0x104
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c0000245f8 by goroutine 8:
+  runtime.slicecopy()
+      D:/kechngsheji/tools/go/src/runtime/slice.go:392 +0x0
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:173 +0x230
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 8 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 9:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 10:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 9 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 9:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:153 +0x75
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 14:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:174 +0x23a
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 9 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 14 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:153 +0x55
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 11:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:174 +0x23a
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 11 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 9:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:154 +0xb1
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 15:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 9 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x113
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 9:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 9 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 14:
+  hash/maphash.(*Hash).Reset()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:229 +0xa4
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:140 +0x30
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous read at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:156 +0x157
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 14 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 14:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous read at 0x00c000024670 by goroutine 13:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:156 +0x157
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 14 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 13 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 14:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:156 +0x157
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:174 +0x23a
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 14 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 14:
+  hash/maphash.(*Hash).Sum64()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:251 +0x44
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:142 +0xd7
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 12:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 14 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 12 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 14:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:153 +0x55
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 11:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 14 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 11 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c000024670 by goroutine 15:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 8:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 8 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 10:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:154 +0xb1
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 9:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:174 +0x23a
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 9 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 10:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:153 +0x75
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 15:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x131
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 10 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c000024670 by goroutine 11:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:155 +0x113
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Previous write at 0x00c000024670 by goroutine 15:
+  hash/maphash.(*Hash).Write()
+      D:/kechngsheji/tools/go/src/hash/maphash/maphash.go:174 +0x23a
+  github.com/ollama/ollama.(*ImageContext).hashImage()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:141 +0xcd
+  github.com/ollama/ollama.(*ImageContext).NewEmbed()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/image.go:71 +0x8f
+  github.com/ollama/ollama.TestImageEmbedRace.func1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:26 +0x1b9
+  github.com/ollama/ollama.TestImageEmbedRace.gowrap1()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:31 +0x38
+
+Goroutine 11 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+
+Goroutine 15 (running) created at:
+  github.com/ollama/ollama.TestImageEmbedRace()
+      D:/kechngsheji/对照池评测材料-20260911/04-利用验证/poc3-go复现/p09-race/vuln/race_test.go:23 +0xfd
+  testing.tRunner()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2193 +0x1ca
+  testing.(*T).Run.gowrap1()
+      D:/kechngsheji/tools/go/src/testing/testing.go:2258 +0x38
+==================
+    race_test.go:34: 并发 NewEmbed 完成（若存在数据竞争，-race 会在上方输出 WARNING: DATA RACE）
+    testing.go:1865: race detected during execution of test
+--- FAIL: TestImageEmbedRace (0.05s)
+FAIL
+FAIL	github.com/ollama/ollama	0.593s
+FAIL

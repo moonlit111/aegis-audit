@@ -1,0 +1,633 @@
+# AegisAudit 分析报告
+
+项目：对照池评测 20260911-072133
+
+任务：f18ad975-e68e-4b15-9ede-071387deb92a
+
+状态：Partial
+
+目标 SHA-256：b240f9620b88be81f6cc34a7331b6660a6a720e229f3afd277f57f879bea05db
+
+结果快照 · 数据截至 2026-09-11T07:36:00.991Z · 导出时任务状态 PARTIAL。漏洞审计：PARTIAL；独立复核：PARTIAL；模糊测试：NOT\_RUN；运行验证：NOT\_RUN；利用验证：NOT\_RUN。静态复核不代表已在目标上验证漏洞或利用影响。
+
+| 程序单元 | 文件 | 位置 / 地址 | 解析质量 |
+| --- | --- | --- | --- |
+| Add | readline/history.go | L82–L89 | PARSED |
+| Clear | readline/history.go | L100–L102 | PARSED |
+| Compact | readline/history.go | L91–L98 | PARSED |
+| Init | readline/history.go | L39–L80 | PARSED |
+| NewHistory | readline/history.go | L23–L37 | PARSED |
+| Next | readline/history.go | L114–L122 | PARSED |
+| Prev | readline/history.go | L104–L112 | PARSED |
+| Save | readline/history.go | L128–L155 | PARSED |
+| Size | readline/history.go | L124–L126 | PARSED |
+| readline/history.go | readline/history.go | L1–L155 | PARSED |
+
+## 审计策略与优先级
+
+目标为单文件 Go 源码 readline/history.go（10 个单元），属于交互式历史记录模块：既从用户主目录读取持久化文件（外部输入进入内存），又向固定路径写入/重命名文件（文件系统信任边界）。计划按“路径与文件权限 → 输入解析 → 状态机与容量控制 → 序列化写出”排序，重点核对 Init 的路径构造/打开模式、Save 的临时文件与重命名语义、以及 Prev/Next/Compact 的索引与上界一致性。属于 SOURCE 快照，无二进制恢复产物，故 REVERSE 维度仅能就元数据缺口做说明，不能评估加固/混淆质量。
+
+1. u\_1a2cf1820d2a946c9cf0decda01acbb1：信任边界核心：由 UserHomeDir 拼接固定相对路径并用 MkdirAll/OpenFile 打开，需核对路径可控性、0o755 目录与 0o600 文件权限是否符合敏感历史数据（可能含口令/密钥粘贴）的保护预期；同时解析循环在非 EOF 错误处直接返回，且缺少尾行无换行符场景的处理，属外部输入解析优先级最高点。
+2. u\_f9fa7893e92ba948c2befcb41eb1621d：写入侧信任边界：临时路径为 Filename+&quot;.tmp&quot; 固定拼接并以 O\_CREATE\|O\_WRONLY\|O\_TRUNC\|O\_APPEND 且 0o666 打开，需评估已存在路径/符号链接被抢占导致的截断或跟随写入风险，以及 0o666 相对 Init 的 0o600 造成的权限放宽；os.Rename 覆盖语义与错误路径处理也是关键逻辑。
+3. u\_a7fec24212f20ca2b797a6283cfd1b73：Add 在 Autosave 为真时每次调用都触发 Save 且丢弃错误，构成写入频率与静默失败面；同时它更新 Pos=Size，是 Prev/Next 状态一致性的入口，需检查与 Compact 的先后顺序影响。
+4. u\_431cf9060a209511f51e33536e95c3b2：容量控制逻辑：Limit 的上界裁剪决定历史文件与内存占用上限，需核实 Limit&lt;=0 或零值时是否退化为清空/异常行为，以及每次 Add 的 O\(n\) 删除是否构成可控资源消耗。
+5. u\_66dea2ddc1a188814cb618fbdbd72080：索引状态机：Pos 递减与 Buf.Get 的类型断言，需核实边界条件下返回空值与位置漂移是否导致历史展示错误或信息泄漏（读到非预期条目）。
+6. u\_ab0eb8a45e9782bea1c76b442a73173e：Next 在 Pos&lt;Size 时自增后再取值，存在越界后仍修改状态的嫌疑，需核对与 Prev 的对称性及上层调用假设，属重要逻辑而非词法线索。
+7. u\_281de0d35ce688459e847835e40d9d8e：Clear 只清空缓冲区却未重置 Pos，需评估后续 Prev/Next 的状态不一致是否会导致错误索引或空条目语义混乱。
+8. u\_15d40bb71dad2ebf291df562da920f33：构造函数固化 Limit=100、Autosave/Enabled 默认值，需确认这些字段是否暴露给外部配置；若上层可注入，则 Limit/Filename/Enabled 均成为配置层信任边界。
+9. u\_3d9d65a4be72637e12dd4ce9d1579020：Size 被 Compact/Save/Next 复用于容量与循环上界，需确认其在并发或迭代中修改集合时的一致性；数据竞争未被工具覆盖。
+10. u\_a8e93aaa3795872845e21ba345b81bd9：模块级单元：汇总字段语义（Enabled/Autosave/Filename）与跨函数不变式，用于校验上述各点是否构成同一类文件持久化弱点而非孤立点。
+
+规划限制：构建系统、入口、输入接口与依赖清单均未识别（run\_config 中 entries/inputs/dependencies 为空），无法确认外部输入如何到达本模块，也无法执行/复现验证。
+
+规划限制：call\_graph\_complete=false 且目标仅含 1 个文件：NewHistory/Add/Save 的调用方（谁设置 Limit/Filename/Enabled、历史内容是否回显到终端）不在范围内，路径可控性与权限放宽的实际影响只能标注为待证缺口。
+
+规划限制：Semgrep 状态 UNSUPPORTED，仅使用内建线索；scan\_rules/key\_logic\_candidates 未调用，未获得额外的授权/加密候选证据，所有判断均基于原始终源码行。
+
+规划限制：vulnerability\_audit 与 verification 均为 NOT\_RUN，本计划不构成漏洞结论；任何候选问题需在后续阶段以原始行级证据确认或否定。
+
+规划限制：recovery 为 null、analysis\_scope=STRUCTURE\_ANALYSIS 且无任何已记录的转换（解包/反混淆/反编译）产物，故 REVERSE 维度的二进制恢复质量与保护缺口无法评估，不得声称已做解包或去混淆。
+
+规划限制：第三方库 github.com/emirpasic/gods/lists/arraylist 的行为（Get/Remove 边界、类型断言结果）未在目标内提供，相关索引假设需另行核实。
+
+## 发现与复核
+
+静态结论范围：COMPONENT
+
+### 历史记录目录以 0755 创建，权限过宽（本地其他用户可遍历/干扰历史存储目录）
+
+CWE-276 · LOW · 复核 REJECTED · 验证 NOT\_RUN
+
+输入：os.UserHomeDir\(\) 返回的主目录路径，经 filepath.Join\(home, &quot;.ollama&quot;, &quot;history&quot;\) 构造的固定相对子路径
+
+危险操作：os.MkdirAll\(filepath.Dir\(path\), 0o755\) 创建/放开 ~/.ollama 目录权限
+
+防护缺口：缺少对目录模式的最小权限设定（如 0o700）以及对已存在目录权限的检查/收紧；也未校验 MkdirAll 目标是否为符号链接或已存在的宽松权限目录。
+
+前提：本地多用户环境；用户主目录对同机其他用户可达（常见于共享主机/容器挂载卷）。
+
+影响：同机其他用户可枚举 ~/.ollama 目录下文件、在目录内预置条目，为后续 Save 的临时文件与重命名流程（本模块其他函数）创造条件；历史文件内容本身因 0o600 未直接泄露。
+
+修复：以 0o700 创建目录，并在检测到已存在目录权限过宽时收紧（chmod）或拒绝继续；如需兼容旧行为，至少在文档与初始化流程中提示权限风险。
+
+- 证据：readline/history.go L46–46 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	if err := os.MkdirAll\(filepath.Dir\(path\), 0o755\); err \!= nil {
+- 证据：readline/history.go L45–48 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	path := filepath.Join\(home, &quot;.ollama&quot;, &quot;history&quot;\) 	if err := os.MkdirAll\(filepath.Dir\(path\), 0o755\); err \!= nil { 		return err 	}
+- 证据：readline/history.go L52–52 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	f, err := os.OpenFile\(path, os.O\_CREATE\|os.O\_RDONLY, 0o600\)
+
+复核 v2（MODEL，REJECTED）：原始代码确实在第 45-46 行用 filepath.Join\(home,&quot;.ollama&quot;,&quot;history&quot;\) 构造路径并以 os.MkdirAll\(filepath.Dir\(path\), 0o755\) 创建 ~/.ollama。0o755 对 other 只给出 r-x（可列出/可穿越），不给出 w，因此候选所主张的‘同机其他用户可在目录内预置条目、为后续 Save 临时文件/重命名流程创造条件’在其自身接口内即被证伪：Save 使用的临时文件与重命名目标都位于同一目录，而该目录对 other 不可写（U0001 第133-150行）。剩余可见效果仅为列出一个文件名（history），而真正承载历史内容的对象本身以 0o600 创建（U0003 第52行），内容机密性并不因目录模式 0755 而泄露。就本组件接口而言，将目录从 0755 收紧到 0700 属于纵深防御建议，而非由源代码证明的安全缺陷。
+
+反证：目录模式 0o755 未授予 other 写权限，故‘预置目录条目/污染 history.tmp’的完整性攻击不成立；历史内容文件以 0o600 创建（U0003:52），未因父目录宽松而可被他人读取；MkdirAll 对已存在目录不改变其权限，且 .ollama 通常由服务/用户先创建，本组件并非权限的唯一决定者；在共享主机上 0755 目录本身不泄露文件内容。
+
+待补信息：真实部署的 umask、~/.ollama 是否已由其它组件以更严权限预先创建、以及运行环境是否为多用户共享主机。这些不影响本组件层面 0755 目录对 other 不可写、内容文件 0600 的静态结论。
+静态结论范围：COMPONENT
+
+### 以固定路径打开历史文件且未防符号链接，可读取非预期文件内容
+
+CWE-59 · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：文件系统状态：~/.ollama/history 若为指向其他文件的符号链接
+
+危险操作：os.OpenFile\(path, os.O\_CREATE\|os.O\_RDONLY, 0o600\) 按路径打开并随后逐行读取
+
+防护缺口：缺少打开前/打开时的符号链接与文件身份校验（如 O\_NOFOLLOW、对已存在路径做 Lstat 检查、拒绝非常规文件），也未使用 openat 风格的目录句柄约束。
+
+前提：攻击者能先在用户主目录的 ~/.ollama/ 下创建符号链接（需本地写入能力或目录权限过宽，参见同单元 0o755 目录创建）。
+
+影响：Init 会跟随符号链接读取目标文件内容并作为历史条目载入内存，可能泄露进程后续可见的其他文件内容（限本模块展示与后续 Save 回写路径），并可能被用来在写回阶段影响目标文件。
+
+修复：打开前用 os.Lstat 校验目标为常规文件、非符号链接；可行时使用 O\_NOFOLLOW（平台支持时）并以 0o600 打开，目录权限收敛为 0o700。
+
+- 证据：readline/history.go L52–52 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	f, err := os.OpenFile\(path, os.O\_CREATE\|os.O\_RDONLY, 0o600\)
+- 证据：readline/history.go L50–50 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	h.Filename = path
+- 证据：readline/history.go L45–45 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	path := filepath.Join\(home, &quot;.ollama&quot;, &quot;history&quot;\)
+
+复核 v2（MODEL，INCONCLUSIVE）：Init\(\) 打开的是完全由 os.UserHomeDir\(\) 拼出的固定路径 ~/.ollama/history（第40、45行），不接受任何调用者参数，因此不存在经典 ../ 穿越，也没有函数参数把外部输入带入打开操作。os.OpenFile 的确未使用 O\_NOFOLLOW、也未先 Lstat 校验常规文件（第52行），若该路径预先是指向其他文件的符号链接，open 会跟随符号链接（Go 语言语义）并把目标内容逐行读入历史缓冲（第61-77行）——这在语义上是真实存在的防跟随缺口，且属于本组件接口内的行为，不依赖 HTTP 路由。但本组件接口本身没有任何可控输入：要成立该攻击，必须先存在“攻击者能在用户家目录 ~/.ollama/ 下创建符号链接”这一额外能力，候选自述的输入源正是该文件系统状态而非调用参数。该前提在源码中无法被证实，反而代码以 0o755 创建目录（第46行）意味着只有家目录属主可写该目录；低权限本地攻击者要植入符号链接需依赖目录权限已被放宽等外部条件，属于未证明的额外攻击者权限。同时，读入的内容仅成为 HDD 历史条目，未越过本进程本就可读的文件边界，实际影响有限。缺少符号链接可被攻击者预置的证据，故不能判 VALIDATED，也不能仅凭 0o755 断然 REJECTED。
+
+反证：路径完全由 os.UserHomeDir\(\) 决定，无参数、无用户可控相对路径（第40、45行）；目录由 MkdirAll 以 0o755 创建，默认仅属主可写，削弱低权限攻击者在家目录植入符号链接的可能（第46行）；文件以 0o600 打开（第52行）；无外部输入直接到达 open 调用。
+
+待补信息：缺少“攻击者能在该用户家目录 ~/.ollama/（或其祖先）创建/替换符号链接”的部署事实，例如目录权限被放宽、以高权限进程服务多用户、或存在可写前缀目录；同样未证明后续 Save 回写路径是否复用同一符号链接状态。
+静态结论范围：COMPONENT
+
+### 按行读取历史文件无长度与总量上限，可将任意长度内容载入内存
+
+CWE-770 · MEDIUM · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：用户主目录下 ~/.ollama/history 文件内容（外部可写入的持久化文件）
+
+危险操作：r.ReadString\(&#39;\\n&#39;\) 读取任意长度行，并在 h.Add\(\[\]rune\(line\)\) 处把整行强制转换为 rune 切片加入缓冲区
+
+防护缺口：缺少单行最大字节/字符数校验、文件总大小上限，以及在写入缓冲区前对长度做截断或跳过的防御。
+
+前提：攻击者或同机其他用户能够写入/替换 ~/.ollama/history（该路径由主目录拼装，无内容来源校验）。
+
+影响：启动（NewHistory→Init）时内存被超大行放大（\[\]rune 为每字符 4 字节量级），可导致内存耗尽/进程不可用；同时 Init 每读一行都会调用 Add，而 Add 在 Autosave 开启时触发 Save，产生重复全量写盘，放大 I/O 与启动耗时。
+
+修复：读取时使用带上限的 bufio.Scanner 或 io.LimitReader；对单行长度与累计条目字节数设置上限，超限时丢弃并记录；避免在加载阶段对每一行触发全量重写。
+
+- 证据：readline/history.go L63–63 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：		line, err := r.ReadString\(&#39;\\n&#39;\)
+- 证据：readline/history.go L76–76 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：		h.Add\(\[\]rune\(line\)\)
+- 证据：readline/history.go L91–98 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：func \(h \*History\) Compact\(\) { 	s := h.Buf.Size\(\) 	if s &gt; h.Limit { 		for cnt := 0; cnt &lt; s-h.Limit; cnt++ { 			h.Buf.Remove\(0\) 		} 	} }
+- 证据：readline/history.go L82–89 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：func \(h \*History\) Add\(l \[\]rune\) { 	h.Buf.Add\(l\) 	h.Compact\(\) 	h.Pos = h.Size\(\) 	if h.Autosave { 		\_ = h.Save\(\) 	} }
+
+复核 v2（MODEL，INCONCLUSIVE）：组件内确实存在无界读取：U0003 Init 用 bufio.Reader.ReadString\(&#39;\\n&#39;\) 读整行（Go 的 ReadString/ReadBytes 无行长上限），TrimSpace 后仅在 len\(line\)==0 时跳过，随后 h.Add\(\[\]rune\(line\)\) 把整行按 \[\]rune 展开（每字符约 4 字节 plus 原始 string），因此单行内容可被放大后长期驻留缓冲区。容量控制 U0001 Compact 只按“条目数”比较 h.Limit\(=100\) 并 Remove\(0\)，对单条目的字节/字符长度没有任何上限，故“长度与总量上限缺失”这一防御缺口在组件内成立；Add 在 Autosave 默认 true 且 Init 由 NewHistory 调用时会对每行触发一次 Save\(\) 全量重写，也确实构成额外 I/O 放大。但这些行为要构成被利用的内存/IO 耗尽，必须有人能把超大内容写入 ~/.ollama/history；源码中该路径由 os.UserHomeDir\(\)+&#39;.ollama/history&#39; 拼出，目录以 0o755 MkdirAll、文件以 0o600 打开，快照内没有证据表明非属主可写该文件或目录，因此“攻击者可控的持久化文件内容”这一额外前提未能证实，无法在组件边界外升级为确定的部署级漏洞。
+
+反证：存在两处限制但不覆盖本缺陷：\(1\) U0003 第71-74行 TrimSpace + 空行跳过，只能削弱空白行；\(2\) U0001 Compact（91-98行）按条目数裁剪至 Limit=100，能限制最多保留 100 条记录，但不限制任何单条记录的字符/字节长度，因此一条超长行仍会被完整读入并转成 \[\]rune。此外文件创建权限为 0o600、父目录 0o755，属于对“第三方可写”这一前提的反证性证据（但不排除同用户进程或 Save 生成的 .tmp 以 0o666 重命名后受 umask 影响）。
+
+待补信息：\(1\) ~/.ollama 与 history 文件在真实部署中的最终权限（受 umask 影响，Save 的 .tmp 用 0o666 重命名）以及是否存在以该用户身份运行的第三方写入者；\(2\) 是否存在其它组件/插件向该文件写入非用户产生的大内容；\(3\) 可达到的最大文件/单行规模，用于判断耗尽是否现实（缺少运行观测）。这些属于条件性组件契约与外部条件，无法由本快照确定。
+静态结论范围：COMPONENT
+
+### 历史文件临时副本以可预测路径和 0o666 创建并直接 rename，缺少 O\_EXCL/NOFOLLOW 与权限回收
+
+CWE-377 · MEDIUM · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：h.Filename：由 Init 经 os.UserHomeDir\(\)+filepath.Join\(home, &quot;.ollama&quot;, &quot;history&quot;\) 派生（U0003 第 40-50 行）；Save 直接拼接 h.Filename + &quot;.tmp&quot;，路径完全可预测。
+
+危险操作：os.OpenFile\(tmpFile, os.O\_CREATE\|os.O\_WRONLY\|os.O\_TRUNC\|os.O\_APPEND, 0o666\) 打开写入，随后 os.Rename\(tmpFile, h.Filename\) 覆盖真实历史文件
+
+防护缺口：未使用 os.O\_EXCL / O\_NOFOLLOW，未在打开前用 Lstat 拒绝已存在或为符号链接的 tmp 路径，也未调用 os.Chmod 将权限收回至 Init 中使用的 0o600；因此 tmp 文件若被预先放置为符号链接会被跟随截断写入，成功 rename 后历史文件权限实际由 0o666&amp;^umask 决定。
+
+前提：攻击者需对 ~/.ollama 目录（Init 第 46 行以 0o755 创建，同机用户可读/可进入）具备写权限，或目标以高权限运行而目录被低权限者可写；未识别到调用方对 Filename 的额外校验或运行环境（缺少构建/入口信息，见 limitations）。
+
+影响：同机其他用户可读取本应 0o600 的 shell 历史（凭据、内部地址泄露）；若 tmp 路径被预置为指向其他可写文件的符号链接，本次写入与 rename 会造成该目标文件被截断/覆盖（数据破坏）。
+
+修复：改用 os.CreateTemp 生成不可预测文件名或在打开时加 os.O\_EXCL\|os.O\_NOFOLLOW 并显式 os.Chmod\(tmpFile, 0o600\)；写入完成后校验错误再 rename，并考虑对历史文件目录收紧为 0o700。
+
+- 证据：readline/history.go L135–135 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	f, err := os.OpenFile\(tmpFile, os.O\_CREATE\|os.O\_WRONLY\|os.O\_TRUNC\|os.O\_APPEND, 0o666\)
+- 证据：readline/history.go L133–133 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	tmpFile := h.Filename + &quot;.tmp&quot;
+- 证据：readline/history.go L150–150 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	if err = os.Rename\(tmpFile, h.Filename\); err \!= nil {
+- 证据：readline/history.go L45–52 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	path := filepath.Join\(home, &quot;.ollama&quot;, &quot;history&quot;\) 	if err := os.MkdirAll\(filepath.Dir\(path\), 0o755\); err \!= nil { 		return err 	}  	h.Filename = path  	f, err := os.OpenFile\(path, os.O\_CREATE\|os.O\_RDONLY, 0o600\)
+
+复核 v2（MODEL，INCONCLUSIVE）：静态事实成立的部分: Save 用 h.Filename + &quot;.tmp&quot; 组成可预测临时路径\(U0010:133\),以字面量 0o666 打开\(U0010:135,仅有 O\_CREATE\|O\_WRONLY\|O\_TRUNC\|O\_APPEND,无 O\_EXCL/O\_NOFOLLOW\),随后 os.Rename 覆盖真实历史文件\(U0010:150\);而 Init 首次是以 0o600 创建该文件\(U0003:52\),rename 保留 inode 权限,故首次 Save 后历史文件权限实际降级为 0o666&amp;^umask\(常见 umask=022 即 0o644\),在 0o755 目录\(U0003:46\)下可被同机其他用户读取——这是一个由源码直接决定、与 umask 相关的本地机密性降级,缺陷方向正确。但候选的核心攻击\(预置符号链接→跟随截断/覆盖任意文件\)所依赖的作恶能力未被证明:要在 ~/.ollama/history.tmp 放置符号链接,攻击者必须对 ~/.ollama 具备写权限,而该目录由运行用户以 0o755 创建,代码与既有证据均未显示存在低权限者可写的情况;h.Filename 由 os.UserHomeDir\(\)+&quot;.ollama/history&quot; 固定派生\(U0003:45\),不受任何调用方字符串控制。因此路径可预测性成立的只是&quot;缺少排他/防跟随打开&quot;这一防御缺口,而将其升级为任意文件覆盖需要额外且未证实的本地文件系统前置条件,属 UNKNOWN。
+
+反证：Init 以 0o755 MkdirAll 创建目录、以 0o600 创建历史文件\(U0003:46,U0003:52\),未提供该目录对他人可写的证据;h.Filename 为 os.UserHomeDir\(\) 拼接固定后缀,非攻击者可控字符串;Save 不接收参数,无外部路径输入。
+
+待补信息：1\) ~/.ollama 目录是否因部署/权限配置对非属主可写\(决定符号链接前置条件是否成立\);2\) 进程 umask 值\(决定降级后是 0o600 还是 0o644\);3\) 是否存在其他本地写入该目录的途径。以上均缺失,故无法将任意覆盖主张判定为已验证。
+静态结论范围：COMPONENT
+
+### 历史文件临时文件以 0o666 创建，历史内容可能对本机其他用户可读写
+
+CWE-276 · MEDIUM · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：h.Filename 为固定构造路径 \(&lt;home&gt;/.ollama/history\)，内容来自历史记录缓冲区（由 Add/Init 填充）
+
+危险操作：os.OpenFile\(tmpFile, os.O\_CREATE\|os.O\_WRONLY\|os.O\_TRUNC\|os.O\_APPEND, 0o666\)，随后 os.Rename 覆盖正式历史文件
+
+防护缺口：创建模式未使用 0o600（Init 读取时用的是 0o600），未校验/收紧 umask 或既有文件的属主与权限，也未检查 h.Filename 所属目录的所有者
+
+前提：多用户主机 + 宽松 umask（或目标路径已被他人预置），攻击者与受害进程同机不同用户
+
+影响：历史记录（可能包含提示词、路径、命令等敏感内容）被其他本地用户读取；若可写则可注入伪造历史行或破坏数据完整性
+
+修复：临时文件与最终文件统一以 0o600 创建（必要时先 MkdirAll 到 0o700 私有目录并 umask 掩码），重命名前校验目标属主，避免 O\_TRUNC\|O\_APPEND 组合歧义
+
+- 证据：readline/history.go L135–135 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	f, err := os.OpenFile\(tmpFile, os.O\_CREATE\|os.O\_WRONLY\|os.O\_TRUNC\|os.O\_APPEND, 0o666\)
+- 证据：readline/history.go L150–150 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	if err = os.Rename\(tmpFile, h.Filename\); err \!= nil {
+- 证据：readline/history.go L52–52 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	f, err := os.OpenFile\(path, os.O\_CREATE\|os.O\_RDONLY, 0o600\)
+
+复核 v2（MODEL，INCONCLUSIVE）：U0010.Save\(\) 第135行确实以 os.O\_CREATE\|os.O\_WRONLY\|os.O\_TRUNC\|os.O\_APPEND 与权限 0o666 对 h.Filename+&quot;.tmp&quot; 调用 os.OpenFile，第150行再用 os.Rename 覆盖正式历史文件；而同一模块的读取路径 U0001 第52行以 0o600 打开该文件，表明设计意图是该文件仅属主可访问，写入路径的 0o666 明显更宽松，构成真实的默认权限缺口（DEFENSE\_GAP 成立），且内容（h.Buf 中的历史行）在 Save 内直接写入该文件（INPUT\_CONTROL/REACHABILITY 成立）。但 0o666 只是创建模式，最终权限位会被进程 umask 掩码：只有在 umask 未收紧（如常见 022→0o644 他人可读，002→0o664，000→可写）且主机存在其他本地用户时，才会产生“其他用户可读/可写历史”的机密性与完整性影响；umask 为 0o077 时结果为 0o600，不产生跨用户暴露。仅凭本组件源码无法确定 umask 与多用户部署，该决定性环境条件缺乏证据，故整体利用/暴露结论为 INCONCLUSIVE。
+
+反证：0o666 是请求的创建模式而非最终权限，最终权限由进程 umask 决定，umask 0o077 时该风险不成立。os.Rename 为原子替换，写入后立刻重命名，不存在普遍意义的 check-then-use 或竞态窗口（本条不构成本候选的漏洞）。代码中既无 chmod/权限收紧，也未在重命名前校验既有目标文件的属主或权限，因此不存在能反驳“默认权限过宽”的既有防护。
+
+待补信息：进程实际 umask；受害主机是否为多用户并存在其他本地用户；目标目录/文件是否被他人预置（O\_CREATE 对已存在文件不改变其权限位，但此处为 .tmp 新路径，重命名后正式文件继承 .tmp 权限）。这些均为组件边界之外、决定暴露是否成立的环境条件。
+静态结论范围：COMPONENT
+
+### Add 自动保存忽略 Save 返回错误，历史写入失败被静默丢弃
+
+CWE-703 · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：Autosave=true 时每次 Add 触发的写出请求，写目标为 h.Filename 对应的临时文件
+
+危险操作：\_ = h.Save\(\) 丢弃错误返回值；Save 内部对 buf.Flush\(\)、f.Close\(\) 与 os.Rename 的错误同样未聚合返回
+
+防护缺口：未检查 Save 返回值，未在失败时告警/回退（例如禁用 Autosave 或记录日志），Add 无返回值无法上抛
+
+前提：磁盘空间不足、目录被替换为只读或重命名跨设备失败等 I/O 错误场景
+
+影响：历史记录静默丢失或部分写入；用户重启后无法恢复会话历史，且无任何诊断信息
+
+修复：检查并至少记录 Save 错误（或让 Add 返回 error 给上层），Save 中聚合 Flush/Close/Rename 错误并在失败时保证不清空既有历史文件
+
+- 证据：readline/history.go L87–87 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：		\_ = h.Save\(\)
+- 证据：readline/history.go L147–148 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	buf.Flush\(\) 	f.Close\(\)
+
+复核 v2（MODEL，INCONCLUSIVE）：代码事实基本成立：U0004 第 87 行 \`\_ = h.Save\(\)\` 丢弃了 Save 的返回值，U0010 第 147-148 行对 \`buf.Flush\(\)\` 与 \`f.Close\(\)\` 的错误也未聚合，仅在 150-152 行把 \`os.Rename\` 的错误返回。但该候选描述的“危险后果（历史静默丢失）”只有在底层文件 I/O 失败时才会出现，而该失败条件并非由本组件的函数参数或语义控制：Add 的入参 l 只提供被写入的历史文本，不决定写盘成败；触发路径依赖磁盘满、目录只读、跨设备重命名失败或由外部主体对 Filename/.tmp 路径的篡改等环境/文件系统前置条件，这些在本组件边界内未被证据支持，也无法判定由调用方参数左右。因此这是一个真实的错误处理缺陷（健壮性/可用性），但按当前组件接口尚不足以证明为受输入控制的安全问题。
+
+反证：存在部分防护：Save 对 \`os.OpenFile\` 与 \`os.Rename\` 的失败会返回错误（135-138、150-152），且 128-131 行以 \`h.Enabled\` 做早退保护；写入使用临时文件 + 原子 rename，单次失败不会截断既有历史文件，说明“失败即清空历史”的说法不成立。请勿把错误被忽略本身直接当作已被利用的安全漏洞。
+
+待补信息：缺少证据表明 Add/Save 的输入（或任何调用方可控数据）能够导致或放大 I/O 失败；也不存在调用方对 Filename/.tmp 路径、目录权限或并发写入的可控性证据。该缺陷的实际安全影响需在具体的部署与调用上下文（谁能触发写入、能否造成磁盘满/只读/路径替换）中评估。
+静态结论范围：COMPONENT
+
+### 历史记录条目长度无上限，Add 会把任意长度输入直接放入内存缓冲区（经 Init 读入的持久化文件行无长度约束）
+
+CWE-770 · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：readline/history.go:63 由 Init 从 ~/.ollama/history 逐行读取的持久化行（在 U0001 的循环中作为 Add 的入参），以及交互式输入经同包调用传入的 \[\]rune
+
+危险操作：h.Buf.Add\(l\) 将整条输入无长度检查地追加进 arraylist；随后 h.Size\(\)/h.Save\(\) 按条数遍历整缓冲区
+
+防护缺口：Add/Compact 均未对单条记录做长度上限或截断（Compact 仅按 Size 与 Limit 裁剪条数），也没有对超长行的拒绝分支
+
+前提：本地历史文件可被写大行（例如先前以其他权限写入、或被同机其他进程/用户污染），或调用方传入超长行
+
+影响：进程内存随单条记录长度线性增长，可能造成内存耗尽或卡顿；同时整缓冲区在 Save 时被整体序列化，放大 I/O 开销
+
+修复：在 Add 入口或 Init 读行处施加最大条目长度（含 ReadString 的字节上限），超限时截断或跳过并记录；明确 Limit 同时覆盖条数与字节量
+
+- 证据：readline/history.go L83–83 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	h.Buf.Add\(l\)
+- 证据：readline/history.go L63–63 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：		line, err := r.ReadString\(&#39;\\n&#39;\)
+- 证据：readline/history.go L84–84 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	h.Compact\(\)
+- 证据：readline/history.go L142–146 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	for cnt := 0; cnt &lt; h.Size\(\); cnt++ { 		v, \_ := h.Buf.Get\(cnt\) 		line, \_ := v.\(\[\]rune\) 		buf.WriteString\(string\(line\) + &quot;\\n&quot;\) 	}
+
+复核 v2（MODEL，INCONCLUSIVE）：组件内静态事实基本成立：Add 的唯一参数 l \[\]rune 未经任何长度检查即被 h.Buf.Add\(l\) 写入内存缓冲区\(U0004 第82-83行\)，Compact 只比较 h.Buf.Size\(\) 与 h.Limit 并按“条数”Remove\(0\)\(U0005 第91-96行\)，对单条记录的字符/字节量没有上限或截断；Init 读入路径同样不限长（ReadString\(&#39;\\n&#39;\)，U0001 第62-63行），TrimSpace 后直接 h.Add\(\[\]rune\(line\)\)\(U0001 第71-76行\)，默认 Limit=100、Autosave=true 时 Add 会紧接着 Save 遍历序列化整个缓冲区。即“Add 无单条长度上限”这一组件级缺陷本身有源码支持，属 CWE-770 类资源增长，严重度 LOW。但审定结论要求全部必要条件 SUPPORTED：该候选所主张的实际放大路径依赖“历史文件可被写大行”这一额外本机写入权力（U0001 第45-52行为同用户 0600 私有的 ~/.ollama/history），源内无证据表明存在该外部写入者，也无法观察真实终端能否稳定提供超长单行输入，故整体判为 INCONCLUSIVE 而非 VALIDATED。
+
+反证：consider：Compact 限制条目数量\(100\)可阻止条数无限累积；Init 以 O\_CREATE\|O\_RDONLY 与 0600 打开同用户私有路径；逐行 bufio 读取；失败模式为内存线性增长/卡顿与 Save I/O 放大，而非越界或代码执行。这些减少影响面，但均不约束单条记录字节量，因此不构成对“无长度上限”该组件事实的反证。
+
+待补信息：1\) 历史文件被非同用户进程/其他权限污染的具体机制与证据（0600 同用户私有，未证明存在外部写入者）；2\) 交互式调用方在实际终端下能否稳定传入超长单行 \[\]rune；3\) 未运行/未实测内存上界与 OOM 阈值。上述缺失正是无法判定为 VALIDATED 的原因。
+静态结论范围：COMPONENT
+
+### Next\(\) 的边界守卫差一，Pos 自增后可等于 Size 并访问越界索引
+
+CWE-193 · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：交互式历史导航状态 h.Pos（由 Prev/Next 用户按键驱动，Add/Compact 亦会改写 Pos），非外部字符串输入。
+
+危险操作：h.Buf.Get\(h.Pos\)（arraylist.List 的按索引读取），随后 v.\(\[\]rune\) 类型断言取回历史行。
+
+防护缺口：自增前应将上界收紧为 h.Pos &lt; h.Buf.Size\(\)-1，或在自增后再次校验 h.Pos &lt; h.Buf.Size\(\) 并将 Pos 夹紧在 \[0, Size\]；同模块的 Prev 采用先减后取写法从而规避同类问题（见 U0007 第 107-109 行），Next 未采用对称写法。
+
+前提：History 中至少有一条记录且 Pos 位于最后一个元素（例如 Init 后 Add 会把 Pos 置为 Size，随后一次 Prev 落到 Size-1，再调用 Next 即触发）。
+
+影响：Next 在末尾返回 nil 而非最后一条记录，并让 Pos 停留在 Size，造成 Pos 与 Size 区间语义不一致；若把 Buf 换成直接切片索引的实现，同一调用点会退化为越界读取（潜在 panic 或读到相邻内存）。在当前快照中主要表现为历史浏览功能异常与状态失同步，无已证实的机密性/完整性影响。
+
+修复：将守卫改为 h.Pos &lt; h.Buf.Size\(\)-1 或在自增后夹紧 Pos，并把 Add/Compact 对 Pos 的改写一并纳入不变式（Pos ∈ \[0, Size\]）；为 Buf 的越界语义增加显式断言/单元测试，避免依赖第三方列表的隐式返回约定。
+
+- 证据：readline/history.go L117–118 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：		h.Pos += 1 		v, \_ := h.Buf.Get\(h.Pos\)
+- 证据：readline/history.go L116–116 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	if h.Pos &lt; h.Buf.Size\(\) {
+
+复核 v2（MODEL，INCONCLUSIVE）：守卫 U0008:116 在自增前检查 h.Pos &lt; h.Buf.Size\(\)，随后 U0008:117 自增使 h.Pos 可达 Size，U0008:118 再把该值传给 Get，即索引可等于 Size（有效区间 \[0,Size-1\] 之外）。该状态可达：Add 把 Pos 置为 Size（U0004:85），Prev 在 Pos&gt;0 时递减（U0007:106-107）得到 Pos=Size-1，再调用 Next 即触发。故‘守卫差一 + 越界索引可达’这一静态事实成立。但候选所主张的 MEMORY\_BOUNDS 后果（panic 或读到相邻内存）取决于未随快照提供的 Buf 实现：Get\(Size\) 是否做内部边界检查无法从本快照源证证实，也无法以源证反驳，故内存不安全后果无法确定。
+
+反证：守卫本身存在且发生在自增之前；若 Buf.Get 对 index==Size 先做范围检查并安全返回（nil/false），则不产生内存不安全，调用点语义退化为返回空行。Prev 的对称写法（U0007:104-109）只能说明同模块有另一种边界处理，不能证明 Next 必然内存越界。快照内无任何源码表明 Buf 会 panic 或指数组越界。
+
+待补信息：Buf 的具体实现（候选称为 github.com/emirpasic/gods/lists/arraylist）不在快照中，其 Get 对 index==Size 的行为未知；亦无调用方/部署证据说明 Next 在实际历史导航中的使用方式。
+静态结论范围：COMPONENT
+
+### Clear 清空列表后未重置游标 Pos，Prev/Next 会以越界索引访问历史列表
+
+CWE-129 · LOW · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：交互式 readline 的按键驱动的历史浏览（Prev/Next），以及外部对 Clear 的调用；Clear 无本文件内调用者，触发路径为外部调用 Clear 后、再次 Add 之前浏览历史。
+
+危险操作：h.Buf.Get\(h.Pos\)（通过 Prev/Next 使用被 Clear 遗留的 h.Pos 作为下标）
+
+防护缺口：Clear 内未把 h.Pos 复位（例如 h.Pos = 0），Prev/Next 也未用 Buf.Size\(\) 对 Pos 做上界一致性校验
+
+前提：1\) 历史中已有条目使 h.Pos == Size\(\)；2\) 调用 h.Clear\(\) 清空 Buf；3\) 在随后的 Add 之前触发 Prev（或任何以 Pos 为下标读取列表的路径）
+
+影响：越界下标被传入列表 Get；若底层实现不做边界检查则可能 panic/异常，若做检查则返回 nil，导致历史行为不一致（返回空行、状态机错乱），但不泄露或破坏内存
+
+修复：在 Clear 中显式复位游标（h.Pos = 0）并在 Prev/Next 中同时校验 Pos 与 Buf.Size\(\) 的一致性；如 Clear 语义包含持久化清理，还应明确是否同步磁盘文件
+
+- 证据：readline/history.go L101–101 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	h.Buf.Clear\(\)
+- 证据：readline/history.go L106–109 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	if h.Pos &gt; 0 { 		h.Pos -= 1 	} 	v, \_ := h.Buf.Get\(h.Pos\)
+
+复核 v2（MODEL，INCONCLUSIVE）：源码证实状态缺陷：U0006 的 Clear\(\) 仅执行 h.Buf.Clear\(\)，未复位 h.Pos；U0007 的 Prev\(\) 只用 h.Pos&gt;0 做下界判断，随后以 h.Pos 作为下标调用 h.Buf.Get\(h.Pos\)。而 U0004 的 Add 把 h.Pos 置为 h.Size\(\)。因此在 Clear\(\) 之后、下一次 Add 之前调用 Prev\(\)，会把一个相对空列表越界的下标（如旧 Size 减 1）交给列表 Get，越界下标流是真实且可达的。但该 Get 是否触发越界内存访问/panic，取决于 gods/arraylist.List.Get 内部是否做边界检查，该依赖源码不在本快照内，无法验证；且 U0008 的 Next 在正常路径下也会先自增再 Get\(等于 Size 的下标\)，暗示该列表 API 对边界下标是容忍的。既然决定性的内存语义证据缺失，MEMORY\_BOUNDS（CWE-129）结论既不能证实也不能据原始源码推翻，只能判为不确证。
+
+反证：Clear\(\) 与 Prev\(\) 是同一 \*History 的公开方法，调用者可在组件边界内按序调用；越界下标确实到达 sink。但：\(1\) 实际内存访问发生在外部依赖 arraylist.List.Get 内，其边界校验（若有）会直接消解本发现；\(2\) U0008 Next 的正常流程依赖列表容忍 index==Size 的访问，指向该 API 会安全返回而非越界破坏；\(3\) Prev 在越界时 v 为 nil，经 v.\(\[\]rune\) 得到 nil，最坏结果是返回空行/状态不一致，候选自身也承认不构成内存破坏。
+
+待补信息：1\) gods/arraylist.List.Get 及其 withinRange 的源码与语义（是否返回 \(nil,false\) 而不做越界切片访问）；2\) Clear\(\) 的全体调用点（本文件内无调用者），以确认 Clear→Prev 序列在真实交互路径中是否出现；3\) 该序列所需的具体运行时状态（历史非空使 Pos==Size）。
+静态结论范围：COMPONENT
+
+### 创建历史记录对象时无上限加载并逐行触发全量重写（IO 放大）
+
+CWE-400 · MEDIUM · 复核 UNREVIEWED · 验证 NOT\_RUN
+
+输入：用户主目录下的本地文件 ~/.ollama/history（由 Init 逐行读取，本地攻击者/其他进程可预置）
+
+危险操作：h.Init\(\) 调用后在 Init 内对每一行调用 h.Add（U0003:76），而 Add 在 Autosave 为真时每次调用 Save 全量重写并 os.Rename 覆盖历史文件（U0004:86-87、U0010:135、U0010:150）
+
+防护缺口：NewHistory 默认开启 Autosave（U0002:24-29），Init 加载路径未限制读取行数/文件字节数，也未在批量加载期间临时禁用自动保存或延迟一次性落盘
+
+前提：本机存在（或攻击者可写入）超大历史文件；进程启动/创建 History 时调用 NewHistory
+
+影响：启动阶段产生 O\(行数 × 缓冲区上限\) 次文件写入与 rename，造成明显磁盘/IO 放大、启动阻塞，并可被用于本地拒绝服务；按行写入还会在每次 Save 中重写完整缓冲区
+
+修复：加载阶段限制最大行数与单行/总字节数，加载完成后再统一 Compact 并只保存一次（加载期间临时关闭 Autosave），或改为批量读取后单次写入
+
+- 证据：readline/history.go L31–31 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	err := h.Init\(\)
+- 证据：readline/history.go L24–29 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	h := &amp;History{ 		Buf:      arraylist.New\(\), 		Limit:    100, // resizeme 		Autosave: true, 		Enabled:  true, 	}
+- 证据：readline/history.go L62–77 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	for { 		line, err := r.ReadString\(&#39;\\n&#39;\) 		if err \!= nil { 			if err == io.EOF { 				break 			} 			return err 		}  		line = strings.TrimSpace\(line\) 		if len\(line\) == 0 { 			continue 		}  		h.Add\(\[\]rune\(line\)\) 	}
+- 证据：readline/history.go L82–88 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：func \(h \*History\) Add\(l \[\]rune\) { 	h.Buf.Add\(l\) 	h.Compact\(\) 	h.Pos = h.Size\(\) 	if h.Autosave { 		\_ = h.Save\(\) 	}
+- 证据：readline/history.go L141–150 ；产物 73a03131-9efd-47c1-8334-454a24a2573e；引用：	buf := bufio.NewWriter\(f\) 	for cnt := 0; cnt &lt; h.Size\(\); cnt++ { 		v, \_ := h.Buf.Get\(cnt\) 		line, \_ := v.\(\[\]rune\) 		buf.WriteString\(string\(line\) + &quot;\\n&quot;\) 	} 	buf.Flush\(\) 	f.Close\(\)  	if err = os.Rename\(tmpFile, h.Filename\); err \!= nil {
+
+## 覆盖与错误
+
+```json
+{
+  "audit_config": {
+    "max_model_calls": 240,
+    "max_output_tokens": 0,
+    "max_tool_rounds": 8,
+    "max_units": 20,
+    "model_timeout_seconds": 900,
+    "reasoning_effort": "high",
+    "timeout_seconds": 1800
+  },
+  "audit_coverage_gap": "共 10 个可读单元，完成 8 个单元的语义审计；其余未审计",
+  "audited_unit_count": 8,
+  "edge_count": 35,
+  "eligible_unit_count": 10,
+  "exclusions": [],
+  "files": [
+    {
+      "language": "go",
+      "path": "readline/history.go",
+      "reason": "",
+      "status": "PARSED",
+      "unit_count": 10
+    }
+  ],
+  "finding_count": 10,
+  "function_count": 9,
+  "fuzzing": "NOT_RUN",
+  "incomplete_agent_tasks": 1,
+  "independent_review": "PARTIAL",
+  "metadata": {
+    "analysis_scope": "STRUCTURE_ANALYSIS",
+    "call_graph_complete": false,
+    "code_file_count": 1,
+    "function_count": 9,
+    "module_count": 1,
+    "semgrep": {
+      "reason": "执行器未准备 Windows 原生 Semgrep 1.176.1；使用内建线索并进行独立语义审计",
+      "status": "UNSUPPORTED"
+    },
+    "target_sha256": "b240f9620b88be81f6cc34a7331b6660a6a720e229f3afd277f57f879bea05db",
+    "verification": "NOT_RUN",
+    "vulnerability_audit": "NOT_RUN"
+  },
+  "model_usage": {
+    "calls": 102,
+    "cost_cny": null,
+    "measured_tokens": 470019,
+    "unknown_usage_calls": 0
+  },
+  "result_artifact_id": "73a03131-9efd-47c1-8334-454a24a2573e",
+  "reviewed_finding_count": 9,
+  "structure_partial": false,
+  "tools": [
+    {
+      "command": [],
+      "details": {
+        "execution": "IN_PROCESS",
+        "max_source_bytes": 2097152,
+        "per_file_timeout_ms": 1000
+      },
+      "exit_code": null,
+      "finished_at": "2026-09-11T07:21:35.196Z",
+      "log_artifact_id": "",
+      "name": "tree-sitter",
+      "started_at": "2026-09-11T07:21:35.194Z",
+      "terminated": false,
+      "version": "0.25 (grammars pinned in Cargo.lock)"
+    }
+  ],
+  "unit_count": 10,
+  "unresolved_calls": 35,
+  "verification": "NOT_RUN",
+  "vulnerability_audit": "PARTIAL",
+  "warnings": []
+}
+```
+
+任务错误：智能体响应再次未通过校验：智能体结果结构无效：invalid type: sequence, expected a string
+
+## 证据产物
+
+- aegis-report-f18ad975-e68e-4b15-9ede-071387deb92a.html；ID：f437bf3f-b28a-4b3b-89f8-ea0fa0929899；SHA-256：479ce21a1d512dad16241333e91d5e9b877ffe9453172343dca46517c91c7815
+- aegis-report-f18ad975-e68e-4b15-9ede-071387deb92a.json；ID：5cc64dd3-f57c-4706-94fc-6e0346060720；SHA-256：7a2d94fbc2e468d5ea982882d419ddf8ca9dc4c2c4501f1efdfc2f726d9d0cc0
+- agent-AUDITOR-0e42351f-7dc5-4ebe-956b-d84717e0dafc.json；ID：6009c0ee-0925-43e9-a19e-2e751d469210；SHA-256：d80c1e842ffd7bac1070742da5180ae1736a4f80283fdbfc818e83ea52e4591d
+- agent-AUDITOR-1df686c8-738f-4792-b3c4-43c067b81359.json；ID：321d3573-f419-4d17-a42c-7742bf43bacc；SHA-256：7a73d999d544d576a071454008f7e5ad2270d302d8941e1ab97e84833fe8db7c
+- agent-AUDITOR-8063d8d3-9355-4cfc-a6cf-e21d84d1371f.json；ID：93f15de4-d790-4076-afce-969d3fe54c10；SHA-256：5c36776b79434cc6b97caeb001b178843e09ba2f35ce69e8cc301bda08532353
+- agent-AUDITOR-830fef15-7994-4bfd-b64a-24e59ffe03d7.json；ID：600e6e36-f1e4-451b-a22e-d9038534db48；SHA-256：b16077b592e89a028c420e0bd1ac7348763b9800c2364182e6092590749412f3
+- agent-AUDITOR-b83380d0-9f46-4aac-aad4-6ea0f1151b55.json；ID：a24686ba-64b2-48b1-91c4-6be6c18b46c8；SHA-256：c248584f0c67bdb56f4d4cc3d56d954f51348e81196de96d4574a75aeae0de7a
+- agent-AUDITOR-bb6c2022-baf6-46b1-9e67-b15f8dd84074.json；ID：a59e2b72-2489-45e6-89e2-2173c38b7474；SHA-256：5f3e30ccfa1f0d4c32c297f70e6cbc1000cbd57dda9aa52e35798dd4dfed0ace
+- agent-AUDITOR-db3ce181-b781-49b7-93f9-e9f15d775a85.json；ID：98cffa91-4570-46ab-a5e6-1390af39be52；SHA-256：a3279c1886213137de9626e2b95b6a261e626743e49f62420a91c103937caf33
+- agent-AUDITOR-dd9e0109-0f63-4058-8e78-a55b504fd8d2.json；ID：2cb967f3-fd1a-4450-95dd-11da76083517；SHA-256：8359274a90cf249fb87fa2aeb6fcd43577e43ce23907839735a8d17748fdc08b
+- agent-PLANNER-09550610-436c-49ba-b2e7-91f8c516399b.json；ID：82e56b09-af77-4ef6-a9a3-69a019029557；SHA-256：19a44bec6daf80ade2ad16625a618f94c166fbde65903e46c67ea0fa924fe608
+- agent-REVIEWER-1c3ff598-8803-4845-b474-b4b253d189f4.json；ID：059f53b9-16eb-4335-8fd7-7b9dc3b4f2a8；SHA-256：619ed2ab243715c952f315e80e622e0381825b2f76590dde43145151249684e9
+- agent-REVIEWER-1e5bf2ac-0ca1-45f4-9937-f471982845df.json；ID：005907cf-f068-43f0-80f8-0b3f2271ed57；SHA-256：51e1f69105d9a3c23257f149290cd790b8daf4428546b58bd4756be7fbd21b63
+- agent-REVIEWER-5e03b2a8-7c42-4470-a0ef-ed743513d9a8.json；ID：f8d7a7bd-de5c-45a0-ac13-400e99741881；SHA-256：ae1f6c2e87c89f30920b07d9d2c023b0bfcd7c8b444962ea883c54b35f94a37b
+- agent-REVIEWER-704749b3-1bb1-4f5d-8772-934824cb3154.json；ID：3a7d44d1-b2ef-4feb-b37b-c9371482a4c7；SHA-256：12e762e072e04c477d45b1978acf8f51d1013ca97b454e25a2042104f1184d90
+- agent-REVIEWER-8fa856aa-ee1d-4652-8a82-4255a5effff0.json；ID：9009c7e1-c45a-43a5-b91e-c6d47d5246e5；SHA-256：6f7282e5d294757e6d2f979af4878077a62bf3c4ae052ce096d213627aba6d17
+- agent-REVIEWER-abe0a2fa-54e3-43bd-af1d-1252d272202e.json；ID：73d341d8-6003-4f22-8c0d-1216aad6181e；SHA-256：0cb73b97eb31ffad3ba2e80ff80bf0c800fb120fdda8d34726e9cd45dff66900
+- agent-REVIEWER-adc459a8-052a-45d2-96fd-12909f82352a.json；ID：677ea614-d8e5-43c7-bc01-6f0b422ab7f1；SHA-256：f8c9316d27d4410fe3149848996738d76985e66fde97f0fdb4b5fd38398d9c34
+- agent-REVIEWER-bcc94cf8-162b-4a50-a8ed-9de670327cc4.json；ID：8f55da21-2d02-44c3-9a0c-8a23b0742237；SHA-256：e1cd1bfeb3de29ebd4fb7b77ca0947afd97cd2cfb880afb2200ede75828e40b4
+- agent-REVIEWER-cd79db6d-0bd2-441b-bca5-e56295c09754.json；ID：18de7aa2-7f4e-473b-895f-0730a2ac9fa2；SHA-256：301cc3851cb90050a8b0f2e04bdd29d171586946071ef978a56b15776697acb7
+- analysis-result.json；ID：73a03131-9efd-47c1-8334-454a24a2573e；SHA-256：b2f86cd62f4a77bcd07f755c6291eda54be3c7f645ad502b4e13dd1a706ecbe7
+- model-request-026b761c-f2cf-45d4-ac65-23d7187196c1.json；ID：95bc2837-2ce9-4a3b-b117-c91200e0295f；SHA-256：2a0dcbf06612c8f9ed88fe485043158c0f639a02619922de108a4b26c9df6c3f
+- model-request-03553ecc-e819-4b2a-abf2-12c0184d9b47.json；ID：69bd7d85-a30d-4ef1-8133-5a3bd6695111；SHA-256：d7f50ca8585e99b1ed0af361b96cf0c1c61152ac830e1dc27e4f827effa3f3e0
+- model-request-0976c831-85ac-423e-8f5d-06a99c6907cc.json；ID：bf481a5a-ab2d-48c7-8492-5fe607558f59；SHA-256：0fce983489797b0701b9deeb6c45bc8ce1662197bdc29e50b9d15c4c3c85100c
+- model-request-0e0a9c64-9486-4129-a0d8-c9bec94036a3.json；ID：d85181f3-f203-4a76-9806-7a34c5e0f099；SHA-256：a9be4f90894115b8156f9aedd4f78e5785dc0cb214f63c08eaac026a9d293778
+- model-request-118e3b2d-02f9-4ca5-bbc3-5abd5396bb90.json；ID：4f7e665e-8493-4b18-affe-68ef42f4be8a；SHA-256：56a74eb73fd9e974e5779404ebf952ba6a7337fa58636ab01a2ab03ddeb13509
+- model-request-13074ba2-3f8c-4bf4-bc48-6976f0f88ecc.json；ID：b51d5f34-5048-4d8c-b46f-9a22bfcf9db5；SHA-256：1c38fe54b77f04a89511038e50670c401cace99b95bfac2648c01832b650ab61
+- model-request-1ab358bf-eaf7-48cb-baa7-e0404a94f3c4.json；ID：c3ef3aef-44f8-4470-9c94-2c3e53aa66e8；SHA-256：857efcaf9e144762cf4bfb62576eec731a6cec47f039b7ae3ee66ca13dbd947b
+- model-request-1af4b6d0-4df3-4044-819e-f84507ed69bf.json；ID：64b2d2c0-f82d-4b4a-9515-d9f7ac84b058；SHA-256：957a9c0180bccc8e3fcf9f36f22e4b97acc0d02c8861aa8ed184dfa4be68cc3b
+- model-request-1b37dac6-8d23-4bee-be1f-7a4fd63b1f1f.json；ID：febb8278-4d0b-41ef-b633-343a77cfca41；SHA-256：56d763f28b424ebf84c350a95fe75e9d87b3441284456f371b669bd62b0226ab
+- model-request-205de6d9-db41-40c2-8900-83dcbbbaf05c.json；ID：3ae1f798-5245-4678-b517-830ab967407e；SHA-256：4c0acd581474ff5db7f5b17ff9e61aa5e99f518d078c31c17e79210a5e27c5d3
+- model-request-247ed362-f3a4-4c56-b052-647244bb42ef.json；ID：aeaa9954-74c0-494c-99f2-ec5bb14d4c50；SHA-256：0da61da657cb243ac9a4b82bb91097936d2614801c001668f6d5fcca8df67d51
+- model-request-25152394-85e8-427e-9321-b8387e40aca1.json；ID：25036baf-86a7-482b-b4b9-1c35513d17b6；SHA-256：0222da36d9bc8a57dae47ca36f2aee9d60156d7025e846c56df514bf2e226075
+- model-request-25c0ac9d-fbb0-47c1-892c-879d5f47593f.json；ID：858c3040-674b-4bf5-8118-ad0d01ea42c2；SHA-256：9488669ea2c795109c62d6d1c79bbdcf0c789c5594abd5decb68d97dc57db3c1
+- model-request-2851005c-5ecf-4278-b73c-97bab5dbbb8e.json；ID：f038569a-b1ce-438d-8551-c7b1f396b488；SHA-256：a38c19c2dbec3f7dd0a6f552e957182089aaafd12e7183565027d918e7cc6670
+- model-request-2a654bf5-53ee-4026-b922-e4df2e192618.json；ID：753e8041-f1fb-48be-9a6b-3f6b1aa2f7e7；SHA-256：9dddb65e3ad6f4cb892a79b917414163836fb63485858827479102c2d3bf0142
+- model-request-34aac420-89a4-41bf-b8bf-949bd364e350.json；ID：f00d65e0-68b0-49a1-99eb-9aa741fd43bb；SHA-256：71db28d3978ab0458d3d843cc1ba79d6118bba16ec916bb9c068efcf759d8003
+- model-request-36a399c0-330b-4fd1-9134-daf6e95066bf.json；ID：75d2263e-570b-4c79-9a8e-c80098c57100；SHA-256：96dd1a215cc24869c9f9a837e5dbc23f6b298e2dd6bb77849a57825d02f9490c
+- model-request-3809c383-7f38-425f-b23e-e3a20bcfde7c.json；ID：421a725d-def7-4d45-9edf-c4fbb2452b1f；SHA-256：6d536c85d0db218806004f8a52d414ace400f7aa98e4e0e876ef4a5264033f1c
+- model-request-39511680-c353-4490-9fea-856d6975eae4.json；ID：9708f051-6db4-4b5e-b4cb-e3b35c8ad569；SHA-256：2fe7854f596383273e7aebc9656ad058141c7801d54682ada330000e3d3f6398
+- model-request-39952472-a768-4003-99cb-1b47e16ab969.json；ID：05842caa-1fa4-4c07-8e3b-73a09b02e0c4；SHA-256：0fab9b7c423dc7865a8412568d2b8899242a3c5f83ee3f9ea0602deccad818b9
+- model-request-3d1a6a82-f6b9-4eca-8555-1df644b36d97.json；ID：ce3554b6-a0c0-4b32-b84e-d78185923f14；SHA-256：1b4c0aad9566c25bce175390525b3ccd7c5308a7958182182c741f1fc9d4176d
+- model-request-3eaa152b-24c9-4dea-b530-8f44f7269db7.json；ID：090db6b8-4aab-4d3b-b989-891f7fc48599；SHA-256：4a762930296e3aa0a7d9e481ead11fc2fd14d69e923aaa05734c20b25275a5f3
+- model-request-4358ca48-7ef2-4c20-b8dc-54e80b3d1992.json；ID：1f334f6c-86c1-464f-9a8a-e0784ed7f684；SHA-256：3f386c4ffd75e451fb591c10e83ef9e53512848f0b2882e0bd7ca42ce263e79f
+- model-request-48c2f0e2-24a2-4376-bc6d-d547c6ebd5ba.json；ID：66795e62-8701-4ba4-b5c4-78853c2b0090；SHA-256：fb9df91f369fd958af2ffb3d75003d4f1bf3dcf65a24ad28e192089e84989edc
+- model-request-4c37b222-f3f2-409b-b017-49aecf11a6ca.json；ID：1ae337c7-8109-446b-b009-40768da00cf3；SHA-256：37a58c5dd9a7655fe47a87cc123d620dda454833dc6928ff396768ac93edd96f
+- model-request-4cf76383-77c5-47cc-9ece-36a5a1325d8b.json；ID：1f677948-16ee-46d6-8fda-01dee77e2d95；SHA-256：16ac30525fdfd22833370772bc88bf863a777a644972ef18e90f428fad67cab4
+- model-request-52d28806-dcd3-43ba-86be-f442675b6a8b.json；ID：1475b1ed-38c1-43db-97a8-2264a1016831；SHA-256：cafcfeaa51a0ba950b6bc175b36b28aaaee17e2e641f668b6116882564aeedbc
+- model-request-56f00a66-abdb-4eb0-b535-0fd8b63d9b37.json；ID：8f19471b-5d3c-41d9-a167-93d87770c2cd；SHA-256：2da573432f9725a3d6d6ab3f15c9d53882a1f7593cda51dff57e5d662f8deba5
+- model-request-60bfd7b2-7d23-4d5a-a994-a49387a6603c.json；ID：ee42c815-ccf2-4201-9e79-69a20df86a60；SHA-256：4ae30002fb95d38736b59974f14e71eb1b8ea9914cd4952c538469d6712865b4
+- model-request-66354351-342b-4a12-92e5-e94fb78a4662.json；ID：3ed3a55a-2128-4533-9935-2c01e2c7f65d；SHA-256：1f7df3b9d9c75ff03f6fb4817bbd73f4495de71dbee21979bb4aad6661666095
+- model-request-6bd583ad-fde3-47d0-9085-613ef72306fe.json；ID：3422539f-7e9a-4df9-8c7f-6adad92c9be4；SHA-256：c7db3a157a8ddb69139f6396aa4aad687d3704d96d9fe9e5c05d1aa39c99b6fb
+- model-request-6c4e5eae-4f72-49b5-a12d-92a2dccf8cc3.json；ID：ec53ae28-355f-43b0-8334-0525e48039f0；SHA-256：16f5660611b626df865de9f84a8bd0b836705ef64e35f2cb778c852c0b61f7fb
+- model-request-6d21bf61-af69-4c27-89cc-a7bb4ac3070d.json；ID：d89fa08c-cf0d-443a-9991-2d39e9e3d86d；SHA-256：72e9acde6179bd27b32317cd59542ded72b01d2f1a6e224c7af59e0daff3245b
+- model-request-6fa8f6bc-fe82-446d-9f4a-a5910310601e.json；ID：c0d9e7fc-74a8-4750-8d52-49c7799a1427；SHA-256：86812e76110a4fdfc8d57bd103c6ab3ed35afc3a213765a32291db6d2f5c214d
+- model-request-6fe709e4-cfbc-4a63-9d21-e6b77c2962ea.json；ID：c39ade3a-5663-4a27-a868-4e9882eb9407；SHA-256：928188fdc4dbaa6189a3e0baebfdf5930e66e132d677e08e0899501e21b0dae4
+- model-request-7033a962-f76b-4111-8e92-88f9c482a2f6.json；ID：c3faf41f-f111-4aa6-bb95-640f79faf0af；SHA-256：648deb085d4bb7279079aef0639864a862cd8be096647a8d0f86b6bd81f86f26
+- model-request-706686ac-0e20-43b8-bb79-642485467735.json；ID：e413b73a-927a-4304-b112-2b673f83ea07；SHA-256：a5773e2e450d16e9dbf2c6770009c439ffafe186993a4bb9c07276a43825dcac
+- model-request-753b1c5e-601a-4653-9d88-f483e26a6224.json；ID：acdfe067-3c69-4d6c-9886-973d76049c78；SHA-256：fad4e597d414b14c6d22ef17262604f3f96b76450460656adf382e3b716a410a
+- model-request-782d396b-d1dd-4db6-9698-35a0c3c1461b.json；ID：d02551cb-02c3-40a0-9a34-f0ac4ad4c357；SHA-256：57c4ce59dae456904b9ffc22047511ad2b34d2a5f9794fb956b93aac54be1239
+- model-request-7999e14c-1f9c-455d-81b5-b3c2f6c645ee.json；ID：9584c89c-cae2-4465-8bc4-026c292dcd7b；SHA-256：1a902dd063ced0d9203ddde96d0ca464261c984c2592746a889cdb5aba1cad5b
+- model-request-7e9c7c6f-54fb-473b-aefe-15baa3e71723.json；ID：8cf94368-4b38-4d8f-bb5c-d6d1e10f5498；SHA-256：ad75a9194a7c86f7769c87ac7c5f32eccfe6f4ce4ef190b9b272acc7c6af4a2f
+- model-request-82c98740-73cd-495e-bc79-5fa22a662e00.json；ID：fe24a7ce-d3ee-4924-b9a7-9889822e0cb8；SHA-256：3cc9e1867b3c98868ad3e471551d822f1098f8d543738d5bfcc2d3b33afcdedd
+- model-request-82ee3921-cbf2-44da-bbaa-7aa511a32379.json；ID：19bb1098-f1eb-4541-95ba-f95348853092；SHA-256：26106ed4362efe21717becfa8b07924a2ee2d5185ebb171621310175be7f8b15
+- model-request-89df88f1-60ea-4367-a102-e7458fd8cbe7.json；ID：ebd1ed92-2249-4f24-af22-cb2aea1a2647；SHA-256：75a1535025b0e7187800668950686e3d5ed67241a3f260d2d9f950cc989c9066
+- model-request-8d08d851-0135-4ba4-988c-79b12cabd346.json；ID：9bc235be-eed9-45bb-8e8c-4c6e330ce226；SHA-256：01b8fc191bbe6b60a76fad5ec1b1066ff5e6a635fbf7671747fa5fad9b02473e
+- model-request-8d8b288a-ed50-4185-ae44-14cff60ae7cf.json；ID：796082ce-d83e-4430-bd68-251761587f5d；SHA-256：b045b4ce9dc2b21da146d948dace67f32b02953a054f9f8e8ad70300400278df
+- model-request-914c197c-2e1a-4bed-b178-5ef1818c288b.json；ID：92e68b72-0fb9-42af-a620-9e7fc6fac990；SHA-256：dc0df55315f46977ee7941b7c9bf448f5d4bfa7ed6536d70d037063d8fd9f109
+- model-request-9404ebd2-a5fd-461f-939b-9345056f4e12.json；ID：9e4ce066-2777-45cb-a4d0-8a74bac2c2df；SHA-256：42e34e10fa56324c28610ae56771a34e7e80bf8906778936ed5ef9c3a63d41a4
+- model-request-957b263d-0f77-4325-88df-12d0e591a0e0.json；ID：24699f28-f6ac-410e-8aa1-6334bbd7f4ec；SHA-256：be8411baceda771d5b76c0e798a3e6ece723c43d4247ebab000063329efd18c7
+- model-request-9749d5f5-9b48-41b9-9e30-0bb0cfa66e18.json；ID：af0106a5-350c-48fd-9039-1a93953e082c；SHA-256：d6fd7e96ebb263a6f9df53715a4396219595b5926fc4597c4399be8c09ce532a
+- model-request-97d94213-6fcc-4a2e-a781-62210136ef8a.json；ID：0c1ba564-b72e-41f2-ac3f-8ab7a3c2e60d；SHA-256：7348ffa0ebd60d9c240cb087cbd5bff2f18fe999af6705bd1827d681ccb1821b
+- model-request-9804f537-ea6e-493b-939b-8a8010e73e37.json；ID：4852ada1-b15a-41ba-aec4-aa518cc2232e；SHA-256：2a6e31d529fb596c257f27be96abf2a93f6702ecae46e25a941bdf5c470617cb
+- model-request-9c429720-2428-479b-9cba-ba08eea6cc41.json；ID：2014ee59-f2d0-4957-882a-a694c29b7509；SHA-256：ef1bdcfc39ba383dd89781a9de74352eee9b14e53a49c2dd964d826ab5d91a0a
+- model-request-9c5c7b6d-6fad-4c11-8da0-7b837273f499.json；ID：7a4b655b-4fce-413c-a50e-248131bb7fbc；SHA-256：55181c1e0a6050082c2f0bcccd6ae54d5081d2e91e29f8f65a313bd8cbeb857b
+- model-request-9cddacbc-0290-4af8-83bb-562e33791040.json；ID：545ba110-fad0-49d3-8aa8-f0239d0fb505；SHA-256：4f44c19dea9d2f7c7c36c9b7aae786661a13bf629f3d797253fec25bff85c537
+- model-request-9e929ed7-143f-4b07-9a74-5da8f189b831.json；ID：fcb05ed4-d1c4-414d-b7a4-bde249701f71；SHA-256：f8819b3c9be36072aa968458b3b0187e09872f86514cd967fb7a47c5dd07259f
+- model-request-9efb3f51-503e-456d-bdd9-c049b69a4352.json；ID：92cf9219-5e7c-424f-a6c5-4a6d48c27aa2；SHA-256：c07e302d8133d6cbb73b87ad20bca07fec588b958a1a8d56cfc71b9ae3f9c3cd
+- model-request-9f039c24-e8a1-4fcd-b003-23c2b79cf2b2.json；ID：7816584c-22e9-47b9-b8c8-633d37c619d6；SHA-256：fe051345e776c8c89948a07568885b631e3c76388d60c045d5b1c111e4aa6ffb
+- model-request-a011ab51-9629-4cc5-a5ae-3daf151b9df1.json；ID：19317c88-ec5b-4ee7-a3fd-b2832d2c52a8；SHA-256：6600e1a7231b7d1da495e6b537aa08f7983a25f28e126316a731ce5f763487de
+- model-request-a1413cda-1eb0-43fa-9a0d-751f2384dbc3.json；ID：d7ffbd39-8e8a-42f1-99d7-e1af642be5b0；SHA-256：5a5e22fd3ecf08bd2454d3a34eae52562c0ad685f7a5c296483dcd6ca4b94dfe
+- model-request-a51177f8-eecc-4cea-b41e-dd4307bbdd7e.json；ID：8d1b1804-153d-4530-80e7-af58454a8253；SHA-256：642e55f6247eaed3c3c87610cd2c0360a36ec9b88ba14de8cf4a00d89660deb8
+- model-request-a7988086-4c6d-40d7-a19a-0941ba29ec56.json；ID：9636e2c9-d151-42f3-ba2f-b1e5fa61eec1；SHA-256：4ee3bcc92c9d6a140f5e82d20431a3375d69b68cdc0066a277d173787d942eba
+- model-request-aa9b11a5-6957-4f70-bac2-75ba70e20e7c.json；ID：5c62a304-a694-47fc-872e-fb5f7c0e8139；SHA-256：bff174d1fd2da1cb224f4594d6602e0aaa7db8b4673d0024e9a4f9ced7552c44
+- model-request-ae87e54e-8f44-4547-8f8c-6d87569f5315.json；ID：c6ca4d34-d275-476e-9454-6e1854aa089e；SHA-256：6c5b2bda7e60c1803217bef5f34086ffdb4c4d44e3be89a2f555b7515c53c8dc
+- model-request-afe48e2f-1b3e-48c3-8e8d-34578af95fde.json；ID：c25db12a-cd88-49e5-a83f-2204b9134d83；SHA-256：6dd86f2601bd87ca4d357ebb64428e17edaacca28e02d8afe1965e0b0294ff20
+- model-request-b1a3ead6-9a46-4bdd-85b1-7c1f55179b26.json；ID：1f1d1141-4cc8-4410-876a-a47d07c6a411；SHA-256：e613c642ea221a179abdbdb5983f124d4960a8411192fb0bb91758560d1e4667
+- model-request-b2f41de6-e743-49f8-b6ed-05667e376fe0.json；ID：64672b79-241f-479e-8a22-df8c49c260cb；SHA-256：f1bb369e37619c607b76e05c552aa08dce36b3242a7bf947c1d9547ef465f20b
+- model-request-b9b51b41-5fbe-4a72-855d-6da337c991d0.json；ID：19575d20-0a71-40d7-9136-d4962dad58dc；SHA-256：f72f56e33556694fd54bd0a3bd238cf99576a7e1df74c22105202050535118f8
+- model-request-b9e92f44-0542-4a89-81f0-9c01e8ebc025.json；ID：cc327de5-cae4-4d0b-8e99-d930782efd1a；SHA-256：61b5847aea21c48cd608ac558b2e4921af3300018a3ff4333bf2f8f37159869f
+- model-request-bbbb4bc5-388e-43f5-a7e4-90c337654fee.json；ID：fde51ffd-4239-48b7-83c6-7d4f5d05659e；SHA-256：fc08777d21b75b5e03ff13dfe84f9ab87e320e94f11c720f3b594ed981162626
+- model-request-bd108c55-ca38-4644-b856-410a8e6e8fd7.json；ID：044ce0cd-e467-4b89-bb2e-2fc05a813222；SHA-256：0cfde21614b71337e09208c85ed91fc432c0dbbf6e46dd0b6812d08f85e965f9
+- model-request-be1343c6-5045-4813-8ce6-052ec462b904.json；ID：3098e7d8-9738-42e0-9f63-38802190930e；SHA-256：9e5ad8a7330995dd014a001b1fbd272146f7472270018b43baac78fd86819559
+- model-request-c3d56c7b-faba-497e-a971-bf06319c43f4.json；ID：b87808c7-2bca-4c58-aa40-987d2cfd205f；SHA-256：130af98a93cda8736a1b7f6abcba1b50c536099c664a57dba82861fa61daf1e3
+- model-request-c4c51a0f-c44f-4e81-b95f-71a7db22b77c.json；ID：46a4e6f6-91f1-4d09-84cf-d8effbd08dc3；SHA-256：609e0e4f6428f7d3ce1083d37e070571d17b96cfb4d01d7c4762d6f39d0bae18
+- model-request-c5a19d20-660b-4641-95e4-7c48d01d8a09.json；ID：82eb2fea-8325-41ef-8e32-82cd4c1828df；SHA-256：89751b2e495c110a2ae38985ed6229778649eec39e4ce5fc500b0bad2b81a278
+- model-request-c663b45f-9303-46a0-9d77-f9c24cfacb16.json；ID：8407efe5-8f9c-4884-b14d-0ae5590d4a41；SHA-256：ccb28ee925c1e3501bef2a0496968399cf16877347c986d9e593d3371c198c34
+- model-request-c7850c6e-6f5e-4693-bad5-35fb303000d2.json；ID：dbc79ed2-1937-4578-b571-51526f238c6b；SHA-256：712f4784e53e8937ad389e0fa8d93e2ab9d8af7ad2105681909c9cf065f48453
+- model-request-cc8b24cb-d616-4e86-a521-358909fc7919.json；ID：9b0f198f-9b16-4d2e-bd0f-a65f4b79a3c2；SHA-256：fa1573a364364583596d88bbc912f67ff2bb77e7bc2b78394929d03eefe0e75b
+- model-request-cd67ab2d-3d13-4028-90cf-60dc59d42c7b.json；ID：cf547762-d59a-49fe-a86f-b89ff7ffae2b；SHA-256：905d72a4beeb3e162f34926446b0425e460552cba736b3f457e65a33c69ba0fe
+- model-request-d1d99eba-1b42-4e33-929e-3dd8b6b7fe13.json；ID：d4b54a5a-ed11-413c-bb02-254e997e1c30；SHA-256：c61954e404bce0756288ac466f7a012aaa2d3353f1777780b12f264057344067
+- model-request-d2270145-e3b0-4552-860e-292d883f923c.json；ID：334a75ce-b5b1-4c69-a183-42724519bf10；SHA-256：26693a2a1cb1b582072ed4c4636a06a2a94db804b04697a5c594b47455e781bf
+- model-request-d269684f-b478-46ed-aa73-1d546a567678.json；ID：808a5ba1-4f30-4cce-9d70-08372b8b8929；SHA-256：c4b8cc9f00ff4e87113600746d61faec710b2ea8435089b06c375bcc98e447ab
+- model-request-d55feb38-fb1c-42ed-92cb-f6197e557752.json；ID：4b08753a-bde9-4c7e-aeec-6e6880a2ae6b；SHA-256：6d5bc16b27f68f60f76bd284989d9719feb6b095e690057e1b0cc4c85c86e6d0
+- model-request-d6dfaacd-dad3-4c7c-8b49-6e680767b2a3.json；ID：9d1d530a-3ac5-45de-8dd1-1e7da9b69fd6；SHA-256：f7a59f32ef27f927528b7c8e86cfab02a6852f44eff9354584353b220f4b20e6
+- model-request-d7d5172f-f440-4654-8bb7-146ada820c5d.json；ID：d2cf5af2-67ef-4bd1-960b-32184b402ea4；SHA-256：1a4227c8edbbd6eeeefeecfd59c74ed2252d609b5cf9c181231a6345af057ef9
+- model-request-d92e6234-bae7-45ff-b216-3d5521f9ed94.json；ID：e8fafca3-6d6a-40a3-9ff7-6af5c49f9302；SHA-256：30e2154d61f540143aa3e83a7c85f101ca4d6f5ebd96e08bae76c112b0d4f959
+- model-request-dbca5595-bada-45dd-a288-577fc94e2d9e.json；ID：dd6b45d2-af5e-44a3-a372-7d7d744c8e98；SHA-256：388ff5028f42b4e06fd9cafd21d3542f15458fa0f9d04d41d2cda6de708ea471
+- model-request-de4d5298-5325-4c52-8962-e072ce7daa0b.json；ID：013f2d5c-b294-4bc6-ab64-e389891da52d；SHA-256：ce1bb6db000f9d44d810fe76d35011e9fb6a848c1d14c82ca3dcd6552de0af5a
+- model-request-df13e117-c1a3-4b9b-a1a1-7c2011e07ef9.json；ID：6c932974-d99d-4fce-adbe-1f13f8aeacb9；SHA-256：840b6d2cc2d026f419cb47144c26f11f6ec3ae5e3a3ff9244389459e6fcf6d77
+- model-request-dff289ca-9b3b-4bb9-897c-fdbadf6d93a0.json；ID：cf7a6567-530e-4e0b-b46d-a72c3adee953；SHA-256：6ba511147590f54e6bbef78eb5e1e4057579c76b52829f1eb8ae7f7a19d5f833
+- model-request-dffe7ab7-a8bc-4e9c-9d2b-ace2cebba265.json；ID：d05068b6-7c53-4b1f-8da9-e03b3277a6c1；SHA-256：efc897c6c97316c578f69606daa7b3b287f6eecb44d53b4ea25afc9a1a1dc807
+- model-request-e01c743b-434f-401a-9982-505dffa9f999.json；ID：bccd8457-a25f-4138-bbbf-7a55ed2f6d56；SHA-256：5df0f64b6ee4c0dfebc71ff207f44dd2f77fa929e82e4d0dc712d67e14a7c949
+- model-request-e0b97e00-8c93-4742-908e-dcaef7a61577.json；ID：9c965fd1-5728-4afa-b890-28b5056aeebf；SHA-256：b99ddd0351e260c74c13373b58f44e48632da4aa34f944b2eabe958b50b47dad
+- model-request-e0d5ba24-eb0b-46b8-91c2-f431c9811145.json；ID：6572f41e-b109-400a-832d-40df47e5f879；SHA-256：c255a46be26e9251dfc59fe056744e7fb2659c6d94e1db09021f51111027803e
+- model-request-e186ad0f-7142-4e81-b38c-59f071aa7482.json；ID：0f5f2186-a193-4104-b7b4-7a3f9b3846e1；SHA-256：1ac1df001e01d5e6be03e9c5331a96398c829d6b8805b94d113e07cf75bf79d8
+- model-request-e247dd50-79a7-4479-b4df-fb8debaa7c7a.json；ID：64a98745-f93b-4607-b60d-cd1f612e38bf；SHA-256：e7a438a679dc105ef4c0a08c37c3faedf4a512009beb8fa0a5e3767cfebe040f
+- model-request-e6d18ee6-3d6d-4417-a97f-732e4be04cec.json；ID：3945e340-de28-4e85-9643-76a9f5136372；SHA-256：3feb33a9c993bd3b52b19acd91e038392ad100ac464340df23b004df7f5d130e
+- model-request-e8e2019e-1ccc-4c94-b4ed-00299dd4f01a.json；ID：bc014cc2-f5b7-4875-b39b-e24575eb3847；SHA-256：794f297f437056633bb27f23c614ab6f416fd51cf3447894a620f26b1ab2bfc8
+- model-request-ebea0790-a606-47e9-a05d-9ad361c73e02.json；ID：4305ab70-ceaf-44b4-a4d2-f8200641f197；SHA-256：c1f7d919f884449bc9b91019e06e48f8ea9b791159d5d71c62f619eb50b281e4
+- model-request-f5105977-aba2-4bf9-b754-5ece0bebe4d8.json；ID：5e84dc2a-30a7-4386-95da-13b338efdc5e；SHA-256：6205ab579c8ad2857966eb1c27753df663133f8e18f80e73f3a178bbea3fa645
+- model-request-f9d98367-7840-4525-b189-f54cd70849dc.json；ID：75039c45-587b-4761-919b-f152fe0bcee8；SHA-256：14eb5abf80ce6d48f4810dbb2b4d6b83134dcc3d818c4989dd1c5eb47b68d217
+- model-request-fddf2796-cc7c-48cc-8ab7-40a51c165dc1.json；ID：5a2907fa-1f54-4550-bb19-7e5b70b48744；SHA-256：7680f75b1869e701b68144b7f8dbe8e76a8dc3d55dd300df9d5878950292b565
+- model-response-01aba454-d454-4a56-a146-55e358ff2367.json；ID：a4fc843f-c7ac-4b67-9526-3319fbda63a4；SHA-256：68980d9e7ec6a4946717c68223c0d1d6f70898c5df25fdc449cff75deea183ac
+- model-response-01e90b5b-1a7b-40f7-b5e3-8c9a259aa5b5.json；ID：7e629a3c-6a61-4e3e-9706-4314a70e630d；SHA-256：6108a6e0876e829db8439cf4a9a52d1d28184cb222cf1b5b3ad733b57b7c99f3
+- model-response-044b816a-71f2-4212-9e8e-7445a3172412.json；ID：8e22de79-32ed-4a5b-97ff-558f7d5c109b；SHA-256：175d310cf6c727e8aeec38d6b1784edc8a30905c01ec4e408e730cd58b6d0a1b
+- model-response-0471c5c6-1a52-4e24-a61d-fc8446ef67a9.json；ID：4cd254d0-5ec7-4e9d-9189-388e830ba546；SHA-256：2436c105e7e4beb8bcd9355dca7742601afa4df6b1c8c98bf1de9d08b9899c75
+- model-response-05e33ee4-016a-4a81-9558-5adabc9d7561.json；ID：ffd928a7-8a2b-495f-8003-fb85b1fe532e；SHA-256：be2d2773406698878c75716d94af539428098cc6636787903a3fd2be2333aa6e
+- model-response-07bc6311-0d52-44c8-9b00-348d7e3d1214.json；ID：2f23b87c-4ab4-4e90-bfe0-1dc257837d59；SHA-256：d16ca83525387dd38c9d5225d52ac3af27bf9bb9e04463a61c126cfeb1a00808
+- model-response-0ca9f924-bc60-4fd0-a5d9-1f9b78e3c1d9.json；ID：3a5165c1-2fd9-47f4-ab52-8725caa32d54；SHA-256：48a4dc537d2c5711bbbb152e1663dfe9e7913d010c0741b3b4db87cbf22d55b5
+- model-response-0cf72443-8bee-4fff-ae2a-290d698a744f.json；ID：9b236581-825a-4702-85eb-1c363ea3afad；SHA-256：3ce931c01292ecf6906d9da2185a6590fa16a4a0aaada202b91b4d555d0a1c40
+- model-response-1014606a-93f5-4ba6-8553-3de87b0d0c6b.json；ID：36199bd2-a31d-4f1b-965a-6170c24e616b；SHA-256：5ff4ad82e01255341b9e0e91f20278ccf74f638fd55c678da20ee08c3c756855
+- model-response-10a51a5d-64ef-4126-b9f9-b389c7c50979.json；ID：6a8fa36f-13fb-4ede-b5ad-b07c653d8609；SHA-256：f3373445b28c0a77782e39bf14134c6a65a63e3c95c48ea9c4817d5c2dabc0c9
+- model-response-13926fc6-b6e9-4e15-8289-5c9575297e14.json；ID：0e735392-a01a-457d-b913-c8e1015adfa4；SHA-256：bce2548d6a2fdc5ac122fbb63c4ba0497061542bfd6c0ca0e35d30ddb05a7f0f
+- model-response-148d2d99-7a2f-4066-a647-87bf34a6abea.json；ID：b99f627a-124c-44d1-a57b-29cf63e1d582；SHA-256：a18d14e9d26a4c17a68b7314d977689f3c592379fa5939fdd6112dc631d25130
+- model-response-1490d088-a854-4b2f-985f-805c726399a4.json；ID：4b3fcf08-84fa-4cf8-bd35-c455fb123848；SHA-256：9d1e59bcee1dec720ed92d070caf3bf1a7451f3ca047c2efd98cd3efce829de4
+- model-response-17685723-ec51-470f-a093-430582c331cc.json；ID：f4c01b09-7903-4d37-a9c6-baf0192775cf；SHA-256：cb84835b5db3dc114aa8802bae325fe3374b686d673c905168cc181a7f61856b
+- model-response-1b6598ea-ad85-4d3c-8a27-bcbac7dd6aab.json；ID：df9f1df1-163e-4d8a-a98c-87f996622666；SHA-256：bbd2281540e7f81fe5458cdb78c0ce79064766d7459a026c23686f8a0c5dece3
+- model-response-1dc55c46-936d-4acf-8016-cd996d4e9aa5.json；ID：56296362-d554-407f-a177-9be4c2992446；SHA-256：5f3a6f3ffff9644d9af2650c8494dcab96e0e4ccb1d0177e124b9f11dd27a27c
+- model-response-1ddcf7e0-0f4f-4c3b-b1e4-d39f4e2649f8.json；ID：de111569-f981-4283-909b-72171b73aab4；SHA-256：86950492e2a2e491c61215f867a4dbe5c2ff67884e9add0158749a12f08a140d
+- model-response-1e964982-0838-4248-8523-ec8c5aab77d2.json；ID：64034bda-1724-43cb-85c7-820675950c0e；SHA-256：91ea620274caa32fd813c6682c69b16e8628e12223aafe463a72f9c14254ddd8
+- model-response-2104d913-ab7b-46da-8ddb-3428dd53e3ff.json；ID：aa69d129-1679-4e3a-9151-02814db45d1f；SHA-256：eca3c70d6bc7767d0c6dc7d722613d96f895186a8ac6f7705ae80a6868177d79
+- model-response-21972f18-f2c2-4ea8-825d-0ac84f801c56.json；ID：6714a944-455e-4f1a-b7f0-cd994d856c2e；SHA-256：5818882b675ba754635a95fbb7f7a5d9e5a612347a3a59157af322248f0079f7
+- model-response-22d6e54f-cb6b-4bc2-a08d-e193ac4c0a6f.json；ID：7626294a-66c2-47b9-8206-92122a519b3c；SHA-256：f8dc98d2118f4737d4ef50627fbae7c3d57f16149556c045f96d353d43ba2b60
+- model-response-28269a25-b2c6-4d82-868d-69a4723a017a.json；ID：492490a3-5951-469c-b890-95c7c3b26c5a；SHA-256：f3fb2371c918ba524e6ed5d710c604c94e54e96f9ec5c0e0df97262b6f3d5608
+- model-response-33fec715-f4d6-41af-a733-b1ff168893cc.json；ID：ddda89a7-cb02-4eed-965a-7e2e0eb17e35；SHA-256：c361cda8389b140847c947835e1c098b794c01f23c533998b0b49a41a5a7f488
+- model-response-36581e54-8e1d-4783-a7a3-da0ddb323fe1.json；ID：a9618298-891e-4712-ad26-75b311e8749d；SHA-256：0a825d0f640134c780f4a85425536a5d08f21d7471d8a0583f962b9c437d5748
+- model-response-369d5676-5f2d-469c-9cf2-c6feba7e78e9.json；ID：519c6130-44d7-410d-95ea-a541f89266a8；SHA-256：a283f6726c24dbdddee4c5b163928c472cd3d33db73524ce65f767c389259a5a
+- model-response-37759960-fd7c-4024-a327-578a0d930e5e.json；ID：5fad6cb7-7a49-4dd2-8fc0-b1aae787f752；SHA-256：1d6743886122bc47fd555c0629b014cf45abdf5f2b2dabb68a0cde052fa674f0
+- model-response-3ab4cc2d-2cb2-44a3-bd33-7dd0c90d86e5.json；ID：24a8c24d-1488-4db4-b55d-6adde351a142；SHA-256：753e74b4a4e7f0d76bab0e57b6e8451fc2aac17539707ae195916e50b2b01d48
+- model-response-3d206b62-c662-4497-b2cf-0ed05fd903fa.json；ID：74fb5404-6347-4dcb-9218-2f5320bbbe44；SHA-256：cef247b76b926e2ceae14f5d47acd93c32db7727661b9a79b4feae273041fbc4
+- model-response-3d6ce987-182a-495d-92ce-695fac4fb188.json；ID：ddd02332-ffe1-48e5-87e1-d05093ee1d78；SHA-256：af5ff0da4482aba1cb55d4de03ad535922b46e24903f0095dfd7743d7d381399
+- model-response-3ed25469-ef80-4b74-a91e-17603f367aa7.json；ID：92c23d0b-1c29-4de4-a13b-0691577e8efa；SHA-256：10d6f41d218ee4c284516e758b15b3497790536521bb8a837d8629c409405759
+- model-response-412ebc9c-7a90-4e7e-a6bc-4aaf9e6271b4.json；ID：8743b9f2-5402-4e33-86a3-a8f10176c9d3；SHA-256：39274ecba9fa80f37740e78ee8ea2802fdbe9770a1b8f12a881e860485105f7a
+- model-response-44daeaaa-404d-4cf0-bfa5-0c393fa388b5.json；ID：17380c67-f74d-440d-9e50-74904abfb625；SHA-256：9c40e7427f294719337e575f43d6c120a7e9d878ad95060a2949e74238b6609c
+- model-response-455f8570-2be6-47cc-a543-01b0d793270f.json；ID：7fb4c26c-1c84-44b1-acd1-e4230cabcb4e；SHA-256：fd234e2e5e81f57fbb2de8302fd92fbfb635551281e3bbc99e7aa3ff7e81e4ca
+- model-response-45f62d15-421e-4363-9bab-d742c12747f9.json；ID：992fe208-658b-49bc-9142-4f21b340f2ea；SHA-256：40db25180801d9821a5b9d71f134492e93f176bd096c99370e8d0dee9b6e3d2b
+- model-response-4b24b5f1-d133-4af2-b42a-1c837348165a.json；ID：b4a28fdb-14ac-4589-8cc1-149787179323；SHA-256：a5bbe501feeb2c098ad3271339efd45b7f7f424b4dfd3b944c6db86de605edbe
+- model-response-4ca133c3-e601-4ac0-8430-8126f305f7d2.json；ID：1c057a72-640d-4e52-9235-bbe03a139460；SHA-256：1de97ebbbc6d039b12bbe9d2bc6ebf4c320a57f848f62738ba8d5328c666ad4c
+- model-response-4de981b8-2b03-45cb-a239-cbd52284fa94.json；ID：cfe6949b-a35a-4696-8e42-a700ad0e9d82；SHA-256：b792fda43b28f06d35d67f98095fad36c130fc4fffdea1e140ece3fab27f77dd
+- model-response-511cf275-e308-4ee9-8c36-626346f9eeca.json；ID：e7737416-e8e7-4b86-94a5-859eea5716e1；SHA-256：50eba4245f160bf8eb7f4a3db216257b5508911cd8ac887878dcfd72b4efd3f6
+- model-response-53ab5c77-892a-495c-b62d-027a81bb3ad9.json；ID：c3906cbc-84a9-492f-afda-92cea53d0ae1；SHA-256：d5895c8bdcf828fb05526c08840450f6204edaefb3387bc7819c49cc078f589e
+- model-response-54d10610-4fc5-43fc-8c6a-9dae05b71623.json；ID：16482944-d81f-4f89-af7b-ace8bed5b098；SHA-256：e59f1f9a5a7cd0450d8f01d998f1c7c5f505ea6c6a2fc4164d8170c1d33103ad
+- model-response-588a0abe-5224-43b7-8ed9-3e8b88e91ce6.json；ID：1f362ccc-a973-404e-bb8f-9b4750a613c4；SHA-256：ac9b80d613517ffedcdd06af11825fcbb40dd37b2606a884e747f2a5e34dcbe5
+- model-response-599007b3-8257-4457-88fe-b1dcd9a7b44b.json；ID：e5ac2dce-1b7b-4910-b882-e5306e09c4a9；SHA-256：8b4620db099330c5fe1f8bc0ac15e7d490ef3ce39ec4c47c934b6695b6bf3c0e
+- model-response-5b2642e0-a58e-423e-ad3b-f139ab4088c4.json；ID：0268649d-484b-41ba-87f5-bf1529721586；SHA-256：acfe37f58148887a5c7fb4533800a9faeb577fcb82d32ab525f51b01d0659fb3
+- model-response-5df66f36-cdd1-4e2c-831c-d296eafd8dc5.json；ID：2c4aba3e-84e7-42ca-a9dd-434e36ffd949；SHA-256：2664956cd985fdc38487b0b49c5c7b8d6fc532bc9761518e50e3a1271c3c1b21
+- model-response-5efc1e25-c29d-4ae8-ac6f-f3c2e658b95e.json；ID：fb5d84a1-e7a1-42c0-8355-39f78ea77b99；SHA-256：c0f5e029478c05939ea99411e30458a70f4338ba2c470c3dcb4bf9cba5078399
+- model-response-5f116add-84f6-4aca-869f-bf1b84fe3fff.json；ID：d53acbb2-97bd-4eae-bb33-46c62bf47eed；SHA-256：64cd665626f984d70b0e5bd08bb9fd19d00977f73e271d9ed8ef72dee344c9d1
+- model-response-5f7640d5-cd9a-442d-af3e-e77e33ff5b3c.json；ID：2d41fa61-452e-448b-86cf-083700bcea78；SHA-256：f5b877118ab4d2a1ea56932e0833d8e1f203262d4320a254de2889e4fe05b33d
+- model-response-60431df3-3081-405b-ab1f-9e358ef6ac20.json；ID：75e8e299-6f13-48ed-9da7-d647cef50848；SHA-256：10bdd718c337464110670665f52e551831a98d0d2aa0361cbb70d2b48be8830e
+- model-response-65f8af89-9cd1-475c-bea3-a7fec7a92ea7.json；ID：daa3d5bc-6691-45a0-9257-e11881a85d0b；SHA-256：75f480662eb1742bdea58ff3c632508256434338cbbb58e1f0ea957e83f44b76
+- model-response-68db555c-93a2-41c3-a8fc-d65eaf113634.json；ID：1bfa5c5b-9735-4f2b-a4d2-06448c11d360；SHA-256：ac73a12ec4c8c90e1327b8cdfc11ada1c778d256d3bb3c913927d7ba513d4e84
+- model-response-6b78ce61-c29f-4831-a76c-b8ce8970fa42.json；ID：9331041d-3fe3-4843-8801-c63006cb3b3c；SHA-256：7b6b6a8e8fcba20f29eb238c7b40c21be9dc0e5124451a467b2e0c93c24ad420
+- model-response-6cd8efeb-6594-4596-ad1d-018ae9dade4c.json；ID：5adedc8e-57a8-4a6f-afa3-0f75a4398905；SHA-256：584a60e9a59bdd8521eb147cfe04a0dd35ccfbf1a10e20ce171ec7567698f5ab
+- model-response-6ea2438a-e2c2-4b50-98fc-341e4a3b6c72.json；ID：3835665a-1a53-483a-91a8-fc90f60fae3a；SHA-256：4ecb8ffe0bb0ce6783b51d681e282e730a18ed4b7250866f4d09d21ee2152b25
+- model-response-777be763-c2cb-4257-9940-91f47e19befc.json；ID：91c9c277-11b8-4f18-aecd-b4c57a0389c6；SHA-256：280ba48abe3a55f1736df618f57b72c401b344e0dd166e29582348fc4c0b3cba
+- model-response-79858a1d-7e30-405a-93f4-aad4f2968a82.json；ID：4ff36e21-9b2c-498b-bbd6-3ebe0efb1146；SHA-256：a509369c327095d3241a49ff2d271ade4968a8807be0c664fc58acadb2d588fe
+- model-response-79f1f0a8-512d-4aaf-be8d-bae173c063ce.json；ID：10c44c3e-823b-4494-b7a5-5324b007dd46；SHA-256：51c9a7ccdab34f781c803e8b31547f4c666c48838147feff81141fdb5a77a506
+- model-response-7acf188b-739d-46ff-aed7-58880963b026.json；ID：a991545a-b187-49f2-8c51-81d545ed3092；SHA-256：8df67033732c9fb57afe5ba1cc1f61cf9f1ed2ce9cad259b48f4a4e5e6426f17
+- model-response-7ccecb45-616c-45fa-8cd5-39be0f0a532f.json；ID：1069e290-a151-48c2-a1e8-c0c3d07f84ae；SHA-256：d10a4494371040087d6d4e068c2da443a465158c25bc35ae6e6d748b37951740
+- model-response-7e116038-a637-45d2-8caf-c11a582e103f.json；ID：36475fe3-b01d-4d2b-8b16-6dd2ee723e06；SHA-256：9fd4f28cffefb467991eefb6d171064d5ac6a135dcca9e869e9e2a1ace446db9
+- model-response-7f55979e-e477-486e-afcc-0f87c12e0dd9.json；ID：5fa1677b-8061-483a-b95b-dfc84ffa352c；SHA-256：1fcd89de209a06820be1b34f982cfd7a8b0875ae666dfb339fd32d8272649528
+- model-response-80413960-6db5-4a89-a0ae-9f6f6d9fda47.json；ID：15fd90c0-a0e3-4588-809e-c49863273747；SHA-256：084d4d457603ebfc03a961d3630897b3924dcb412f937178d55b1c13f7d81f6b
+- model-response-8114212d-e56b-4707-8e0f-f818d5ee054b.json；ID：c393d3df-0921-4d13-beeb-e3ba55a52230；SHA-256：a1fb2df2a39feefcfd1b5f7b28b4fc91c5b73ee486763034c340a770e640a445
+- model-response-830bce25-b699-48db-b2ee-65731674c1de.json；ID：fc83bf76-44ff-4fab-b230-e56718ff3361；SHA-256：a811378bcff5ceb2d9d834d025668b252526dc6058b0b98558db1e6168f53c9d
+- model-response-844bb3b2-5794-411a-8a93-6a0d2a145884.json；ID：b4260524-7a6f-412f-935f-d9d57e85a769；SHA-256：ef9002d50219c7c3b8e706b9dd08eeda2a66ce7fedcab3c976e589abefa43fe4
+- model-response-8682ed05-6542-4caf-b3b7-06b5baa192f4.json；ID：11ace872-f3e0-4b6a-ab73-41848d8dfa8d；SHA-256：78c1a5d2fb6bad3c6d9ff6b81ecb8e25c5d25015cc2e0c13c53e9218aa4484ac
+- model-response-88091121-2270-4db6-8f2a-7829e9462250.json；ID：08bee9f7-70c3-4ab2-96b9-7a083ba18b4b；SHA-256：7961d076b2337fd1c07f6434b9c9546f4820ba1d42ce9170c2c102c88b4522d5
+- model-response-8d61d0dd-6f61-4fb4-bcc1-c311ffaaa6c2.json；ID：73f77805-8a4e-4343-b87a-4141ca28af22；SHA-256：312d62451a35ddda8d9db98dc0c0c235a703d568335de2a35be05e3db55cb7a5
+- model-response-8d730191-d824-4f87-a202-e288dc0dadc1.json；ID：aa3ea735-4e2f-48c2-82e2-8de7fa62f900；SHA-256：1d8fcb34e824f3521721d578fb6578be9a02207d40be8256c9cc9068bfa154f4
+- model-response-8e630744-9209-412d-b9fc-61e3ae5181b9.json；ID：4b887485-57f4-4204-9658-0fa68e000e46；SHA-256：3512a46161f6cef26cd835fcd3e65497f1cfed51da76ef532be4443c635a1402
+- model-response-96e4863e-bed7-4c34-8da6-2b21dfd758fb.json；ID：bd2b7415-25ff-4645-8fef-86d67317eb29；SHA-256：e6949fa4e0b14a6e6f691268d734654294707763acb1109ff27a6613a89e4a2e
+- model-response-96fbe431-e1e0-4855-b609-828b4efd4368.json；ID：ac58a763-a12c-4f43-b90d-4a30dcde5af3；SHA-256：f378477ff168c1e1f21006c228b9d5a75479b3f4cb76182fbd3e0d433ebe2d82
+- model-response-973eadc8-f09c-44e2-9f93-d0c703e792fe.json；ID：12fa1560-0d46-4e40-ae12-5c22f72fd30e；SHA-256：d3b3bafd10516e663fe67428270bc1f915a9e78c82740aa4d612333ec6002efd
+- model-response-99bdac96-1a19-4384-ac20-29bc56a33433.json；ID：4cdcf933-1c34-450a-9f19-92010316f39c；SHA-256：75c98d990257189def8f8e47352cfd47aea9635405ab638e3a6ff809f90aa966
+- model-response-9a6c7e1c-08e0-4f77-8da4-8ee41749638f.json；ID：ebdcc81e-1a1f-4505-b958-d325dca68c13；SHA-256：3d7cb8090ba0bf4cbdbf695824f94e7bb41a759e9f5b2f7572dbbd0e3cb11796
+- model-response-9ac2e73c-e859-456b-b982-bcc68a8cdf62.json；ID：9557f7f6-18c7-4a6e-afdb-bd474892605c；SHA-256：5d9a2a6d2308d6eafcc2f3e6756003281c67d2468c6c0eed90659b0847607963
+- model-response-a153358d-05dd-4e91-9170-43844b310d78.json；ID：033b6651-ca0c-4659-acbc-331ba9544547；SHA-256：019b7c8c3b5800ce5e0e7b069df72262127af904f1675494271bd8cef94910b2
+- model-response-a3cbcc05-1427-4a74-b14b-c922b5bec7ef.json；ID：32ad64e4-59a0-4ab1-a532-24803a7414a8；SHA-256：187c5bd395bf29cb50dc3e8339b8f00a15615511d6b727e872adc47e8184d6db
+- model-response-aaa6541e-846a-4ede-bc44-ab83c182da5d.json；ID：bd3ed9f8-a56f-4430-b554-626ec5bb627d；SHA-256：7a96e0a5ba753057b7102e7c040e67e469e013b295cf068846cae9b9429586db
+- model-response-ad6e4cab-bc38-4e70-a840-41009cfe6d8e.json；ID：76aa1bc0-2943-481a-ae8d-87c2c51bc732；SHA-256：0d2a147f3948e4fb506a1fe68e2c0d54ea16028e07574756e2f9c6031faa0301
+- model-response-ae1a0c03-cf24-411a-b43d-3e98bdd2b454.json；ID：8361c0ac-e14b-4afe-9990-66899d92fd10；SHA-256：13f6b2dc1b1da45be6774cd6e2abb6fa7d931923cb50efcf83716be68ff7fbc9
+- model-response-b5ff62ba-a64b-4b6d-9406-475412da4315.json；ID：9c4ea8d4-47d5-4ecc-90ca-6107e1422156；SHA-256：61f34a0691e86e03851c62ec6289776074dad941a4633877ebc322e18ad5a520
+- model-response-bce8403a-2c9e-4234-9d4c-9abb29b48bcc.json；ID：4a7bb313-68f0-40c8-b29e-126321d5b848；SHA-256：dd607c4b6896fbefaa25ff0122b09e4af91b67918c6136bd4b109f62e2c39be3
+- model-response-bd8a7c15-019c-4fe6-80cf-67b2bdf22829.json；ID：7b2e6f11-ce46-4c3c-b7a4-0e8ffccea08a；SHA-256：0ddee7d9bd2384abde8d87963f84d5db6f5e5f8f20d9239188d6c382c1b44011
+- model-response-be68d837-f130-439c-ba44-d80b394d20f1.json；ID：7a3cd21a-6b8a-4442-8313-90f7c1e0d9c1；SHA-256：b45197a0480d601a53c2d2c962d4b413d5894f514fbb8f080d39b66ecd5d6a0d
+- model-response-be7d7d96-67f5-41eb-8ff9-1bcd6c5ca195.json；ID：5e471895-63b1-42e2-9c96-242b1ca5517c；SHA-256：8551225ebd52331bcecfbe82836d427ed43b8f028b4e994eb9965e725a90ec9f
+- model-response-bed27e66-1f79-4655-aa61-cd9ebcec2d65.json；ID：3c994b95-a925-4b08-a866-ba9bb9c3058e；SHA-256：82126edb1fea38315a7a25fc11f8ed2288d99acce307e02d462ce0d535243af3
+- model-response-d13fdfb2-7db5-4707-8476-9e96f9f2fb6c.json；ID：91a75d3e-1ffb-4dd7-9e6d-dbf6fa132539；SHA-256：bff7574a48addfefcb29b74491b5114886c5ea366b10a9de58c369e9dc357302
+- model-response-d29d159a-3e75-45d8-aca8-244f595b0669.json；ID：a9cc6df0-f0fd-48e3-866e-1a9fba489cae；SHA-256：756313f1a1d98ebc6e60339fde71aab3493813c75dfb0df9521da46eb6e2bb5b
+- model-response-d607524b-b21a-4ee9-9cd6-2e34c1f0395c.json；ID：75ad6cad-a033-41a7-899e-179c49e7cc9f；SHA-256：fab60f5bc3b4ddf6508b640dc0d06e01139f01f1946e788a84deeba8b7fed4aa
+- model-response-dbec859e-3941-42cc-a06d-43836f2f7886.json；ID：77f9aa60-190d-46b2-8896-92320f2bbdd6；SHA-256：5bbb4a3cbe22c6612cfa8a79ebab95a9b6ef776d27652cf6701a4530286b5d87
+- model-response-dfc48e65-6eb8-42e5-860d-ad4d785d6558.json；ID：be652866-b43e-4795-adb5-3b9229a6589a；SHA-256：4d49bf2b89950bed83118fc406e212b609e02e11f0a3f3a719f3dd9295e54e95
+- model-response-e460240c-6e32-45e9-947f-8ff244868379.json；ID：e8fa469b-3448-4d6f-9e88-4a61bd504ad3；SHA-256：ace21612d37d35c1a0f0ae4b338c79b15066fbbfbe794aa91cdad16b172b81ad
+- model-response-e67c060f-5b2a-497e-8ceb-457ecf8d131c.json；ID：9247f1c7-98f9-4683-8ed0-322e51004034；SHA-256：b6672218c0a54cb424abff3599ccb9e553769a2428897fe9149f4a12b73a9401
+- model-response-e93b40ea-c9bd-45dc-803b-3b1c4857f696.json；ID：f2ba8f55-8752-49b2-94e3-38aff4fd4923；SHA-256：3897615d716668bf37cc549e8fc0daaf9ea821f365d878be0bcb541102f9efb1
+- model-response-eac3aaf4-0fc6-4435-88e9-08eda6aa0a3e.json；ID：df1eaae7-dce8-4168-b562-834921347a4b；SHA-256：b562eb32f2c9c2d71a2dc1ba1bb9af3eb179ed904b32c4e2cc1e3787433ba69b
+- model-response-ed34497f-b65d-43ec-afcf-a86a8e31feb0.json；ID：20b0f0fe-127e-4bbb-9a72-aa2f1dbde63f；SHA-256：2e34ddf3941d857feac17acff330363daa6ef28bacd1d69b822dd0aaf90ed43b
+- model-response-eede6024-1723-49f0-8747-7cfd48d1d44d.json；ID：7ffddb50-284b-4bcd-a505-1f5b3ae063e7；SHA-256：7320b300446eecc26bc559470ee0b4d899d6ae9870fbf4f1975274f40bbe2822
+- model-response-ef31fbbc-4393-4e93-ab63-c3e2624f4161.json；ID：af75b971-a9b3-428b-93d5-2818fc1cfdce；SHA-256：a877bafbe1b1dab43ff40daa63d17b376edf93a11edf634bc0cbd714199f0a47
+- model-response-f0a4d050-f752-42e0-910d-7a5654dfbbbc.json；ID：a1ebfaa8-599a-4dc3-810e-06c1f25da4ca；SHA-256：c5d415f59f2f3d33c7de171f55c126e501193c4b451274e49ae12a95ce8111f7
+- model-response-f55e8fd2-d307-4a94-8504-14d6c01e15e1.json；ID：daae5100-63d5-4394-82e9-29c10c139ea7；SHA-256：f156e513a347185d079ddb7dc9ce5b92b8f1ee524bd6126a6c54180206ca692d
+- model-response-fb1d0546-32c2-47dd-ac14-9ac6f599e94b.json；ID：72566481-14e3-46c4-9408-58026e9cf575；SHA-256：0b5767f2e2479f5623efea8e0c078cdee52755cc9630cbf1a9d33daacf48d5ba
+- model-response-fbe8a2e0-5138-4f9b-900c-29fb218feebb.json；ID：14667aa6-2ffb-484f-90c3-43468654eaf7；SHA-256：83411dcf2d54146ddd6518437f1c3fba9dad87157ae64f93571ac50a5b8cd75c
+- p04-ollama-history-vuln.zip；ID：7a188ad2-c05f-4da3-9d1e-6ced66d8eaed；SHA-256：8177b47c88a56a9aabc701551a88bdfa4a96590ce26e2a2323e46ef4bf8e42f4
+- snapshot-manifest.json；ID：43d8e2e4-c9ba-4f4d-828a-cb964f609ba2；SHA-256：071a44800e5dd15384de8195d15cddf41eced4d07440bc7701992a858d013041
+- source-snapshot.zip；ID：86e43a33-ce64-4415-a671-301c4384c5ea；SHA-256：b240f9620b88be81f6cc34a7331b6660a6a720e229f3afd277f57f879bea05db

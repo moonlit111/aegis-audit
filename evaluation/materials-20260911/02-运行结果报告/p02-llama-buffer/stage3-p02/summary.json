@@ -1,0 +1,99 @@
+{
+  "batch": "stage3-p02",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7343",
+  "generated_at": "2026-09-11T09:54:04.863846+00:00",
+  "budget": {
+    "max_units": 100,
+    "max_model_calls": 1200,
+    "max_tool_rounds": 16,
+    "timeout_seconds": 7200
+  },
+  "results": [
+    {
+      "short": "p02-llama-buffer",
+      "pair_id": "llama-cpp-python-detokenize-buffer-size",
+      "repo": "abetlen/llama-cpp-python",
+      "file": "llama_cpp/llama.py",
+      "lines": 1720,
+      "stage": 3,
+      "expected_category": "MEMORY_BOUNDS",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "9ab49bc1d47a3da011107d0277184ab1948f1364",
+      "fixed_rev": "4100bdec31b3d8fc2b545e78965f3d6b679ec3a4",
+      "packages": {
+        "vuln": {
+          "run_id": "045e52b6-0a05-4154-933a-a094780e95df",
+          "state": "RUN_STATE_CANCELLED",
+          "usage": {
+            "calls": 111,
+            "cost_cny": null,
+            "measured_tokens": 848004,
+            "unknown_usage_calls": 1
+          },
+          "reports": {
+            "json": "4b20c2a5-a9c5-49e3-af37-61252821e3cc",
+            "html": "ae69677b-5197-4790-a0a5-4f3c4197bc8c",
+            "markdown": "cb2fc22b-5965-4f12-bf5a-c7b6c92e0685"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 6,
+          "target_covered": true,
+          "findings_total": 7,
+          "focus_line_count": 1,
+          "hits": [],
+          "hits_on_change_point": [],
+          "pending": [
+            {
+              "id": "1ebaa370-b6df-4ffa-a9aa-286887762459",
+              "title": "初始化分配 token/分数缓冲区时使用未初始化的 ndarray",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "d85974be-a20b-4567-9bc1-5c037f808e33",
+              "title": "外部可控的模型/LoRA 文件路径进入原生加载调用，仅有存在性校验且无规范化或目录约束",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "6dc70c70-63d1-4c05-85ee-d10467031867",
+              "title": "tokenize 仅用 assert 校验模型状态并对 C 层调用缺少显式长度上限校验",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "5791a76c-8b68-4fec-bf15-c6cc1ed74cef",
+              "title": "detokenize 未校验 token id 取值范围即传入 C 层词表转换函数",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "0ffb8573-407f-47e7-8945-768fd3044a75",
+              "title": "eval() 按 rows*cols 读取原生 logits 指针且无长度一致性校验",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "51f9a4e0-a0c7-4a11-af97-2da6ad201e1e",
+              "title": "eval() 将未做范围校验的 token id 直接序列化进原生缓冲区并调用 llama_eval",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "23025824-9750-4e65-bc25-82fcbc1b496a",
+              "title": "generate 的 token 序列未经取值范围校验即进入 ctypes 原生采样/评估链",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "INCONCLUSIVE"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "error": "<urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>"
+        }
+      },
+      "pass": false
+    }
+  ]
+}

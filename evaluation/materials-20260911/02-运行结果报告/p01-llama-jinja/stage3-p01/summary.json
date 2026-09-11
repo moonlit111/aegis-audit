@@ -1,0 +1,175 @@
+{
+  "batch": "stage3-p01",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7342",
+  "generated_at": "2026-09-11T09:52:41.822936+00:00",
+  "budget": {
+    "max_units": 100,
+    "max_model_calls": 1200,
+    "max_tool_rounds": 16,
+    "timeout_seconds": 7200
+  },
+  "results": [
+    {
+      "short": "p01-llama-jinja",
+      "pair_id": "llama-cpp-python-jinja-template-sandbox",
+      "repo": "abetlen/llama-cpp-python",
+      "file": "llama_cpp/llama_chat_format.py",
+      "lines": 3583,
+      "stage": 3,
+      "expected_category": "INJECTION",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "b454f40a9a1787b2b5659cd2cb00819d983185df",
+      "fixed_rev": "561e880654aa4e1311b22577e9149962be0d8ba0",
+      "packages": {
+        "vuln": {
+          "run_id": "e4f8f8f7-bce2-43dc-ae4e-cd6df03fec0b",
+          "state": "RUN_STATE_CANCELLED",
+          "usage": {
+            "calls": 207,
+            "cost_cny": null,
+            "measured_tokens": 1172508,
+            "unknown_usage_calls": 1
+          },
+          "reports": {
+            "json": "8a95c909-e49d-43c4-a51f-437d2c1e34d1",
+            "html": "4632aa1a-4d37-4a44-a939-7a5a5bf7d143",
+            "markdown": "3ed21666-f8bf-4941-ae76-8eebfb969f9d"
+          },
+          "verdict": "命中改动点",
+          "audited_unit_count": 19,
+          "target_covered": true,
+          "findings_total": 13,
+          "focus_line_count": 5,
+          "hits": [
+            {
+              "id": "55912f9e-6fc7-42dd-b662-397b5a1e91a5",
+              "title": "未沙箱化的 Jinja2 环境从 tokenizer_config chat_template 编译模板（SSTI 风险）",
+              "category": "INJECTION",
+              "cwe": "CWE-1336",
+              "severity": "MEDIUM"
+            },
+            {
+              "id": "b708450b-6bbd-4b76-86c2-9a10f48e6364",
+              "title": "未沙箱化的 Jinja2 环境渲染远程 chat_template 导致模板注入",
+              "category": "INJECTION",
+              "cwe": "CWE-1336",
+              "severity": "HIGH"
+            }
+          ],
+          "hits_on_change_point": [
+            {
+              "id": "55912f9e-6fc7-42dd-b662-397b5a1e91a5",
+              "title": "未沙箱化的 Jinja2 环境从 tokenizer_config chat_template 编译模板（SSTI 风险）"
+            },
+            {
+              "id": "b708450b-6bbd-4b76-86c2-9a10f48e6364",
+              "title": "未沙箱化的 Jinja2 环境渲染远程 chat_template 导致模板注入"
+            }
+          ],
+          "pending": [
+            {
+              "id": "ead1b37a-a414-4084-ba46-84b15bda5229",
+              "title": "用户可控的模型/分词器标识直接传入 AutoTokenizer.from_pretrained（未校验来源与完整性）",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "4db83872-2a85-4598-865c-d09024badb79",
+              "title": "聊天模板 tokenizer 的 apply_chat_template 直接执行来自不可信 tokenizer 仓库的 Jinja 模板",
+              "category": "INJECTION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "908ba680-1df2-4c58-a247-4ad8720f7e74",
+              "title": "聊天处理器工厂直接以调用方提供的模型路径加载外部分词器与聊天模板（信任边界缺失）",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "b712f8b1-9827-44ad-8f6f-3d8e5ed6bb45",
+              "title": "工具调用语法降级静默回退且模型输出未按声明 schema 复校验，参数被直接归属为所选工具",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "e5730c6c-cbd0-4ad4-8523-37a0f2f1cd9e",
+              "title": "聊天补全处理器注册表写入缺少授权/所有权校验，overwrite=True 可静默替换同名处理器",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "e3b03d76-1708-4a1a-ae5e-294a36955e49",
+              "title": "工具调用参数直接透传模型输出文本，未做 JSON/结构校验",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "ae4e9ce4-2453-4dfd-8ba5-46c08eedc595",
+              "title": "functionary 处理器把模型输出文本当作 function_call 名称并原样拼入后续提示词，导致提示词/角色边界注入",
+              "category": "INJECTION",
+              "reviewStatus": "REJECTED"
+            },
+            {
+              "id": "f9326216-2617-436e-b337-c851f1dd02df",
+              "title": "调用方提供的 function_call/tool_choice 名称未经校验即拼接进推理提示词",
+              "category": "INJECTION",
+              "reviewStatus": "UNREVIEWED"
+            },
+            {
+              "id": "d1e9e6a7-0bcc-43f1-bfaa-186a77cfcb78",
+              "title": "内容拼接使用 completion_text[-len(常量)] 单字符索引，造成响应内容截断",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "UNREVIEWED"
+            },
+            {
+              "id": "d9ff3ad8-0be6-4da7-8cdb-fc8d5b5715f2",
+              "title": "回传的 tool_calls 名称来自调用方或模型文本，未与已声明函数比对",
+              "category": "INJECTION",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "3b149981-84e0-4a33-a96e-233167df8aa9",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 25,
+            "cost_cny": null,
+            "measured_tokens": 143236,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "6d7802f1-5a61-480a-9666-8797407106c5",
+            "html": "d16570fb-8221-40a8-b8b3-7ff655917041",
+            "markdown": "aaf2ac00-a80e-43fc-be53-959545ae378d"
+          },
+          "verdict": "有候选未成立",
+          "audited_unit_count": 1,
+          "target_covered": true,
+          "findings_total": 2,
+          "focus_line_count": 6,
+          "hits": [],
+          "hits_on_change_point": [],
+          "pending": [
+            {
+              "id": "c8725027-80a1-41ef-abfb-61258066ed40",
+              "title": "图片加载未限制 URL scheme：用户可控 image_url 经 urllib.request.urlopen 直取任意 URL（file/http/ftp），导致 SSRF 与本地文件读取",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "UNREVIEWED"
+            },
+            {
+              "id": "0fc81525-a92a-46fb-80bf-cee01ee36430",
+              "title": "图片抓取无大小/超时限制，全量读入内存后可触发资源耗尽",
+              "category": "MEMORY_BOUNDS",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": true
+    }
+  ]
+}

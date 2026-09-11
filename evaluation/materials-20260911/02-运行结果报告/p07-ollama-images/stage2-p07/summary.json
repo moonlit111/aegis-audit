@@ -1,0 +1,158 @@
+{
+  "batch": "stage2-p07",
+  "scope": "SECURITY_AUDIT",
+  "server": "http://127.0.0.1:7341",
+  "generated_at": "2026-09-11T09:44:51.643972+00:00",
+  "budget": {
+    "max_units": 40,
+    "max_model_calls": 400,
+    "max_tool_rounds": 12,
+    "timeout_seconds": 3600
+  },
+  "results": [
+    {
+      "short": "p07-ollama-images",
+      "pair_id": "ollama-relative-path-containment",
+      "repo": "ollama/ollama",
+      "file": "server/images.go",
+      "lines": 1285,
+      "stage": 2,
+      "expected_category": "PATH_TRAVERSAL",
+      "scope": "SECURITY_AUDIT",
+      "vulnerable_rev": "2eaa95b417e0711f90fe298ef233e58c6fe0a478",
+      "fixed_rev": "37d95157dfed0726d751d3a694e9d6cd3c923097",
+      "packages": {
+        "vuln": {
+          "run_id": "6ef3f9c6-822d-4c8e-ae62-c913fa1ff0a6",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 73,
+            "cost_cny": null,
+            "measured_tokens": 441686,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "dcea3d81-5d67-4d71-9011-317d3cafdb63",
+            "html": "72786b29-7144-499d-9967-5fec40d0083e",
+            "markdown": "b1a7aa7a-ad91-4664-ad08-da3c510f80de"
+          },
+          "verdict": "命中改动点",
+          "audited_unit_count": 4,
+          "target_covered": true,
+          "findings_total": 4,
+          "focus_line_count": 9,
+          "hits": [
+            {
+              "id": "fc63de7f-ffa7-41f9-8eac-74267193699c",
+              "title": "CreateModel 中 MODLEFILE 的 model/adapter 路径未经约束直接打开本地文件（可读任意路径）",
+              "category": "PATH_TRAVERSAL",
+              "cwe": "CWE-22",
+              "severity": "MEDIUM"
+            }
+          ],
+          "hits_on_change_point": [
+            {
+              "id": "fc63de7f-ffa7-41f9-8eac-74267193699c",
+              "title": "CreateModel 中 MODLEFILE 的 model/adapter 路径未经约束直接打开本地文件（可读任意路径）"
+            }
+          ],
+          "pending": [
+            {
+              "id": "58f37355-5e5a-4548-aae5-2b107fa530ca",
+              "title": "CreateModel 对 `@` 前缀参数直接作为 blob 键解析，未校验摘要格式",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "080d3a17-fb94-4a2d-b22c-05ce09157d5b",
+              "title": "图层摘要未经校验直接拼接为文件路径（潜在路径穿越）",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "UNREVIEWED"
+            },
+            {
+              "id": "dd779d87-9fd7-42b0-abf7-404c0e107fa8",
+              "title": "按清单摘要读取 blob 内容时未验证 blob 内容与摘要一致",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        },
+        "fixed": {
+          "run_id": "cb6c44d5-4230-413b-bccc-5d65cfb13010",
+          "state": "RUN_STATE_PARTIAL",
+          "usage": {
+            "calls": 100,
+            "cost_cny": null,
+            "measured_tokens": 485519,
+            "unknown_usage_calls": 0
+          },
+          "reports": {
+            "json": "901b8494-fcaf-411d-95ff-c2c881e780e5",
+            "html": "6b30db27-a938-4a80-acd2-459975d82347",
+            "markdown": "ddf576ed-064f-4598-8c3c-63de9f2e4683"
+          },
+          "verdict": "命中改动点",
+          "audited_unit_count": 5,
+          "target_covered": true,
+          "findings_total": 6,
+          "focus_line_count": 14,
+          "hits": [
+            {
+              "id": "50dcc6ff-2841-4be1-b8fa-ea017c8302a8",
+              "title": "Modelfile 中的路径未做目录边界限制，realpath 可将任意绝对路径或符号链接落点交由 os.Open 读取",
+              "category": "PATH_TRAVERSAL",
+              "cwe": "CWE-22",
+              "severity": "HIGH"
+            },
+            {
+              "id": "f2d3d219-077b-4400-a829-a4ebfecd151e",
+              "title": "realpath 不对 Modelfile 中的路径做目录约束，导致任意本地文件读取",
+              "category": "PATH_TRAVERSAL",
+              "cwe": "CWE-22",
+              "severity": "HIGH"
+            }
+          ],
+          "hits_on_change_point": [
+            {
+              "id": "50dcc6ff-2841-4be1-b8fa-ea017c8302a8",
+              "title": "Modelfile 中的路径未做目录边界限制，realpath 可将任意绝对路径或符号链接落点交由 os.Open 读取"
+            },
+            {
+              "id": "f2d3d219-077b-4400-a829-a4ebfecd151e",
+              "title": "realpath 不对 Modelfile 中的路径做目录约束，导致任意本地文件读取"
+            }
+          ],
+          "pending": [
+            {
+              "id": "74e6c36c-e20b-4141-8f95-73d129d42e72",
+              "title": "CreateModel 在缺少调用方授权上下文的情况下执行文件写入、模型拉取与层删除",
+              "category": "AUTHORIZATION",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "f0fd524f-3194-4425-87cc-bfa7d1716b5c",
+              "title": "GetModel 用清单层摘要构造文件路径并读取，缺少在受审单元内的摘要格式校验",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "21f3bddc-5a74-4698-b550-8b5942e4201a",
+              "title": "CopyModel 将解析后的目标模型名直接映射为文件路径并写入，缺少路径边界校验",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "INCONCLUSIVE"
+            },
+            {
+              "id": "7b4549a6-c086-41dd-aacd-925a2b3b85de",
+              "title": "PruneDirectory 递归删除时未校验路径是否被限制在数据根目录内",
+              "category": "PATH_TRAVERSAL",
+              "reviewStatus": "UNREVIEWED"
+            }
+          ],
+          "off_target_findings": 0
+        }
+      },
+      "pass": false
+    }
+  ]
+}

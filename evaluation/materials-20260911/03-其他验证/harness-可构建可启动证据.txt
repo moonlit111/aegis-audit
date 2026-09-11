@@ -1,0 +1,5 @@
+commit: 19c772f46c03649ac73f8c4a065cc46ade1ff658
+node: v24.15.0
+pnpm: 11.7.0
+
+启动验证 2026-09-11 18:47:11：dsh web 启动成功，http://127.0.0.1:3080/ 返回 HTTP 200（text/html），仅监听 127.0.0.1；验证后已 taskkill 关停。

@@ -1,0 +1,40 @@
+p06-parts-panic/vuln (exit=0)
+    poc_test.go:35: POC_RESULT=PANIC  runtime error: index out of range [0] with length 0
+    poc_test.go:36: （完整 panic 栈见 TestPreparePanicRaw，栈中直接指出 server/download.go:175）
+
+p06-parts-panic/fixed (exit=0)
+    poc_test.go:38: POC_RESULT=NO_PANIC  Prepare 正常返回 err=<nil>
+
+p07-realpath/vuln (exit=0)
+os.Open 读取成功，内容 = "SECRET-OUTSIDE-MODEL-DIR"
+判定: 相对路径越出 Modelfile 目录、按进程 CWD 解析并读取成功
+
+p07-realpath/fixed (exit=0)
+  读取成功，内容 = "SECRET-OUTSIDE-MODEL-DIR"
+  读取成功，内容 = "SECRET-ABSOLUTE-PATH"
+  读取成功，内容 = "LOCAL-IN-MODEL-DIR"
+
+p08-newnonce/only (exit=0)
+[正常] NewNonce(rand.Reader, 16) -> "OMKu_Os5TT3LBK0a5JsNNQ" err=<nil>
+[极端] length=math.MaxInt64 -> panic: runtime error: makeslice: len out of range
+[极端] length=负数 -1 -> panic: runtime error: makeslice: len out of range
+
+p09-race/vuln (exit=1)
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+
+p09-race/fixed (exit=1)
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE
+WARNING: DATA RACE

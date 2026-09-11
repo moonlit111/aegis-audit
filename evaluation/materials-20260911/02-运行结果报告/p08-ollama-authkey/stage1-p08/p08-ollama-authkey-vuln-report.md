@@ -1,0 +1,363 @@
+# AegisAudit 分析报告
+
+项目：对照池评测 20260911-073448
+
+任务：08f949c0-9d27-4dc8-a278-020a016bf8a0
+
+状态：Completed
+
+目标 SHA-256：555398aa49c291ccfb3b3dc42acd1643774865cb3f5f2bc532da4c5418cb9df8
+
+结果快照 · 数据截至 2026-09-11T07:38:43.511Z · 导出时任务状态 COMPLETED。漏洞审计：COMPLETED；独立复核：COMPLETED；模糊测试：NOT\_RUN；运行验证：NOT\_RUN；利用验证：NOT\_RUN。静态复核不代表已在目标上验证漏洞或利用影响。
+
+| 程序单元 | 文件 | 位置 / 地址 | 解析质量 |
+| --- | --- | --- | --- |
+| GetPublicKey | auth/auth.go | L43–L63 | PARSED |
+| NewNonce | auth/auth.go | L65–L72 | PARSED |
+| Sign | auth/auth.go | L74–L105 | PARSED |
+| auth/auth.go | auth/auth.go | L1–L105 | PARSED |
+| keyPath | auth/auth.go | L21–L41 | PARSED |
+
+## 审计策略与优先级
+
+已读取 auth/auth.go 全文（U0001，1-105 行）。该模块是 Ollama 风格的机器身份密钥封装：私钥定位（keyPath）、导出公钥（GetPublicKey）、生成 nonce（NewNonce）、对任意字节做签名（Sign）。审计重点放在外部可控参数（length、bts、r）、密钥文件访问信任边界，以及签名/nonce 的语义授权与重放风险；词法线索（文件路径、身份边界、内存操作）仅作为定位辅助，不单独构成结论。
+
+1. u\_2c3ea73e479da0614ff4d33b9cdc3a23：核心信任边界：Sign 用本机长期身份私钥对调用方提供的任意 bts 直接签名（第98行 privateKey.Sign\(rand.Reader, bts\)），无域分隔、无随机挑战/时间戳/TTL 约束，返回值直接暴露为 &lt;pubkey&gt;:&lt;signature&gt;（第104行）。需核查调用方（不在本模块内）能否用外部数据达成签名预言机、跨协议签名重放或身份冒用；ctx 参数未使用也需确认是否意味着缺少超时/取消语义。
+2. u\_d2472944b776e9304683aca104345e2e：最直接的外部输入点：NewNonce\(r io.Reader, length int\) 用调用方传入的 length 直接 make\(\[\]byte, length\)（第66行），未校验上界/负值。负值会 panic，超大值会造成内存放大 DoS。需判定 length 是否来自请求/网络数据（调用方不在目标中，属未决缺口），并核查 r 是否为来源可信的 CSPRNG 读取端。
+3. u\_cf4853962499a0c8875135420d97287b：文件与身份路径边界：keyPath 硬编码系统路径 /usr/share/ollama/.ollama/id\_ed25519（第30行）并回退到 $HOME/.ollama（第35-40行）。路径本身不接受外部输入，故非典型路径穿越，但需确认是否存在符号链接/权限/共享目录导致私钥被替换或读取，以及 os.UserHomeDir 失败路径的降级行为。
+4. u\_3e3285dbe30ea3a9cc3bd6fc1f1a69ff：密钥处理与信息泄露：GetPublicKey 读取并解析私钥文件（第49、55行），失败时通过 slog.Info\(fmt.Sprintf\(...\)\) 记录底层错误（第51行），可能把文件路径/解析细节写入日志；同时需确认该函数是否被暴露到无授权接口，从而成为公钥/存在性探测面。
+5. u\_cb4b125a8d9ee061ae50b6bf1ba78a5e：模块级整合视图：确认四个函数的实际调用关系、是否对外暴露（HTTP/CLI）、是否存在缺失的验签互操作逻辑，以及包级导入（crypto/rand、x/crypto/ssh）使用是否一致；用于判定以上单点问题能否组合成可触达的攻击路径。
+
+规划限制：调用图不完整（call\_graph\_complete=false），Sign/NewNonce/GetPublicKey 的真实调用方与输入来源不在本目标内，无法确认外部可控性与授权模型。
+
+规划限制：未执行构建或运行（build\_executed=false、target\_executed=false、verification/vulnerability\_audit 均为 NOT\_RUN），所有结论仅为静态推断，无动态验证或可利用性证明。
+
+规划限制：Semgrep 未运行（Windows 原生不可用，status=UNSUPPORTED），词法线索未经过规则引擎交叉验证。
+
+规划限制：缺少构建系统、入口、依赖清单与运行环境信息，无法确定部署形态（服务端/客户端）、密钥文件实际权限与是否为多租户共享主机。
+
+规划限制：未做版本/CVE 比对，本模块不存在已知 CVE 假设；无人工标注需核验。
+
+规划限制：本计划仅重排审计优先级，未对任何单元作出漏洞裁定；其余单元仍应在预算内审计。
+
+## 发现与复核
+
+静态结论范围：COMPONENT
+
+### Sign 使用主机身份私钥对任意调用方提供的字节签名，且无作用域/授权校验
+
+CWE-862 · MEDIUM · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：Sign 的第二个参数 bts \[\]byte（由调用方提供，可能来自请求体、挑战值或任意用户数据）；ctx 参数被声明但在函数体内从未被使用，无法表达调用者身份或授权上下文。
+
+危险操作：privateKey.Sign\(rand.Reader, bts\)（第 98 行）对攻击者可控字节做 SSH 私钥签名，并在第 104 行以 &lt;pubkey&gt;:&lt;signature&gt; 形式返回。
+
+防护缺口：函数内没有任何调用方身份校验、权限/作用域检查、待签名内容的域分隔或类型白名单，也未使用 ctx 传递或验证授权；私钥直接从固定路径读取后无条件用于签名。
+
+前提：攻击者需能让自身可控数据到达 Sign 的调用点（例如某上层 API 未做鉴权即转发用户输入），并需要运行时能读取本机 ~/.ollama/id\_ed25519 或 /usr/share/ollama/.ollama/id\_ed25519（或拥有这些路径的读权限）。
+
+影响：攻击者可获得由该主机身份私钥产生的任意消息签名，从而冒充该节点身份、伪造依赖该密钥的认证令牌/挑战响应，或在多节点互信场景中横向通过身份校验。
+
+修复：在调用 Sign 前强制校验调用方身份与授权范围；对可签名内容做域分隔与结构校验（如固定前缀、限定字段）；不要把原始用户输入直接传入签名接口；考虑将密钥访问隔离到独立的、有权限校验的服务边界。
+
+- 证据：auth/auth.go L98–98 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：	signedData, err := privateKey.Sign\(rand.Reader, bts\)
+- 证据：auth/auth.go L74–74 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：func Sign\(ctx context.Context, bts \[\]byte\) \(string, error\) {
+- 证据：auth/auth.go L80–80 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：	privateKeyFile, err := os.ReadFile\(keyPath\)
+
+复核 v2（MODEL，INCONCLUSIVE）：组件级事实成立：U0005 的参数 bts 未经任何转换/校验直接到达第 98 行 privateKey.Sign\(rand.Reader, bts\)，私钥由 keyPath\(\) 固定路径读取后解析（第 80、86 行），返回 &lt;pubkey&gt;:&lt;signature&gt;（第 104 行），函数体内确实没有任何调用方身份、作用域或域分隔检查，ctx 参数在函数体中未被使用。但这只证明了该原语会把调用方字节签名，并未证明缺失授权就是本组件的缺陷：授权边界属于调用方/服务层，源码快照内不存在 Sign 的任何调用点（检索 Sign\(/auth.Sign 仅命中定义与其内部调用），因此“本函数应自行鉴权”这一安全属性在本组件接口上无法被证实，也无法被证伪。按 COMPONENT 规则，无法确认的额外前置条件（存在把不可信输入转发到 Sign 的调用链）使结论保持为 INCONCLUSIVE。
+
+反证：函数体内无任何白名单、前缀/域分隔或授权判断，未见可反驳该组件的守卫；但同样没有任何证据表明本函数即是授权边界。keyPath\(\)（U0002 第 30-40 行）只从固定系统路径或 $HOME/.ollama 读取主机密钥，密钥来源不由调用参数控制，因此不存在‘调用方替换密钥’的独立缺陷。
+
+待补信息：是否存在把未经鉴权的请求/用户数据转发到 Sign 的调用方（HTTP 路由、gRPC handler 或其它进程内调用链）；部署方是否在调用前完成身份与授权校验；该签名原语是否被约定为进程内受信接口。这些均未在快照中出现。
+静态结论范围：COMPONENT
+
+### NewNonce 未校验 length，负值导致 panic、超大值导致内存耗尽
+
+CWE-789 · MEDIUM · 复核 INCONCLUSIVE · 验证 NOT\_RUN
+
+输入：参数 length（由调用方传入；本仓库内未发现调用方，无法确认是否来自网络/配置等不可信输入）
+
+危险操作：make\(\[\]byte, length\)（U0004 第 66 行）
+
+防护缺口：缺少 length &lt;= 0 的拒绝与 length 上限（以及对应场景下应固定为常量长度）的校验，调用方也未见包装校验
+
+前提：存在一条调用链，使不可信来源能够决定传给 NewNonce 的 length
+
+影响：负值使进程 panic 崩溃；超大值触发大块内存分配，造成资源耗尽与拒绝服务
+
+修复：在分配前校验 length：拒绝 &lt;= 0，并设置合理上限；nonce 长度应固定为常量（如 32 字节）而非由参数决定；对来自外部的长度参数做集中校验并在调用方形成白名单
+
+- 证据：auth/auth.go L66–66 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：	nonce := make\(\[\]byte, length\)
+- 证据：auth/auth.go L65–67 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：func NewNonce\(r io.Reader, length int\) \(string, error\) { 	nonce := make\(\[\]byte, length\) 	if \_, err := io.ReadFull\(r, nonce\); err \!= nil {
+
+复核 v2（MODEL，INCONCLUSIVE）：在 U0004（auth/auth.go:65-72）中，形参 length 未经任何检查即作为第 66 行 make\(\[\]byte, length\) 的长度：按 Go 语义负长度会在 makeslice 阶段 panic，极大长度会一次性申请巨量内存并被随后的 io.ReadFull 按该长度读取/填充，组件边界内的危险操作与参数到该操作的直达路径均成立。但本快照中未发现任何调用方，无法证明存在使 length 由不可信来源决定的调用链，故该缺陷是否可被外部触发仍缺证据，不能判为 VALIDATED。
+
+反证：第 67 行仅处理 io.ReadFull 的读取错误，无法约束第 66 行的分配规模；检索（NewNonce/Nonce）只发现该函数自身定义与实现（U0001/U0004 为同一代码的两个别名），未见上游包装、白名单、常量长度或 length&lt;=0/上限校验；base64 编码在分配之后，不构成保护。
+
+待补信息：是否存在真实调用方以及 length 是否由网络请求、配置等不可信来源决定（属组件使用前提，未获证据）；下游是否 recover panic、是否有内存配额/ulimit 等运行环境限制；nonce 是否本应固定为常量长度。
+静态结论范围：COMPONENT
+
+### 读取私钥文件前缺少文件权限/所有者校验（密钥机密性依赖部署）
+
+CWE-732 · LOW · 复核 REJECTED · 验证 NOT\_RUN
+
+输入：无外部输入；路径来自 keyPath\(\)（U0002）的固定系统路径或 $HOME/.ollama/id\_ed25519，仅受部署环境影响。
+
+危险操作：os.ReadFile\(keyPath\) 读取私钥文件内容（auth/auth.go:49）
+
+防护缺口：在读取/解析私钥前，未检查文件是否非全局可读、是否属于预期 UID/服务账户；也未使用 O\_NOFOLLOW 之类的防护避免符号链接替换。
+
+前提：攻击者能在同一主机上放置/替换该路径下的文件，或私钥文件权限过宽（如 0644）导致本机其他用户可读；Ollama 服务以读取该文件的身份运行。
+
+影响：私钥机密性可能被本机低权限用户或通过符号链接替换泄露，从而可伪造签名身份；但该结论依赖部署细节，代码层面无法证实。
+
+修复：读取前对目标文件做权限/所有者校验（拒绝 group/other 可读），必要时以 O\_NOFOLLOW 打开并校验大小上限，保持私钥目录 0700。
+
+- 证据：auth/auth.go L49–49 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：	privateKeyFile, err := os.ReadFile\(keyPath\)
+- 证据：auth/auth.go L44–44 ；产物 16798f83-9810-4e1a-8c3b-e5f85fb4484a；引用：	keyPath, err := keyPath\(\)
+
+复核 v2（MODEL，REJECTED）：该候选把“读取私钥前未做权限/所有者校验”当作漏洞，但在本组件边界内不成立。\(1\) 输入不可控：GetPublicKey 没有任何参数，keyPath\(\) 仅由固定常量 &quot;/usr/share/ollama/.ollama&quot; 或 os.UserHomeDir\(\)+&quot;.ollama&quot; 拼装（U0002:30-40，U0003:44），调用者无法影响被读取的路径，因此不存在函数参数到达危险操作的输入控制链。\(2\) 声明的机密性影响在本组件内无法产生：os.ReadFile 的内容只传给 ssh.ParsePrivateKey，函数返回值是私钥对应的“公钥”（U0003:55-62），既不返回也不记录私钥字节；解析失败仅以 %v 记录错误（U0003:51），SSH 解析错误不含文件内容，因此“私钥泄露”不成立。\(3\) 文件权限/所有者校验属于纵深防御：私钥文件的模式通常由写入方在创建时（0600 文件、0700 目录）保证，读取方缺少 mode 校验本身不构成可辩护的静态缺陷；候选自述结论“依赖部署细节、代码层面无法证实”正说明其不是本层的确定问题。\(4\) 候选设想的符号链接替换或全局可读文件，需要额外攻击者在同一主机修改密钥文件系统状态的能力，本快照没有任何证据支持该前提。综上，缺少权限校验是加固建议而非本组件的漏洞。
+
+反证：keyPath\(\) 的候选路径全部来自常量或 os.UserHomeDir\(\)，无调用者可控输入（U0002:30-40）；GetPublicKey 返回 ssh.MarshalAuthorizedKey\(...PublicKey\(\)\)，只输出公钥，不返回/不记录私钥内容（U0003:60-62）；解析失败分支仅 slog.Info 记录错误对象，不含文件内容回显（U0003:50-53）；缺少权限位/所有者/O\_NOFOLLOW 校验属纵深防御，密钥文件 0600 与目录 0700 通常由创建该文件的写入方保证。
+
+待补信息：部署时私钥文件与 $HOME/.ollama 目录的实际权限/所有者/挂载属性（是否 group/other 可读、是否允许他人写入）；是否存在本机低权限用户可写该路径或可预置符号链接的部署条件（本组件内无证据）；同主机攻击者能力是否属于威胁模型。
+
+## 关键逻辑与人工修订
+
+- u\_2c3ea73e479da0614ff4d33b9cdc3a23 · AUTHENTICATION · v1（MODEL）：第 104 行把结果拼接为 &lt;公钥&gt;:&lt;base64 签名&gt; 的凭证式字符串，属于用于向对端证明持有私钥的身份令牌格式；该令牌的产生过程本身未见有效期、绑定上下文或防重放字段，需由调用方补齐。
+  - 原文：auth/auth.go L104-L104；	return fmt.Sprintf\(&quot;%s:%s&quot;, bytes.TrimSpace\(parts\[1\]\), base64.StdEncoding.EncodeToString\(signedData.Blob\)\), nil
+  - 原文：auth/auth.go L92-L93；	publicKey := ssh.MarshalAuthorizedKey\(privateKey.PublicKey\(\)\) 	parts := bytes.Split\(publicKey, \[\]byte\(&quot; &quot;\)\)
+- u\_2c3ea73e479da0614ff4d33b9cdc3a23 · CRYPTOGRAPHY · v1（MODEL）：第 98 行通过 ssh 私钥对象执行签名（privateKey.Sign），输出为 Ed25519/SSH 语义的非对称签名；随机源为 crypto/rand 的 rand.Reader，属于安全的随机源，未发现自实现随机或弱熵问题。
+  - 原文：auth/auth.go L98-L98；	signedData, err := privateKey.Sign\(rand.Reader, bts\)
+  - 原文：auth/auth.go L86-L86；	privateKey, err := ssh.ParsePrivateKey\(privateKeyFile\)
+- u\_3e3285dbe30ea3a9cc3bd6fc1f1a69ff · CRYPTOGRAPHY · v1（MODEL）：GetPublicKey 读取并解析非对称私钥（ssh.ParsePrivateKey），再由 publicKey\(\) 派生公钥并序列化；属于非对称密钥材料的处理与公钥导出，非口令散列或对称加密。
+  - 原文：auth/auth.go L55-L55；	privateKey, err := ssh.ParsePrivateKey\(privateKeyFile\)
+  - 原文：auth/auth.go L60-L60；	publicKey := ssh.MarshalAuthorizedKey\(privateKey.PublicKey\(\)\)
+- u\_cb4b125a8d9ee061ae50b6bf1ba78a5e · AUTHENTICATION · v1（MODEL）：Sign 的返回值格式为 &lt;pubkey&gt;:&lt;base64 signature&gt;（fmt.Sprintf 与 bytes.TrimSpace\(parts\[1\]\) 拼接），即把公钥标识与签名拼成一个可传递串，形式上可作为凭据/令牌使用。模块内未对该串绑定 nonce、时效或目标上下文，也没有重放防护逻辑；由于未检索到调用点，是否真的作为认证令牌使用属未确认假设，仅作证据标注而非结论。
+  - 原文：auth/auth.go L92-L93；	publicKey := ssh.MarshalAuthorizedKey\(privateKey.PublicKey\(\)\) 	parts := bytes.Split\(publicKey, \[\]byte\(&quot; &quot;\)\)
+  - 原文：auth/auth.go L104-L104；	return fmt.Sprintf\(&quot;%s:%s&quot;, bytes.TrimSpace\(parts\[1\]\), base64.StdEncoding.EncodeToString\(signedData.Blob\)\), nil
+- u\_cb4b125a8d9ee061ae50b6bf1ba78a5e · CRYPTOGRAPHY · v1（MODEL）：签名操作 privateKey.Sign\(rand.Reader, bts\) 使用 ssh 私钥对象对调用方提供的任意字节 bts 做非对称签名，随机源为 crypto/rand 的 rand.Reader，结果经 base64.StdEncoding 编码其 Blob 返回。函数声明的 ctx 在函数体内未被使用（无取消/超时/来源校验参与），签名内容、用途与域分离缺少模块内约束；具体判定归属委托任务 U0005。
+  - 原文：auth/auth.go L98-L98；	signedData, err := privateKey.Sign\(rand.Reader, bts\)
+  - 原文：auth/auth.go L104-L104；	return fmt.Sprintf\(&quot;%s:%s&quot;, bytes.TrimSpace\(parts\[1\]\), base64.StdEncoding.EncodeToString\(signedData.Blob\)\), nil
+- u\_d2472944b776e9304683aca104345e2e · CRYPTOGRAPHY · v1（MODEL）：NewNonce 通过 io.Reader 读取指定长度的随机/nonce 字节并做 base64 RawURL 编码。随机性完全依赖调用方注入的 Reader，本模块内未固定为 crypto/rand.Reader，因此无法确认熵来源；这是需要独立复核的密码学语义点，而非从函数名推断的结论。
+  - 原文：auth/auth.go L65-L67；func NewNonce\(r io.Reader, length int\) \(string, error\) { 	nonce := make\(\[\]byte, length\) 	if \_, err := io.ReadFull\(r, nonce\); err \!= nil {
+  - 原文：auth/auth.go L71-L71；	return base64.RawURLEncoding.EncodeToString\(nonce\), nil
+
+## 覆盖与错误
+
+```json
+{
+  "audit_config": {
+    "max_model_calls": 240,
+    "max_output_tokens": 0,
+    "max_tool_rounds": 8,
+    "max_units": 20,
+    "model_timeout_seconds": 900,
+    "reasoning_effort": "high",
+    "timeout_seconds": 1800
+  },
+  "audit_narrative": {
+    "limitations": [
+      "未进行动态执行（NOT_RUN），所有发现均缺少运行时证据，无法确认可达性与实际影响。",
+      "全部发现未被复核确认：两条为 INCONCLUSIVE，一条为 REJECTED，均不应视为已证实漏洞。",
+      "审查范围仅为 5 个代码单元，未覆盖项目的全部代码路径；调用方、部署配置和动态分发路径存在未知。",
+      "人类标注为空，无外部参考数据可用于交叉验证。",
+      "没有提供独立的第二方复核记录，因此不存在已提升验证状态的发现。"
+    ],
+    "recommendations": [
+      "对 INCONCLUSIVE 的签名授权发现补充运行时或端到端验证：确认调用方是否可传入任意字节、是否存在上层身份与授权检查，以及密钥边界是否隔离。",
+      "对 NewNonce 的长度参数补充边界测试（0、负值、超大值）与调用方传播分析，确认可被外部可控输入触达，并据此判定是维持、降级还是驳回。",
+      "对 REJECTED 的私钥文件权限发现在部署层面补齐证据（目录权限、打开方式、符号链接处理），以便明确该风险是否应转为部署加固建议而非代码缺陷。",
+      "在缺少动态执行的情况下，后续任何确认性结论都应附带可复现的验证记录，避免将静态线索升级为已证实漏洞。",
+      "对剩余未产生发现的代码单元保持覆盖说明，明确哪些函数未被深入审查以确保审计范围透明。"
+    ],
+    "summary": "本次审计针对同一快照的 5 个代码单元，仅进行了静态审查（static_review_only=true），未运行任何动态执行（dynamic_execution=NOT_RUN），因此所有结论均为静态推断，缺少运行时证据。共保存 3 条发现，均无独立复核确认（dynamic 验证状态均为 NOT_RUN）。其中 2 条为 AUTHORIZATION 类别：一条处于 INCONCLUSIVE，指出签名接口可能使用主机身份私钥对调用方提供的任意字节签名且缺少作用域/授权校验；另一条已被 REJECTED，涉及读取私钥文件前的权限/所有者校验缺失，该问题被判定为依赖部署配置而非代码级缺陷。另有 1 条 MEMORY_BOUNDS 发现处于 INCONCLUSIVE，指出 NewNonce 未校验 length 参数，负值可能触发 panic、超大值可能导致内存耗尽。由于发现均未被确认，它们应被视为待验证假设而非已证实的漏洞；人类标注为空，无额外参考数据。"
+  },
+  "audited_unit_count": 5,
+  "edge_count": 32,
+  "eligible_unit_count": 5,
+  "exclusions": [],
+  "files": [
+    {
+      "language": "go",
+      "path": "auth/auth.go",
+      "reason": "",
+      "status": "PARSED",
+      "unit_count": 5
+    }
+  ],
+  "finding_count": 3,
+  "function_count": 4,
+  "fuzzing": "NOT_RUN",
+  "incomplete_agent_tasks": 0,
+  "independent_review": "COMPLETED",
+  "metadata": {
+    "analysis_scope": "STRUCTURE_ANALYSIS",
+    "call_graph_complete": false,
+    "code_file_count": 1,
+    "function_count": 4,
+    "module_count": 1,
+    "semgrep": {
+      "reason": "执行器未准备 Windows 原生 Semgrep 1.176.1；使用内建线索并进行独立语义审计",
+      "status": "UNSUPPORTED"
+    },
+    "target_sha256": "555398aa49c291ccfb3b3dc42acd1643774865cb3f5f2bc532da4c5418cb9df8",
+    "verification": "NOT_RUN",
+    "vulnerability_audit": "NOT_RUN"
+  },
+  "model_usage": {
+    "calls": 51,
+    "cost_cny": null,
+    "measured_tokens": 186626,
+    "unknown_usage_calls": 0
+  },
+  "result_artifact_id": "16798f83-9810-4e1a-8c3b-e5f85fb4484a",
+  "reviewed_finding_count": 3,
+  "structure_partial": false,
+  "tools": [
+    {
+      "command": [],
+      "details": {
+        "execution": "IN_PROCESS",
+        "max_source_bytes": 2097152,
+        "per_file_timeout_ms": 1000
+      },
+      "exit_code": null,
+      "finished_at": "2026-09-11T07:34:50.776Z",
+      "log_artifact_id": "",
+      "name": "tree-sitter",
+      "started_at": "2026-09-11T07:34:50.774Z",
+      "terminated": false,
+      "version": "0.25 (grammars pinned in Cargo.lock)"
+    }
+  ],
+  "unit_count": 5,
+  "unresolved_calls": 30,
+  "verification": "NOT_RUN",
+  "vulnerability_audit": "COMPLETED",
+  "warnings": []
+}
+```
+
+任务错误：
+
+## 证据产物
+
+- aegis-report-08f949c0-9d27-4dc8-a278-020a016bf8a0.html；ID：d7ef103c-e440-4ebb-a8f8-349c4a9f1121；SHA-256：a70a55f68ad6eeaea48e039e41791088ac72d62dabe95d0bb50e13ad434f83f1
+- aegis-report-08f949c0-9d27-4dc8-a278-020a016bf8a0.json；ID：f25a9833-bcaa-442d-9787-173db639c544；SHA-256：4e24787c41dd63a051055509d876c0e16b6c62f0c0f66133bbaec07ede4109d8
+- agent-AUDITOR-041e25da-9de1-45b3-9a2c-918ff5189f10.json；ID：509b7e5a-7268-4310-b577-5990d540bdfa；SHA-256：d7d6b0159434dfba42963d519de639656a0a5817d0fa01f75278f220bb0ab7b4
+- agent-AUDITOR-389fd8c4-3461-4861-9757-d18b43f321a3.json；ID：74ef4a4d-70ce-471d-8d0f-6ce82fbba72c；SHA-256：60188074db4d410ca0a5f82d304b4a6a69e8162e07e3703420e6e8e07f9b8824
+- agent-AUDITOR-6bb9d383-93d2-4da7-a6b8-14351b678af0.json；ID：9fbaa9eb-994c-45b5-be9c-b91322f0ab4b；SHA-256：43924ff5b16b282b982f4e0810561ce81eff164f957aded0e67ffd2f2ccd7f45
+- agent-AUDITOR-9426fe28-1349-440b-9f58-755b660d1107.json；ID：ecad220f-3258-43c9-ad4d-74f2eb31e92d；SHA-256：5004fbbe2114110e6afc3f298492b29e3256e5cdc38b400075c1c480441ccf48
+- agent-AUDITOR-a4beeecf-ed0b-4d06-b74a-f75cea8adab6.json；ID：81733208-b6a2-4c79-b77d-cdd2b1d7d97a；SHA-256：08e7b50df394cd3582d23fa779563ccedc3a3f5d210148b006db40a7b712cadd
+- agent-PLANNER-afdbcc9a-139b-4913-84eb-2fd62e9bbbb5.json；ID：c1b1170a-4816-4eb0-aa5f-a12602d762ea；SHA-256：29c8a0fc172c2c425b7081431ce2528c71239ea37f11c8895c3c6a6eb511ec38
+- agent-REPORTER-3750e8c9-36b0-4482-8bbf-72a65a55ab7f.json；ID：b2f52844-e102-4cc7-962f-943f365121f4；SHA-256：e2c2937fbbb256eed653be939375534e172f8a4524326f30fd61145a706f2523
+- agent-REVIEWER-3b7e90ab-dbd8-476b-8e86-28063cf027cb.json；ID：7b9cf037-aa71-4a97-9def-6d732d4996ad；SHA-256：5da8acf71c8b0177f547cb00d3185e1c485f0e5f43b84bdf9df9cb9661d8d456
+- agent-REVIEWER-87d48461-b28a-42ca-b11d-689970d63eee.json；ID：432dd642-1c7c-4f44-985c-c1bffd6a822a；SHA-256：28972a31b58a86ce62f0819ab5d39d87e7f2b6b4c3efaeeb8de67158b5c115ff
+- agent-REVIEWER-ed97db4f-5e4e-44fc-8f33-2d030d7c16da.json；ID：c38fd04e-5c77-4705-9336-6736dfb971b7；SHA-256：42b3275da1f2ced1c7c5b875d4910d873c566defe0ef4baff007bb593805a340
+- analysis-result.json；ID：16798f83-9810-4e1a-8c3b-e5f85fb4484a；SHA-256：06d10205d7e62184ba5afd6da01ef984ccfe8f431bb4214a491216390c8f048f
+- model-request-06d29778-3f79-47ab-b8e1-45061f7092d3.json；ID：993775e7-9827-4afd-bcf9-07fd195e66a4；SHA-256：f38c2e89e848e10f49a359acce5ad376d1593df329e48b98f13d07f0ce06aa1c
+- model-request-0a1a39ff-8bdf-4cc2-9e20-68ecb757e589.json；ID：fd682178-329e-42a2-8727-d3072cab02fe；SHA-256：3e8763fbee5633ebf51f3a68e5056fbdea16e0299153f1cc14ca21a417c88692
+- model-request-0bd1181a-4b11-40f3-b8a4-89e92e84054d.json；ID：d51b57db-1f57-4f26-be28-dc259dc37180；SHA-256：b1a49b16c74de1d7b4b4312b430b4c0da8c61bd1a90ecf22f5f84d19de3643d0
+- model-request-0eb70385-dfb0-403e-a89e-29a8766ad48c.json；ID：0c5ce5f0-f408-4aa3-97d7-57747bd401e9；SHA-256：cdc44cf2d5b82dd548d7bb1e870aee0a9c03b50d9ad061294e82d53c7502c263
+- model-request-10915c27-fb96-4612-b6bf-ae52c63b0574.json；ID：9d74410c-518a-48de-96be-69ffdbccb614；SHA-256：f285a4e908e726ee797a42942138f5971d58dab22020e1edc43848e766173611
+- model-request-1162cb30-7db2-4261-9fda-8de92e4b3052.json；ID：c09128de-ae1b-4dd8-86ec-62006154f364；SHA-256：4e10325f7dd9da83ce464b3712d0d9825848a971600db8c46246b522acc4afc2
+- model-request-155d1083-61d9-4236-b10a-617fd3076168.json；ID：6e317e34-a1db-4987-ada6-70a08210d495；SHA-256：5f2cfa07520fd0e5962ad096585ff0e34838afec667e957b775b249b084029fa
+- model-request-182511fe-bcb0-43ff-a662-793c74f0ec82.json；ID：9b0e2013-e46f-4269-a38a-c7f581403acf；SHA-256：d5015c7b5d753cf81410f1cfdf607d7f23a5a1056e16192461e1a5f8d21fa102
+- model-request-20db443b-849b-4c03-a4d1-6eaaa29bb364.json；ID：282dfffc-fd93-4d43-ab4b-66ee24aa939d；SHA-256：1ceba8183e9ee1f5c914d8ed2c9028e85424f3b8d417b75df6876d99d62a5ac8
+- model-request-226df2c0-ae42-4012-a1d0-b7bbb0e016cb.json；ID：fb2f586b-7c06-48a0-9b3b-d5bab1578d07；SHA-256：3fb23f6db0d3e9f6a7afd4d6284d113ad3221d6a046f07eef1e789cf2df49d19
+- model-request-28a24004-9827-4124-b1e9-c9aa2dbbd1dd.json；ID：6c44b60f-e375-4ae8-9ab3-2492f4e99d47；SHA-256：cf52845cc402a646997da2606e9d495fedbb042e17ac5160b5c98709500236bd
+- model-request-3bdcd6ae-b852-4eaa-8623-a9be3c1c03d3.json；ID：3cc7faf9-16d8-478c-9b5b-cd9ba4b4cc91；SHA-256：9d0b4de45d69588e963c1d9c148901be5a5a0bea4947c78e27858bbe5677fa93
+- model-request-4e42ec8f-1d99-4b82-9dfe-339f17a788cc.json；ID：5065da9d-7671-45b0-a140-1eaaef832422；SHA-256：51ec92305d661a6ce7d810dc7a6e9704780aa1c8eeae6059ec33388b9c28a100
+- model-request-518160a1-347a-4616-af65-fdf619ddaec3.json；ID：f0dbce0c-cfec-4e30-ac33-17c49b8e8a9e；SHA-256：aa3add58228f8f5ea1d9299aeab5574eea8f40580d044e5a3457cfc4bb6d521a
+- model-request-5717501b-35c1-4e9d-87eb-2d37d4255f95.json；ID：161b7023-21ee-4263-878b-9b6d368b1f8e；SHA-256：d6e3e6b3221890d520a767541fc642ee1e0a33e0ab86f640981fc67c99e039a8
+- model-request-6486a0ac-0c0d-4471-bf16-2bd4aeaeb380.json；ID：40591e0b-d865-4eac-8537-ec536ef3717c；SHA-256：7411b74861181885f59565061dc1a8016ce5d0e87c56ef3dd89b69c248f25f99
+- model-request-65875245-07c4-49b6-8271-3fb5e12db4fc.json；ID：6b93951c-b444-4efb-b22e-eec0a2e59437；SHA-256：2fbe578c9353a4d2b975389123ddf506d834a2d8bdac52309c75044a4036bdf2
+- model-request-714e4374-95a9-4fed-bdd4-ab3bd2ab5361.json；ID：980a1051-ac28-4c53-b9d7-2fdb85902711；SHA-256：7c90341a3b1002e0b08d457454cc33999af1e858b7d75e9fde3b3f7d5982900b
+- model-request-7e00e6be-f971-4960-adc3-4f2a76186a07.json；ID：84f5a1c3-be34-44c6-8231-a520a16d5a7e；SHA-256：4bc19659fd7254d65757f5ed11a0b407d79967be07eb5d80c11ad770bac52bdb
+- model-request-84d9c773-1fbb-45fc-8da1-c2734fc14d7e.json；ID：f9ceadd6-6e03-4463-ae82-25e2fe8d46d8；SHA-256：aa3fe072456ea73f3ee871143b12ef99d6b6178974398e47218677b8308e3c12
+- model-request-85253de0-4eaa-4625-b4b7-186f0bac66ae.json；ID：66e43ce4-624d-4e4e-bd10-76de75f05f07；SHA-256：25f36aa5dd4e4a775326ac1d6d7a2af9c37f2900abc93a0a3285bc91f707b8b0
+- model-request-8a0d4f35-dbb4-4443-a9a8-1084f64cf4a5.json；ID：5a1aca58-f63f-49b0-8b88-1482ae8f9a36；SHA-256：5235bef16c055db47e170f44dc735ef0ac58193c49bd8a298ac4045a623a73eb
+- model-request-916dcf64-8085-4470-bdc1-1ba770b39516.json；ID：fe00ebd4-62cc-4924-9a63-1aff1753300e；SHA-256：31c8233c291bf55167658adebcb0b7147351db6fecbd8dc28108e1f78c7b44ea
+- model-request-91c34a20-04b6-482a-a014-825997bd6dfd.json；ID：c106259a-aede-428c-a9ff-bc876301c768；SHA-256：e8c0feb755f5ee1e9d3be364b25b00258697cf0083c3afe48951b2806e9afcb4
+- model-request-948b8680-b59c-48b4-820d-36a23f5b3d30.json；ID：9e93654b-3e84-4736-a2af-4e3ab1c57a1e；SHA-256：c7a7e3ed1045a3d0e4e421348dd577bfc7eb96389fbf8ca690e684488cdef318
+- model-request-9e93b8e6-9a35-4c54-aec3-991b353d1a1b.json；ID：c4f6e13e-2f76-49d9-929e-13ca071bdc3d；SHA-256：edff196382e5530ecb327beff03fb3344e893fb1029116d6135a4396f12fd0b4
+- model-request-a24a9e9f-ba36-4805-ac71-15672adb3c6e.json；ID：0630595c-e2da-4b86-8b89-55d555fabcf7；SHA-256：aa3453df27b869468bf351fa150d3b974ec0f87efcf125b81ff99b49ed377fc3
+- model-request-a60dd14d-3dc4-426c-909d-469fad6ad1c8.json；ID：0dab6226-d6ac-493b-9d66-85c119e5b4f7；SHA-256：9e11c0a627383f3c8d4d1405f9319ce42c294c1155995897061c37ecb9d42478
+- model-request-a656a10b-5c6b-457d-a600-b08266c36555.json；ID：889da0b9-c9bb-4090-92bc-c573a005a9a4；SHA-256：2694e44164126e08710a2e54625d54a15aca71d563961a098beddb0b48d251ed
+- model-request-a8a50993-59ce-40d8-91ab-e18042ab58af.json；ID：ad1ce5f5-6543-40fb-b0b3-8ca551510ec3；SHA-256：6cb61724e6fb01a29334c6fc22bf07d63c48ff440dc1f40a3035bd871c2d4b69
+- model-request-b1b3a2c9-4ef0-488b-9e9e-c6c99aa3ba8c.json；ID：665b13f1-b40e-417a-b392-31c98aa79429；SHA-256：c627a7ab2cf10010e8946caedfe05edb9abd0ac9bafec830f75aad4da720cd06
+- model-request-b2a35e2d-3940-4b6b-9a7d-6b501464ef9a.json；ID：2eb404dd-20db-4fb7-8ac3-382be2bce702；SHA-256：49da3ffaea07148a3e20388ac9750edfee52da545e5d04fa591174e7087562d1
+- model-request-b7d26d00-180b-4fc5-8dc6-94353c87da4b.json；ID：42511a98-6b29-4b76-b2e2-d8803c0d04bb；SHA-256：c51fa4b3affa2ec5207bd6b0561fb1c7ce976dc296f8e06150989460ececa020
+- model-request-bf1d08db-ad28-4e9f-9de4-e56602e68f2f.json；ID：00756085-f966-4120-b302-9fd71b4cb816；SHA-256：5928db16d8ac6c7f25b1be83abe4c2d43770ef1c6e9ef00bfd44feeb23689c91
+- model-request-c2e29b4b-a980-443b-a26c-1f81dffaf9c2.json；ID：e1eea231-a9a8-4bbc-9340-1f3a621b2590；SHA-256：24cdbf18f0ec9b2ab078d6175ad6fdcce76942716444b8298e4fea4d4a62d684
+- model-request-c9a2efa0-b5dc-4e29-b03b-0c930d9a0546.json；ID：2113bd86-9ac2-4805-8c7f-dbaa655e7fc5；SHA-256：21373a0ff92307eaa274769c47ef0f0d53bd4ea2c6aed1354f17f55256564917
+- model-request-cc2cb00d-39ab-4d17-bad0-7435b82fdd04.json；ID：5cc373f5-510f-479a-b1b2-d7bdecdeac15；SHA-256：d4cdbd9c74026cefe71ab8db425bc4e8310a7a4b6c54081bc975056c761962ad
+- model-request-cd4802d6-d9ae-4bb3-a09e-99f2bcbee643.json；ID：81d8ed82-ec65-47da-8735-b5d95e436230；SHA-256：cd31256941c99e62d14a59884ab86accb0f27e85432bbbf333fd5cf40bd1150f
+- model-request-ce18b583-7dbf-46a6-b5da-4aa73cbc1a0c.json；ID：1b73254b-d4dd-40cc-9ba6-9ae7acd0a9a8；SHA-256：c580fb16eaf89197b3c216542e6533b95231cc7e060f5a5626cda30400a82cb1
+- model-request-d38d9f28-dad2-4c7d-a8ba-06c5ce949ac9.json；ID：b276e096-ae02-4c23-b2f0-9de91deb90d6；SHA-256：b413c2333126b52a5e3904f82da23b7e02f77ea54ca919bd5d04debfd3c7f7ee
+- model-request-dc0088ad-8829-4a49-a410-cef02b8ee088.json；ID：4588618a-67e2-4264-b4cd-006844bb4d58；SHA-256：b17fd18a6a0b24ea464edc08a13d202222c57b8a629bd00b13485dbdff67d4ca
+- model-request-deaf7714-ba3b-4a19-97e1-908c4c34d869.json；ID：d957b724-1c73-434c-9930-0a9ff285c5c2；SHA-256：e1469da1a6eb70fb768668d16c618f1877a093c832e5595069b2ea2836995e7a
+- model-request-e8c01c56-88c8-45e4-8660-51d05de90027.json；ID：17f6b764-dd53-482c-92df-2f661a651645；SHA-256：b6389a6a27ffb0feacb0ac97a0ec88eb76d20a8c9229b77838e12240227894fb
+- model-request-e92241d1-9f03-4071-ab28-59b6875ab41d.json；ID：8bf992f8-d5cd-4958-b89b-17e121072176；SHA-256：b321958451e0023575ded0ff862bc02b236f206949686089b54e8fce1594d78a
+- model-request-ed8fb6ff-26c7-47d3-a4cd-242d7769fff3.json；ID：7747b3c6-74b7-4887-b369-1ad9b0fae493；SHA-256：bc5548eb1fef60ebb71cf35a890da7debc2e904e1d0360bde753b09bab416db6
+- model-request-f1627a3e-2a66-4ff1-b885-edcc41e8e34d.json；ID：0f24ebcb-e552-4aa0-81f5-56266661e325；SHA-256：5cdc7b2da8874ea3880906581103439ea09b68b61880dd015cb55daf05efcff7
+- model-request-f29637fa-4046-4596-8ab0-38330bed9a20.json；ID：f0806305-b58a-40bb-9cda-16690f1af84c；SHA-256：4477a256f4534f3d70d7ebd32c02e4fc558267df9d1670c38fbd5262d83aea2e
+- model-request-f33f6a02-23e7-458f-9b8d-0feafb92a7ca.json；ID：ee81b162-4eb1-43f0-bcd5-4a822f7c4140；SHA-256：73c77512ff9b0f07cb7128e9838368666e9540677405f57c7d0118642de7871c
+- model-request-f777c9bf-7893-4f9e-9c81-3f4aa8ef1be3.json；ID：2abb366b-74d4-4c32-8223-0a38d00c57c1；SHA-256：3ff69ed6629b0d8169494377cab3b74c46bf5f3defb2f864bf74edbc5e5d425a
+- model-request-fa97fae4-4dd0-4886-ae11-840d97015bce.json；ID：cf412846-7529-4769-8e41-533490349f80；SHA-256：a0c643795aadc105edcb93050e4cc8fc88574167552c9b700666da3e631e5579
+- model-request-fb2cbb86-3d3f-4259-a383-84ea68efc876.json；ID：b1bed46b-3e48-4f54-9071-c742343daea4；SHA-256：c2ad5fc7c1dba33a41729acb8c6bac79a36b177f38ee12062e35605b4994980e
+- model-response-06becc44-c2d9-49c4-945b-84eabfe61d7b.json；ID：e18732a8-f7f5-45d2-9783-72b8b1e2233b；SHA-256：5cc39af05df0d8c5e3ae835ec0e53bfc175fabce207e6ca2e6341cbe58e632de
+- model-response-0902dbae-b0ca-4253-aa45-847e0b1e66a5.json；ID：8627c5c8-c300-43c9-94d5-6f4b26a42984；SHA-256：4d3e65ad11c078e292d9f3974daa7487d1a34394c34431abaf8e04e9aeb986b8
+- model-response-0946ce64-8775-4416-8e10-008ede5464ca.json；ID：065fc7e2-5a14-46b5-b6e1-9b27a7eda171；SHA-256：772da67bd083a0e5b3e87a1688c91c9d4c911bf988412cb352a4ad1adab9a0b3
+- model-response-0d44c436-5b57-4ed2-a2c1-949c2b2acff0.json；ID：35ebfa2e-f2bb-4ce6-bfa4-681b75e8b4f2；SHA-256：bc7e4a094beeb382cc27fdd3253f7428148d23178a2235fc4cf6d90f20558bfe
+- model-response-113d9096-6f86-4d3c-99f3-f7e7024f6e28.json；ID：0448c453-79bc-449f-b923-64f411d24191；SHA-256：bf187ef66166591d0d52bd972c9ea34be2302b70fa66ac6a6ae4bf18157c4c96
+- model-response-1526e6a2-dca6-426a-9579-6ed304415cf3.json；ID：a05a73d4-fd08-4192-b3d5-ed4706811bac；SHA-256：8adf40a300e38a0c6d7fcc87788eff157c2a1d448f089c6f1047b84065321925
+- model-response-16bd71f6-8b6a-48bb-a039-076e7ecbb3c0.json；ID：bacba6a2-ee9c-4ca9-b8fe-40fb7aa8b3be；SHA-256：4ff3ca5b61f03956e7f1442429ce37bf9158b6f81fc1e5cbaee8efef2ddf541a
+- model-response-198d611b-7a60-49d6-9896-b6be18c5505b.json；ID：6ef13b2a-64d5-439f-bdec-fe8521d0417f；SHA-256：6da8377f4b281c5cfb6c5965043ff22a7b54dd504badd756aa7cc09fba10c5be
+- model-response-1b99b1b0-6c67-48b8-9494-e2c87acc92c3.json；ID：46ff02cf-0c0e-42b7-ad9a-e2d9c9768960；SHA-256：a6cbcd8bcfe04cf54c6516a43d0857a257c38543d7ff961a076ba250ea8361d8
+- model-response-1d99d930-6990-44b4-8d43-230908e9c31b.json；ID：6c483586-ec99-42d6-b2ba-16311c6bef3f；SHA-256：ec4abf61d943b85cbaddc18768a7497ce2c8645190396411d81a46382667ab64
+- model-response-1e766acd-ee2c-493d-b9f0-465b93bd17e2.json；ID：c0d2eca6-c183-4c0f-8342-9007045ce39d；SHA-256：b7d0381d5f9b27f5696597d4239701f6ed659ecbd3b81de10da844763836845d
+- model-response-231c8fde-c6ad-4168-88d6-ada55b839bec.json；ID：626382d1-1ff7-49d7-8a17-f05602d8f965；SHA-256：b9c3f49b4733145bd825b625e2e0a368bdf9db1dc846d796bb4d9660309a1db0
+- model-response-28edf658-9080-440b-a33b-85eac9f77c6b.json；ID：477524a2-917d-4deb-81dc-f538ee89c622；SHA-256：8595be635eb980243d7b5e298e702003c656f69860c78dfb9ce5222d2209d473
+- model-response-2cba94e8-7b51-4579-8893-ab6078fa1b17.json；ID：1bbaeaea-4ea0-4495-ad4f-672ca9e14d4e；SHA-256：9d46e65c1f4f1ae47c06e9db1c6ffe75053294fb972ed318cf7b94d4a7f62788
+- model-response-2e680b1c-8327-4ff7-bb65-0e23c67bb115.json；ID：e7af7349-c9f6-49bf-af57-36e48adb5f70；SHA-256：f5adf9f84fcc00985a1ab96fc62ccdb4119cce78c487b778107b725245355608
+- model-response-2e872dd0-cbf4-4c24-9ef0-f5481744b768.json；ID：d6932662-58f3-4f27-9800-7cbd7420a1c3；SHA-256：48fdbd7d82f4b2dbe99584cf4ad6a45fca598a0e834758c7ac01e64f02166075
+- model-response-3fd46099-5987-43cf-8d7e-b9599682c205.json；ID：379490e7-566c-4780-aa7e-931a38fc9937；SHA-256：fc9835b60e7579cb5f34650fa242b88138a7a92baa43cafc76c09b31a2531dce
+- model-response-4574cb8d-fa94-4e80-bdf1-11eb5f679b7a.json；ID：4e3832e0-a3a2-455f-98cb-577d474f682a；SHA-256：21d7e9bc3f1aa0331c64efe841814ad23b175e738e36df9fd4a6df55e9a5d9f7
+- model-response-4abcfb6e-5149-4463-b351-9d639b3925b2.json；ID：22da47f2-2325-45a6-8e7b-014eca021336；SHA-256：c203a8ce464392f4672f872b55b5358337645ef188cda804f00291aeb035ab30
+- model-response-4df09756-e58c-4ae0-952d-118c048f925b.json；ID：9de32265-3b58-4b16-8b17-db42a4ec182d；SHA-256：96a21651b0b0cce8f2ce88643081cc553141fa14ba769d1ab5b877272457c203
+- model-response-5092704c-0aec-4842-ab6b-c2d66f12ad42.json；ID：54d0c4dc-cc5d-46d8-b85a-090718785e09；SHA-256：aac09cbd961efa3af5cfbbfd6d5a5a5189d5db77e04650fd422530becbacfb0c
+- model-response-53783d5b-aa90-4a5e-803a-2a727be96dc9.json；ID：cea13fbc-6797-425c-b567-26e972218dc9；SHA-256：7484adfed9134eff163889a956aa3563272ef049c96cb664eb73d52ed9423e81
+- model-response-59902d60-3c42-40ea-9bcf-0fd7df589e60.json；ID：c6c4787f-7107-4289-b599-703f20770a29；SHA-256：c683228a5ce4ab9451efb78ba871d1774449a5e5199d910628efbe5573cf62c5
+- model-response-5b7fd3b7-4fd9-4950-966f-e02d74f69a6c.json；ID：74fa9077-4ff6-4906-9ad6-7cb8deddc05a；SHA-256：296bba4203e71cd065557c9bd24cb46317560cc9dc1923450c95322d2f7f0073
+- model-response-6011eb12-d192-43da-9e9c-599f5d4378cb.json；ID：5b987ea2-2eec-4dd1-a425-ee291524802b；SHA-256：154caa609d24ec43f9b7024a7be9a0cfb6aced7984148ce8af927a620061101a
+- model-response-60c039be-c4b1-4780-bfc9-b9d91e99203f.json；ID：02ac3a6e-9928-47fe-9640-a0e42deb1124；SHA-256：55bbe50b9fbe82f48ba4f3586686aa77f9d3126720e93b1188872ee0146e7fea
+- model-response-6eae898f-96dc-4b51-8980-c369478b09a2.json；ID：e7eef4cd-798a-463f-aa42-3d535c20ef81；SHA-256：42cf15ef746b22c4e31e4d7a864d38fe6b52d57947af8f4bf2dde3112d9ad6ca
+- model-response-76ce2d96-7c16-49bb-a59e-57e1659c24de.json；ID：3d2cbefa-5a2c-4f00-80f5-fbd122dc9bdc；SHA-256：5727ae0a9031f04c910148eefb2b4896b32837b4fdfba67cc6305023ee17c5a2
+- model-response-8580ab85-ce04-4e9f-b29f-08a8175dc776.json；ID：3bd3c46e-da17-4338-8262-f8e6c1c9acff；SHA-256：b1b7cffce43f0724c264fb9248bce10066f13ef40e53022f689984b21d0fdeea
+- model-response-8fa48ccb-1635-4a39-bcde-b04d3bb76ddd.json；ID：c17de0d9-f6f8-497d-83b8-2af516b8095e；SHA-256：b73c381880d135fd86757f441a7eea9b7f014d7997a07c7a78d2ba1ccd0fc231
+- model-response-949fd5ed-0bc7-46e7-9857-ae223f5667ed.json；ID：3bc13765-5850-4c37-9025-ed7f7d12bf9d；SHA-256：e4f6646936a5489b1c8c57cef7c3981232e8cbb7f92ec8906e1d7dbb7e87ce4c
+- model-response-9976c63a-972d-454f-ad95-8e1e508915dc.json；ID：58790fd1-5130-498b-b4ea-7786df58811c；SHA-256：f84c71296b732d5b7fa336fb8572bb1d383e397d861db787f5e99e3d592ad492
+- model-response-a3253073-bac7-4902-8571-b2ff8a10e78a.json；ID：223b25e8-eec6-4089-8c4b-1de1e1c631a9；SHA-256：ebb7bdc3b6a32e296d5031411a61a2ab114987f46d533bfe04bf61bf4acd8587
+- model-response-adb914fa-92b5-465d-a645-62140f7fb82e.json；ID：7e48f105-d243-4b2b-b763-efc747402b81；SHA-256：3d340bce0bb530c0e55a77f433c56d5013864b3e0f67ebcc8537d69c184e8db1
+- model-response-ae3834cd-da68-4f07-966a-415a5f7518d4.json；ID：ca950a21-283f-4bd2-993b-955cb4f6f83a；SHA-256：1bc534332c58b4bd06329b4f20e6b98084d71fcdc925546e6045d5a638c89815
+- model-response-af64a770-33e5-4809-abc5-41265af2b72f.json；ID：359f7d6f-630b-4cfa-8ad0-7d10dbda9174；SHA-256：9d4a6cb5e7e98d24d2765ac1fa435b81159e6e045ed0f419cba56e1caecca3ff
+- model-response-b6629d5e-02df-4eb6-8f37-9dbf270a22ec.json；ID：2e63c331-f9fe-48df-83eb-a426487390cd；SHA-256：3160435d1e7b9875d3f4b236f3f890aac4c423590316b1b329c5b84ff36fc948
+- model-response-b7dc4145-6d6f-42c5-86d8-378f8909eb44.json；ID：f0bee158-029a-4e82-a0e2-3936e4a321ac；SHA-256：a31ff398c8d1585b83b572846a2859afce670bac5ea2a359a95546c46095fc85
+- model-response-c8faba80-facc-44cc-9de3-cc067af5adfa.json；ID：6bf79b06-e5db-4b90-b6ae-59354cfd1625；SHA-256：974e60cd0e53b55da3c670fcac51875ad0f620a2130e10ee0ced0024033dacc0
+- model-response-cb3c2581-ce60-48a6-8a58-0df1b143456d.json；ID：f302cb66-77d4-4e1b-aa64-916e62b4299c；SHA-256：93cd2b21b1c14e9dc3cb962b5b3437c2a02910554f48ed14a9b87b0ac56e8a69
+- model-response-d18cfc83-579d-4ad1-9583-7775ebf9589d.json；ID：0a00288e-d4d2-4484-a0d4-ae833dc3fbf9；SHA-256：fd43fc66579579fe6b19b96a63a71b4854ab6eb7495bca5ef9115b7742e7788b
+- model-response-d661cfba-53f5-4552-b758-78a4b265b02c.json；ID：9580faac-a1e7-4f59-a95f-cb20b405b4c0；SHA-256：69be5d516de1c08fd4b7eeecdbfe435a5a1b2dc6e07f4f73deb33856b6fa1699
+- model-response-d699bc80-9858-4f41-ae62-8aa7252ccda2.json；ID：f1e05ae9-3bd0-47c6-a821-a489fff958fb；SHA-256：aa5763ed9e14f5fd57a8ef1a798dfb4dba1185d119661be54d5eac936f905f24
+- model-response-dd1ba0cf-e8d4-4148-b486-c5fbc3111f8d.json；ID：89ee074c-537b-4b23-99b7-bd53481276c7；SHA-256：eafed7e01eed2341bb39d2fd53d865be13b8cde2f09d1415bd2b57054c2f3b81
+- model-response-ddaa9e0f-1dfe-4f5b-bb2e-d9a4502d42ff.json；ID：f0141372-bb1f-40e8-b2ea-e3af2208db25；SHA-256：e16aa937761662bfa3893a4fb9543d94b605e476085d618cc4ef1e180696f2ca
+- model-response-e9a87c0a-c0cc-47e5-9f1e-ff822f698ca8.json；ID：2fb7811e-a792-4063-80a1-62d80469a979；SHA-256：95e4abf675c014c07694c93ef2dcce4594b0e703489f25ab706c44dd4e23f751
+- model-response-eafa19af-1aa7-47da-8983-c87509378495.json；ID：cbf8bad0-2a3c-40a7-aed5-ed86fdb6ad01；SHA-256：d69731708d9545cbb1b50841f7e82ec257d3f8776b8ad186851d37e0d8382ed6
+- model-response-ec4ae581-926a-4d8e-bc0c-507e53270abe.json；ID：77d66fff-d8d8-4ad0-8a94-e63a2f93d516；SHA-256：09c6d08720c45b7bd13aa2be72cf505e8d733f897ecf788ea2154d6c9ee88056
+- model-response-ee3cfd61-2e50-4d34-998b-5aa3907d771e.json；ID：bb862f46-97f9-4aa8-baf1-502ce03c105e；SHA-256：5393fffc994c4c3d96ad0620c09644c2435048ca222af7bf2745faaf51dedce8
+- model-response-f28ed3e5-609c-423d-a0ff-67f30e35d139.json；ID：16c50d76-151d-4502-bb71-31aa2c99b353；SHA-256：7c99251d95b12211df201e9239fbeebfeb0f71abe32edcb9f03e8386109b3559
+- model-response-f297f6a0-25ce-427f-888f-4065cc30085f.json；ID：14306bb2-f829-49fe-87b4-cea8dd6343e9；SHA-256：97fef7c16b117bbb49905c3c4bfe3c7fac58a109640b17651d41fcd046728f32
+- p08-ollama-authkey-vuln.zip；ID：9b61dfce-51af-451f-9320-6248b12b7f0c；SHA-256：08c6a55df75f0e8535a9acc0202e5778c7b724b8fc14194e80ffd9498b5ade4f
+- snapshot-manifest.json；ID：bd761585-300e-4488-b679-fd07eaaeb415；SHA-256：57a9ac3cc0a634a7cc6b2f7ab7f59808f0bcab74ec50f0623e72586f7b4b6c3a
+- source-snapshot.zip；ID：c0d4f79e-667e-4d31-a7d3-88789952d753；SHA-256：555398aa49c291ccfb3b3dc42acd1643774865cb3f5f2bc532da4c5418cb9df8

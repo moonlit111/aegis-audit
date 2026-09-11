@@ -1,0 +1,91 @@
+<svg width="680" height="650" viewBox="0 0 680 650" role="img" xmlns="http://www.w3.org/2000/svg">
+<title>AegisAudit 系统分层架构图</title>
+<desc>AegisAudit 的四层架构：Svelte 浏览器工作台 UI、Rust 控制服务、Windows 执行器、DeepSeek API，层间以 Connect RPC、内部协议与 HTTPS 通信。</desc>
+<defs>
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+.title { font-size: 15px; font-weight: 500; fill: #000000; }
+.layer-title { font-size: 14px; font-weight: 500; fill: #000000; }
+.chip { font-size: 12px; fill: #000000; }
+.note { font-size: 12px; fill: #333333; }
+.arrow-label { font-size: 12px; fill: #333333; }
+</style>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</marker>
+</defs>
+
+<rect width="680" height="650" fill="#FFFFFF"/>
+<text class="title" x="40" y="26">AegisAudit 系统分层架构</text>
+
+<g>
+<rect x="40" y="48" width="600" height="88" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="0.75"/>
+<text class="layer-title" x="60" y="70">Svelte 浏览器 · 工作台 UI</text>
+<rect x="60" y="86" width="66" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="93" y="99" text-anchor="middle" dominant-baseline="central">项目</text>
+<rect x="134" y="86" width="66" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="167" y="99" text-anchor="middle" dominant-baseline="central">导入</text>
+<rect x="208" y="86" width="66" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="241" y="99" text-anchor="middle" dominant-baseline="central">任务</text>
+<rect x="282" y="86" width="90" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="327" y="99" text-anchor="middle" dominant-baseline="central">发现与标注</text>
+<rect x="380" y="86" width="66" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="413" y="99" text-anchor="middle" dominant-baseline="central">报告</text>
+</g>
+
+<line x1="340" y1="136" x2="340" y2="176" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="352" y="146" width="122" height="22" rx="11" fill="#FFFFFF" stroke="#AAAAAA" stroke-width="0.5"/>
+<text class="arrow-label" x="413" y="157" text-anchor="middle" dominant-baseline="central">Connect RPC</text>
+
+<g>
+<rect x="40" y="178" width="600" height="120" rx="12" fill="#F2F2F2" stroke="#000000" stroke-width="0.75"/>
+<text class="layer-title" x="60" y="200">Rust 控制服务 · Axum / Tokio / SQLx</text>
+<rect x="60" y="214" width="82" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="101" y="227" text-anchor="middle" dominant-baseline="central">状态机</text>
+<rect x="150" y="214" width="106" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="203" y="227" text-anchor="middle" dominant-baseline="central">多智能体编排</text>
+<rect x="264" y="214" width="82" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="305" y="227" text-anchor="middle" dominant-baseline="central">工作队列</text>
+<rect x="354" y="214" width="82" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="395" y="227" text-anchor="middle" dominant-baseline="central">SQLite</text>
+<rect x="444" y="214" width="82" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="485" y="227" text-anchor="middle" dominant-baseline="central">DPAPI</text>
+<text class="note" x="60" y="262">唯一写入方 · 按哈希保存产物 · 引文校验 · 阶段化进度</text>
+<text class="note" x="60" y="282">模型凭据以 DPAPI 密文落库 · 明文密钥不下发执行器</text>
+</g>
+
+<line x1="340" y1="298" x2="340" y2="338" stroke="#000000" stroke-width="1.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<rect x="352" y="308" width="122" height="22" rx="11" fill="#FFFFFF" stroke="#AAAAAA" stroke-width="0.5"/>
+<text class="arrow-label" x="413" y="319" text-anchor="middle" dominant-baseline="central">领任务 / 回报证据</text>
+
+<g>
+<rect x="40" y="340" width="600" height="134" rx="12" fill="#F2F2F2" stroke="#000000" stroke-width="0.75"/>
+<text class="layer-title" x="60" y="362">Windows 执行器（多实例）</text>
+<rect x="60" y="378" width="96" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="108" y="391" text-anchor="middle" dominant-baseline="central">Tree-sitter</text>
+<rect x="164" y="378" width="76" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="202" y="391" text-anchor="middle" dominant-baseline="central">Ghidra</text>
+<rect x="248" y="378" width="82" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="289" y="391" text-anchor="middle" dominant-baseline="central">Semgrep</text>
+<rect x="338" y="378" width="60" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="368" y="391" text-anchor="middle" dominant-baseline="central">UPX</text>
+<rect x="406" y="378" width="72" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="442" y="391" text-anchor="middle" dominant-baseline="central">FLOSS</text>
+<rect x="486" y="378" width="88" height="26" rx="13" fill="#FFFFFF" stroke="#666666" stroke-width="0.5"/>
+<text class="chip" x="530" y="391" text-anchor="middle" dominant-baseline="central">IDA + D-810</text>
+<text class="note" x="60" y="426">宿主机 VERIFY · FUZZ（预构建 libFuzzer）</text>
+<text class="note" x="60" y="446">Job Object 进程树管理 · 崩溃去重 / 缩减 / 最小输入两次复放</text>
+</g>
+
+<line x1="340" y1="474" x2="340" y2="514" stroke="#000000" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="352" y="484" width="122" height="22" rx="11" fill="#FFFFFF" stroke="#AAAAAA" stroke-width="0.5"/>
+<text class="arrow-label" x="413" y="495" text-anchor="middle" dominant-baseline="central">HTTPS</text>
+
+<g>
+<rect x="40" y="516" width="600" height="66" rx="12" fill="#FFFFFF" stroke="#000000" stroke-width="0.75"/>
+<text class="layer-title" x="340" y="540" text-anchor="middle">DeepSeek API · 模型审计</text>
+<text class="note" x="340" y="562" text-anchor="middle">模型只提议 · 服务端校验</text>
+</g>
+
+<text class="note" x="40" y="616">控制与执行分离 · 证据不可变 · 模型输出必须校验</text>
+</svg>

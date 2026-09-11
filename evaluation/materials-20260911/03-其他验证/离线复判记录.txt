@@ -1,0 +1,40 @@
+=== stage3-p01 ===
+p01-llama-jinja        fixed  RUN_STATE_PARTIAL      有候选未成立         候选=2 类别命中=0 改动点命中=0 未成立=2 目标覆盖=True 已审单元=1
+p01-llama-jinja        vuln   RUN_STATE_CANCELLED    命中改动点          候选=13 类别命中=2 改动点命中=2 未成立=10 目标覆盖=True 已审单元=19
+
+=== stage3-p02 ===
+p02-llama-buffer       vuln   RUN_STATE_CANCELLED    有候选未成立         候选=7 类别命中=0 改动点命中=0 未成立=7 目标覆盖=True 已审单元=6
+
+=== stage1-p03 ===
+p03-fastchat-xss       fixed  RUN_STATE_COMPLETED    有候选未成立         候选=5 类别命中=0 改动点命中=0 未成立=5 目标覆盖=True 已审单元=7
+p03-fastchat-xss       vuln   RUN_STATE_PARTIAL      未覆盖            候选=0 类别命中=0 改动点命中=0 未成立=0 目标覆盖=False 已审单元=0
+
+=== stage1-p03-rerun1 ===
+p03-fastchat-xss       fixed  RUN_STATE_COMPLETED    命中改动点          候选=5 类别命中=2 改动点命中=2 未成立=3 目标覆盖=True 已审单元=7
+p03-fastchat-xss       vuln   RUN_STATE_COMPLETED    命中改动点          候选=4 类别命中=2 改动点命中=1 未成立=2 目标覆盖=True 已审单元=7
+
+=== c1-p04 ===
+p04-ollama-history     fixed  RUN_STATE_COMPLETED    有候选未成立         候选=9 类别命中=0 改动点命中=0 未成立=9 目标覆盖=True 已审单元=10
+p04-ollama-history     vuln   RUN_STATE_PARTIAL      有候选未成立         候选=10 类别命中=0 改动点命中=0 未成立=10 目标覆盖=True 已审单元=8
+
+=== stage2-p05 ===
+p05-ollama-gpusize     vuln   RUN_STATE_CANCELLED    有候选未成立         候选=11 类别命中=0 改动点命中=0 未成立=11 目标覆盖=True 已审单元=14
+
+=== stage2-p06 ===
+p06-ollama-parts       fixed  RUN_STATE_PARTIAL      未覆盖            候选=0 类别命中=0 改动点命中=0 未成立=0 目标覆盖=False 已审单元=0
+p06-ollama-parts       vuln   RUN_STATE_PARTIAL      命中改动点          候选=9 类别命中=1 改动点命中=1 未成立=7 目标覆盖=True 已审单元=5
+
+=== stage2-p06-fixed-rerun1 ===
+p06-ollama-parts       fixed  RUN_STATE_PARTIAL      有候选未成立         候选=4 类别命中=0 改动点命中=0 未成立=4 目标覆盖=True 已审单元=2
+
+=== stage2-p07 ===
+p07-ollama-images      fixed  RUN_STATE_PARTIAL      命中改动点          候选=6 类别命中=2 改动点命中=2 未成立=4 目标覆盖=True 已审单元=5
+p07-ollama-images      vuln   RUN_STATE_PARTIAL      命中改动点          候选=4 类别命中=1 改动点命中=1 未成立=3 目标覆盖=True 已审单元=4
+
+=== stage1-p08 ===
+p08-ollama-authkey     fixed  RUN_STATE_COMPLETED    有候选未成立         候选=5 类别命中=0 改动点命中=0 未成立=4 目标覆盖=True 已审单元=5
+p08-ollama-authkey     vuln   RUN_STATE_COMPLETED    有候选未成立         候选=3 类别命中=0 改动点命中=0 未成立=3 目标覆盖=True 已审单元=5
+
+=== stage1-p09 ===
+p09-ollama-zerolen     fixed  RUN_STATE_COMPLETED    命中类别但不在改动点     候选=10 类别命中=2 改动点命中=0 未成立=8 目标覆盖=True 已审单元=10
+p09-ollama-zerolen     vuln   RUN_STATE_PARTIAL      命中类别但不在改动点     候选=8 类别命中=2 改动点命中=0 未成立=6 目标覆盖=True 已审单元=5

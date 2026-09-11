@@ -1,0 +1,6 @@
+=== RUN   TestPrepareMissingContentLength
+    poc_test.go:35: POC_RESULT=PANIC  runtime error: index out of range [0] with length 0
+    poc_test.go:36: （完整 panic 栈见 TestPreparePanicRaw，栈中直接指出 server/download.go:175）
+--- PASS: TestPrepareMissingContentLength (0.00s)
+PASS
+ok  	github.com/ollama/ollama/server	(cached)
