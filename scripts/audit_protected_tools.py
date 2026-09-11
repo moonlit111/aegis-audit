@@ -175,21 +175,28 @@ def collect_reports(api: API, run_id: str, folder: Path, document: dict, key: st
 
 
 def exercise(api: API, output: Path, targets: list[dict], static: bool, runtime: bool,
-             config: dict, document: dict, resume: bool) -> None:
+             config: dict, document: dict, resume: bool, per_target_project: bool = False,
+             defect_only: bool = False) -> None:
     api_checkpoint = lambda: save(output / 'summary.json', document)
-    project = document.get('project')
-    if project is None:
-        project = api.rpc('ProjectService', 'CreateProject', requestId=str(uuid.uuid4()),
-                          name='受保护闭源二进制验收')['project']
-        document['project'] = project
-        api_checkpoint()
 
     for entry in targets:
+        project = (document.setdefault('projects', {}).get(entry['id'])
+                   if per_target_project else document.get('project'))
+        if project is None:
+            name = entry['name'] if per_target_project else '受保护闭源二进制验收'
+            project = api.rpc('ProjectService', 'CreateProject', requestId=str(uuid.uuid4()),
+                              name=name)['project']
+            if per_target_project:
+                document['projects'][entry['id']] = project
+            else:
+                document['project'] = project
+            api_checkpoint()
         spec = document['results'].setdefault(entry['id'], {'id': entry['id'], 'name': entry['name'],
                                                             'protection': entry['protection']})
         folder = output / entry['id']
         folder.mkdir(parents=True, exist_ok=True)
-        for label, version in (('defect', '1.0.0'), ('corrected', '1.0.1')):
+        variants = (('defect', '1.0.0'),) if defect_only else (('defect', '1.0.0'), ('corrected', '1.0.1'))
+        for label, version in variants:
             record = spec.setdefault(label, {'version': version})
             binary = BUILDS / 'targets' / entry['id'] / version / (entry['name'] + '.exe')
             record['path'] = str(binary.relative_to(ROOT))
@@ -357,6 +364,12 @@ def main() -> int:
     parser.add_argument('--target', action='append', help='Limit to one target ID; repeatable')
     parser.add_argument('--runtime-only', action='store_true', help='Skip the agent audit stage')
     parser.add_argument('--collect-only', action='store_true', help='Export saved runs without new work')
+    parser.add_argument('--project-per-target', action='store_true',
+                        help='Give every target its own workspace project instead of one shared project')
+    parser.add_argument('--defect-only', action='store_true',
+                        help='Only import, audit and verify the 1.0.0 build of every target')
+    parser.add_argument('--retry-failed', action='store_true',
+                        help='Drop a finished audit without findings or a non-reproducing runtime so it runs again')
     parser.add_argument('--max-model-calls', type=int, default=160)
     parser.add_argument('--max-units', type=int, default=12)
     parser.add_argument('--max-tool-rounds', type=int, default=10)
@@ -391,6 +404,26 @@ def main() -> int:
               'maxOutputTokens': 0, 'reasoningEffort': options.reasoning_effort,
               'modelTimeoutSeconds': options.model_timeout_seconds}
     document['audit_config'] = config
+    if options.retry_failed:
+        audit_keys = ('run_id', 'state', 'error', 'summary', 'findings', 'tasks', 'model_calls',
+                      'reports', 'audit_complete', 'runtime_record_id', 'runtime_complete',
+                      'runtime_status', 'runtime', 'poc', 'runtime_reports', 'finding_id')
+        runtime_keys = ('runtime_record_id', 'runtime_complete', 'runtime_status', 'runtime',
+                        'poc', 'runtime_reports')
+        for entry in targets:
+            defect = document.get('results', {}).get(entry['id'], {}).get('defect')
+            if not defect:
+                continue
+            if defect.get('audit_complete') and not defect.get('findings'):
+                for key in audit_keys:
+                    defect.pop(key, None)
+                print(entry['id'] + ': previous audit produced no finding; running a new audit', flush=True)
+            elif defect.get('run_id') and not defect.get('audit_complete'):
+                print(entry['id'] + ': unfinished audit resumes', flush=True)
+            if defect.get('runtime_complete') and defect.get('runtime_status') != 'REPRODUCED':
+                for key in runtime_keys:
+                    defect.pop(key, None)
+                print(entry['id'] + ': previous runtime did not reproduce; running a new verification', flush=True)
     static = not (options.runtime_only or options.collect_only)
     processes = []
     stack = ExitStack()
@@ -401,7 +434,7 @@ def main() -> int:
             base, processes, stack = start_services(output)
         document['server'] = base
         exercise(API(base), output, targets, static, not options.collect_only, config,
-                 document, options.collect_only)
+                 document, options.collect_only, options.project_per_target, options.defect_only)
     finally:
         for process in reversed(processes):
             stop(process)
@@ -413,6 +446,16 @@ def main() -> int:
         spec = document['results'].get(entry['id'], {})
         defect = spec.get('defect', {})
         corrected = spec.get('corrected', {})
+        if options.defect_only:
+            verdicts.append({
+                'id': entry['id'],
+                'defect_runtime': defect.get('runtime_status'),
+                'defect_findings': len(defect.get('findings', [])),
+                'exploitation': (defect.get('runtime') or {}).get('exploitation'),
+                'passed': defect.get('runtime_status') == 'REPRODUCED'
+                          and bool(defect.get('poc', {}).get('evidence_artifact_id')),
+            })
+            continue
         verdicts.append({
             'id': entry['id'],
             'defect_runtime': defect.get('runtime_status'),
@@ -425,7 +468,8 @@ def main() -> int:
     save(output / 'summary.json', document)
     print(json.dumps({'evidence': str(output / 'summary.json'), 'verdicts': verdicts},
                      ensure_ascii=False, indent=2))
-    return 0 if all(item['paired'] for item in verdicts) else 1
+    key = 'passed' if options.defect_only else 'paired'
+    return 0 if all(item[key] for item in verdicts) else 1
 
 
 if __name__ == '__main__':

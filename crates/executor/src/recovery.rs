@@ -191,16 +191,21 @@ async fn save_strings(
         })
         .collect::<Vec<_>>()
         .join("\n");
-    let readable = ctx
-        .control
-        .upload_bytes(
-            &ctx.lease,
-            "recovered-strings.txt",
-            "text/plain; charset=utf-8",
-            text.into_bytes(),
-        )
-        .await?;
-    result.readable_artifact_id = readable.id;
+    // An empty list is a factual result, not a failure: the service rejects
+    // zero-byte uploads, so no readable-text artifact is produced and the
+    // observation below records the count instead.
+    if !text.is_empty() {
+        let readable = ctx
+            .control
+            .upload_bytes(
+                &ctx.lease,
+                "recovered-strings.txt",
+                "text/plain; charset=utf-8",
+                text.into_bytes(),
+            )
+            .await?;
+        result.readable_artifact_id = readable.id;
+    }
     result.observation = json!({"recovered_string_count":strings.strings.len(),"omitted":strings.omitted,"preview":strings.strings.iter().take(16).collect::<Vec<_>>()});
     result.warnings = strings.limitations.clone();
     Ok(())
