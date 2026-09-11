@@ -44,7 +44,25 @@ export const reportsApi = createClient(ReportService, transport);
 export const systemApi = createClient(SystemService, transport);
 export const findingsApi = createClient(FindingService, transport);
 export const runtimeApi = createClient(RuntimeService, transport);
-export const requestId = () => crypto.randomUUID();
+// `crypto.randomUUID` only exists in a secure context, so a plain-HTTP LAN
+// deployment (http://<host>:<port>) would throw. Fall back to a version-4 UUID
+// built from `getRandomValues`, which is available in insecure contexts too.
+export function requestId(): string {
+  const source = globalThis.crypto;
+  if (source && typeof source.randomUUID === 'function') return source.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (source && typeof source.getRandomValues === 'function') {
+    source.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 export const artifactUrl = (id: string) => `/api/artifacts/${encodeURIComponent(id)}`;
 
 export function errorMessage(error: unknown): string {
