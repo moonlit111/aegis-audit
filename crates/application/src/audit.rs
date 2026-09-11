@@ -490,20 +490,56 @@ pub enum AgentAction {
 }
 
 pub fn parse_action(text: &str) -> Result<AgentAction> {
-    // DeepSeek's JSON mode occasionally appends provider system warnings after the
-    // valid JSON object. Parse only the first value; the raw response remains archived.
-    let mut values = serde_json::Deserializer::from_str(text).into_iter::<Value>();
-    let value = values
-        .next()
-        .transpose()
-        .map_err(|e| anyhow::anyhow!("响应 JSON 无效：{e}"))?
-        .ok_or_else(|| anyhow::anyhow!("响应 JSON 无效：内容为空"))?;
+    let value = first_json_value(text)?;
     if value.is_object() && value.get("action").is_none() {
         // JSON-mode providers may return a direct result. The same strict role and evidence checks apply.
         Ok(AgentAction::Finish { result: value })
     } else {
         serde_json::from_value(value).map_err(|e| anyhow::anyhow!("操作协议无效：{e}"))
     }
+}
+
+/// Providers deviate from JSON mode in both directions: some append warnings after the
+/// object, others prefix it with prose that the transport cannot strip. Take the first
+/// JSON value, skipping a leading non-JSON preamble when the response does not begin
+/// with one. The raw response stays archived, and every role, citation and evidence
+/// check still applies to the value. A response with no JSON value at all is still
+/// malformed — prose that merely *states* a tool intent never becomes an action.
+fn first_json_value(text: &str) -> Result<Value> {
+    match serde_json::Deserializer::from_str(text)
+        .into_iter::<Value>()
+        .next()
+    {
+        Some(Ok(value)) => Ok(value),
+        Some(Err(error)) => {
+            scan_json(text).ok_or_else(|| anyhow::anyhow!("响应 JSON 无效：{error}"))
+        }
+        None => Err(anyhow::anyhow!("响应 JSON 无效：内容为空")),
+    }
+}
+
+/// Retry from each `{`/`[` in turn so a prose preamble cannot hide the action object.
+/// The candidate count is capped: a response whose every candidate fails is malformed,
+/// not merely prefixed, and must not cost a parse attempt per brace.
+fn scan_json(text: &str) -> Option<Value> {
+    const MAX_CANDIDATES: usize = 32;
+    let mut seen = 0usize;
+    for (start, character) in text.char_indices() {
+        if character != '{' && character != '[' {
+            continue;
+        }
+        seen += 1;
+        if seen > MAX_CANDIDATES {
+            break;
+        }
+        if let Some(Ok(value)) = serde_json::Deserializer::from_str(&text[start..])
+            .into_iter::<Value>()
+            .next()
+        {
+            return Some(value);
+        }
+    }
+    None
 }
 
 pub fn system_prompt(role: &str) -> String {
@@ -595,6 +631,38 @@ mod tests {
             }
             AgentAction::Finish { .. } => panic!("expected a tool action"),
         }
+    }
+
+    #[test]
+    fn parse_action_ignores_prose_before_json() {
+        // Observed from an OpenAI-compatible provider that accepts response_format
+        // json_object and prefixes the action with its own narration anyway.
+        let text = concat!(
+            "Ghidra 首趟已完成：6 个函数全部恢复，继续按计划执行 FLOSS。",
+            r#"{"action":"tool","name":"run_recovery_step","arguments":{}}"#
+        );
+        match parse_action(text).unwrap() {
+            AgentAction::Tool { name, arguments } => {
+                assert_eq!(name, "run_recovery_step");
+                assert_eq!(arguments, json!({}));
+            }
+            AgentAction::Finish { .. } => panic!("expected a tool action"),
+        }
+    }
+
+    #[test]
+    fn parse_action_rejects_prose_that_only_states_a_tool_intent() {
+        // The preamble tolerance must not turn stated intent into an executed action.
+        let error = parse_action("现在调用 inspect_target，然后继续审计。").unwrap_err();
+        assert!(
+            error.to_string().contains("响应 JSON 无效"),
+            "unexpected error: {error}"
+        );
+        let error = parse_action("").unwrap_err();
+        assert!(
+            error.to_string().contains("响应 JSON 无效"),
+            "unexpected error: {error}"
+        );
     }
 
     #[test]

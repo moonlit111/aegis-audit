@@ -5,6 +5,18 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '../..');
 
+test('canceling the file picker keeps the import dialog open', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: '导入新项目', exact: true }).click();
+  const fileInput = page.getByLabel('选择 ZIP 文件', { exact: true });
+  await fileInput.evaluate((input) => {
+    input.dispatchEvent(new Event('cancel', { bubbles: true, cancelable: true }));
+  });
+  await expect(page.getByRole('dialog', { name: '导入分析目标', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '导入分析目标', exact: true })).toHaveCount(0);
+});
+
 test('runtime configuration → repeated component observations → reload → factual report', async ({
   page,
 }) => {

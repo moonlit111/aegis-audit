@@ -62,6 +62,9 @@
     files = Array.from((event.target as HTMLInputElement).files || []);
     error = '';
   }
+  function ignoreFilePickerCancel(event: Event) {
+    event.stopPropagation();
+  }
   async function packFolder(): Promise<Blob> {
     if (files.length > 20_000 || size > 128 * 1024 * 1024)
       throw new Error('浏览器文件夹导入上限为 20,000 个文件、128 MiB。更大的项目请打包为 ZIP。');
@@ -129,6 +132,7 @@
   class="import-dialog"
   oncancel={(event) => {
     event.preventDefault();
+    if (event.target !== dialog) return;
     if (!busy) onclose();
   }}
   aria-labelledby="import-title"
@@ -224,6 +228,7 @@
               webkitdirectory
               multiple
               onchange={chooseFiles}
+              oncancel={ignoreFilePickerCancel}
               disabled={busy}
               aria-label="选择文件夹"
             />
@@ -231,6 +236,7 @@
               type="file"
               accept={mode === 'source' ? '.zip' : undefined}
               onchange={chooseFiles}
+              oncancel={ignoreFilePickerCancel}
               disabled={busy}
               aria-label={mode === 'binary' ? '选择二进制文件' : '选择 ZIP 文件'}
             />{/if}
