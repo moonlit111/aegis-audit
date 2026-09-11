@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import shutil
 import time
@@ -15,6 +16,46 @@ from check_c_ares_cve import build_environment, digest, run, write_json
 
 
 SOURCE = ROOT / 'tests/fixtures/runtime/fuzz-demo'
+
+
+def cli_cases(fixed: bool) -> list[tuple[str, bytes, int]]:
+    cases = [
+        ('empty', b'', 3),
+        ('short-header', b'AEG1|00', 3),
+        ('wrong-magic', b'NOPE|00|', 3),
+        ('non-decimal', b'AEG1|x5|hello', 3),
+        ('wrong-separator', b'AEG1|05:hello', 3),
+        ('zero-length', b'AEG1|00|', 0),
+        ('maximum-payload', b'AEG1|63|' + b'x' * 63, 0),
+        ('destination-limit', b'AEG1|64|' + b'x' * 64, 3),
+        ('file-limit', b'x' * 4097, 2),
+    ]
+    if fixed:
+        # Only the fixed CLI is asked to reject truncated payloads here.
+        # The product FUZZ run must discover the buggy input from valid seeds.
+        cases.extend([('missing-payload', b'AEG1|05|', 3),
+                      ('short-payload', b'AEG1|05|hell', 3)])
+    return cases
+
+
+def check_cli(output: Path) -> list[dict]:
+    inputs = output / 'checks/inputs'
+    inputs.mkdir(parents=True)
+    receipts = []
+    for fixed, version in ((False, '1.0.0'), (True, '1.0.1')):
+        target = output / f'RecordView-{version}.exe'
+        for label, data, expected in cli_cases(fixed):
+            path = inputs / f'{label}.bin'
+            path.write_bytes(data)
+            receipt = run([str(target), str(path)], output, os.environ.copy(), timeout=20)
+            receipts.append({'target': target.name, 'case': label,
+                             'expected_exit_code': expected, **receipt})
+            write_json(output / 'checks/cli.json', receipts)
+            if receipt['exit_code'] != expected or 'AddressSanitizer:' in receipt['stderr']:
+                raise RuntimeError(f'{target.name}: CLI boundary check failed: {label}')
+            if expected == 0 and not receipt['stdout'].startswith('Accepted:'):
+                raise RuntimeError(f'{target.name}: accepted record did not produce output: {label}')
+    return receipts
 
 
 def configuration(name: str) -> dict:
@@ -74,19 +115,23 @@ def build(output: Path, llvm: Path) -> dict:
             write_json(output / 'build.json', summary)
             if built['exit_code'] != 0:
                 raise RuntimeError(built['stdout'] + built['stderr'])
-            seed = output / 'corpus/hello.txt'
-            baseline = run([str(output / name), str(seed)], output, env)
-            if baseline['exit_code'] != 0:
-                raise RuntimeError('Valid baseline failed: ' + baseline['stdout'] + baseline['stderr'])
+            baselines = []
+            for seed in sorted((output / 'corpus').iterdir()):
+                baseline = run([str(output / name), str(seed)], output, os.environ.copy(), timeout=20)
+                if baseline['exit_code'] != 0:
+                    raise RuntimeError('Valid baseline failed: ' + baseline['stdout'] + baseline['stderr'])
+                baselines.append({'seed': seed.name, **baseline})
             entry = {'path': name, 'version': version, 'fixed': fixed, 'libfuzzer': fuzz,
                      'sha256': digest(output / name), 'bytes': (output / name).stat().st_size,
-                     'valid_seed_check': baseline}
+                     'valid_seed_checks': baselines}
             if fuzz:
                 config_path = output / f'{name}.runtime.json'
                 write_json(config_path, configuration(name))
                 entry['runtime_config'] = config_path.name
             summary['targets'].append(entry)
             write_json(output / 'build.json', summary)
+    summary['cli_checks'] = {'status': 'PASSED', 'cases': len(check_cli(output)),
+                             'receipt': 'checks/cli.json'}
     readme = [
         '# RecordView: Self-Authored Fuzz Demonstration', '',
         'This is a controlled teaching fixture, not third-party vulnerability research or course acceptance evidence.',
@@ -96,19 +141,31 @@ def build(output: Path, llvm: Path) -> dict:
         '- RecordView-1.0.0-fuzz.exe / RecordView-1.0.1-fuzz.exe: prebuilt LLVM libFuzzer + ASan targets.',
         '- source/: complete self-authored C source. corpus/: valid starting inputs only.',
         '- *.runtime.json: product configurations. build.json: commands, hashes and baseline receipts.',
+        '- checks/: CLI boundary regression inputs and receipts; NOT an initial fuzz corpus.',
         '- clang_rt.asan_dynamic-x86_64.dll: LLVM ASan runtime (Apache-2.0 WITH LLVM-exception).', '',
         '## AegisAudit', '',
         'Import each *-fuzz.exe as a separate binary snapshot, then select the Dynamic Fuzz Testing action.',
         'Use seeds AEG1|05|hello and AEG1|04|demo, 2000 maximum cases, 15 seconds, seed 71413.',
         'The buggy version should produce a reproducible ASan read error; the fixed version rejects truncated records.',
+        'Alternatively, open an existing result and choose Configure Fuzz Testing to restore its saved settings.',
         'The product saves deduplicated/minimized inputs and replay receipts; do not substitute a configured budget for measured executions.',
         'Ordinary CLI executables are not libFuzzer targets. Do not UPX-pack the instrumented fuzz targets.', '',
+        '## Verify Through the Product', '',
+        'From the repository root, while AegisAudit is running:', '',
+        '```powershell',
+        'py -3 scripts/check_fuzz_demo.py --demo-dir PATH_TO_THIS_DIRECTORY',
+        '```', '',
+        'This creates a dedicated project and verifies both versions through the real local runtime.',
+        'It archives the minimized input, repeated replay receipts, reports and direct configuration/result URLs',
+        'under .data/verification/fuzz-demo/. Product evidence is separate from this build-only archive.', '',
         '## Command Line', '',
         'Run from this directory so that the bundled ASan runtime can be found:', '',
         '```powershell',
         '.\\RecordView-1.0.0.exe .\\corpus\\hello.txt',
-        '.\\RecordView-1.0.0-fuzz.exe -runs=2000 -seed=71413 -max_total_time=15 .\\corpus',
-        '.\\RecordView-1.0.1-fuzz.exe -runs=2000 -seed=71413 -max_total_time=15 .\\corpus',
+        'Copy-Item .\\corpus .\\corpus-buggy -Recurse',
+        'Copy-Item .\\corpus .\\corpus-fixed -Recurse',
+        '.\\RecordView-1.0.0-fuzz.exe -runs=2000 -seed=71413 -max_total_time=15 .\\corpus-buggy',
+        '.\\RecordView-1.0.1-fuzz.exe -runs=2000 -seed=71413 -max_total_time=15 .\\corpus-fixed',
         '```', '',
         'The parser only reads a provided local input. It has no network access, command execution or persistence logic.',
         'Windows host execution is not sandbox isolation. A crash demonstrates this fixture defect, not arbitrary code execution.', '',

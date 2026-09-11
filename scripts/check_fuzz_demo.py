@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -12,10 +13,21 @@ import uuid
 
 from aegis import ROOT, require_windows
 from build_fuzz_demo import configuration
-from check_c_ares_cve import build_environment, digest, run, write_json
+from check_c_ares_cve import digest, run, write_json
 
 sys.path.insert(0, str(ROOT / 'tests'))
 from smoke import API
+
+
+def replay_succeeded(item: dict, receipt: dict) -> bool:
+    if not item['fixed']:
+        return (receipt['exit_code'] != 0
+                and 'ERROR: AddressSanitizer: heap-buffer-overflow' in receipt['stderr']
+                and 'READ of size' in receipt['stderr'])
+    expected = 0 if item['libfuzzer'] else 3
+    return (receipt['exit_code'] == expected
+            and 'AddressSanitizer:' not in receipt['stderr']
+            and (item['libfuzzer'] or receipt['stdout'].startswith('Rejected:')))
 
 
 def exercise(base: str, demo: Path, output: Path) -> dict:
@@ -27,13 +39,16 @@ def exercise(base: str, demo: Path, output: Path) -> dict:
     manifest = json.loads((demo / 'build.json').read_text(encoding='utf-8'))
     if manifest.get('purpose') != 'SELF_AUTHORED_FUZZ_DEMONSTRATION':
         raise ValueError('Use a RecordView build produced by scripts/build_fuzz_demo.py.')
-    targets = [item for item in manifest['targets'] if item['libfuzzer']]
-    if len(targets) != 2 or {item['fixed'] for item in targets} != {False, True}:
-        raise ValueError('The demo needs both the buggy and fixed libFuzzer builds.')
-    for item in targets:
+    builds = manifest['targets']
+    if (len(builds) != 4
+            or {(item['fixed'], item['libfuzzer']) for item in builds}
+            != {(False, False), (False, True), (True, False), (True, True)}):
+        raise ValueError('The demo needs both the buggy and fixed CLI and libFuzzer builds.')
+    for item in builds:
         path = (demo / item['path']).resolve()
         if path.parent != demo.resolve() or digest(path) != item['sha256']:
             raise ValueError('A demonstration binary has changed since it was built.')
+    targets = [item for item in builds if item['libfuzzer']]
     output.mkdir(parents=True)
     api = API(base)
     new_id = lambda: str(uuid.uuid4())
@@ -101,7 +116,6 @@ def exercise(base: str, demo: Path, output: Path) -> dict:
         write_json(output / 'summary.json', summary)
 
     buggy = next(item for item in summary['targets'] if not item['fixed'])
-    fixed = next(item for item in summary['targets'] if item['fixed'])
     crash = next((item for item in buggy['crashes'] if item['reproduced']), None)
     if not crash or len(crash['replays']) < 2:
         raise AssertionError('Missing a repeated crash-input receipt.')
@@ -110,14 +124,17 @@ def exercise(base: str, demo: Path, output: Path) -> dict:
         raise AssertionError('Crash replay was not valid.')
     replay_input = output / 'minimized-input.bin'
     replay_input.write_bytes(bytes.fromhex(crash['input_hex']))
-    env = build_environment(ROOT / '.tools/llvm-min')
     comparisons = []
-    for item in (buggy, fixed):
-        receipt = run([str(demo / item['name']), str(replay_input)], output, env, timeout=20)
-        comparisons.append({'name': item['name'], 'fixed': item['fixed'], **receipt})
-    if comparisons[0]['exit_code'] == 0 or comparisons[1]['exit_code'] != 0:
-        raise AssertionError('The archived input did not distinguish the two versions.')
-    summary['independent_replay'] = comparisons
+    for item in builds:
+        receipt = run([str(demo / item['path']), str(replay_input)], output,
+                      os.environ.copy(), timeout=20)
+        comparisons.append({'name': item['path'], 'fixed': item['fixed'],
+                            'libfuzzer': item['libfuzzer'], **receipt})
+        write_json(output / 'independent-replay.json', comparisons)
+        if not replay_succeeded(item, receipt):
+            raise AssertionError(f'{item["path"]}: archived input did not produce the expected result.')
+    summary['independent_replay'] = [item for item in comparisons if item['libfuzzer']]
+    summary['cli_replay'] = [item for item in comparisons if not item['libfuzzer']]
     summary['minimized_input_hex'] = crash['input_hex']
     summary['minimized_input_sha256'] = digest(replay_input)
     summary['status'] = 'PASSED'
